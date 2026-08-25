@@ -9,12 +9,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return (["zh", "en"] as const).flatMap((language) =>
     pages.map((page) => ({
       url: `${origin}/${language}${page}`,
+      lastModified: new Date("2026-08-25"),
       changeFrequency: page === "" ? "weekly" as const : "monthly" as const,
       priority: page === "" ? 1 : page === "/learn" ? 0.9 : 0.8,
       alternates: {
         languages: {
-          zh: `${origin}/zh${page}`,
-          en: `${origin}/en${page}`
+          "zh-CN": `${origin}/zh${page}`,
+          en: `${origin}/en${page}`,
+          "x-default": `${origin}/en${page}`
         }
       }
     }))

@@ -38,3 +38,8 @@ curl -I http://127.0.0.1:8100/zh/learn/quick-start
 
 Terminate TLS at Nginx or another reverse proxy and forward requests to
 `127.0.0.1:8100`. Do not expose the PM2 application port directly.
+
+Set the optional Google Search Console and Bing Webmaster Tools verification
+environment variables before `npm run check`; see [SEO.md](SEO.md). The public
+reverse proxy must serve `/robots.txt`, `/sitemap.xml`, and
+`/manifest.webmanifest` without authentication or bot challenges.

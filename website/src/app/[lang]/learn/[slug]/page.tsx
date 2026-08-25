@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CodeBlock } from "@/components/code-block";
+import { JsonLd } from "@/components/json-ld";
 import { LearnLayout } from "@/components/learn-layout";
 import { chapters, getChapter } from "@/lib/docs";
 import { isLanguage, languages } from "@/lib/i18n";
+import { createMetadata, localizedUrl, siteName } from "@/lib/seo";
 
 export function generateStaticParams() {
   return languages.flatMap((lang) => chapters.map((chapter) => ({ lang, slug: chapter.slug })));
@@ -13,7 +15,14 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   const { lang, slug } = await params;
   const chapter = getChapter(slug);
   if (!isLanguage(lang) || !chapter) return {};
-  return { title: chapter.title[lang], description: chapter.summary[lang] };
+  return createMetadata({
+    language: lang,
+    path: `/learn/${slug}`,
+    title: `${chapter.title[lang]} — ${lang === "zh" ? "HHY 语言手册" : "HHY Language Manual"}`,
+    description: chapter.summary[lang],
+    type: "article",
+    keywords: [chapter.title[lang], slug.replaceAll("-", " ")]
+  });
 }
 
 export default async function ChapterPage({ params }: { params: Promise<{ lang: string; slug: string }> }) {
@@ -23,6 +32,18 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
 
   return (
     <LearnLayout language={lang} chapter={chapter}>
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        headline: chapter.title[lang],
+        description: chapter.summary[lang],
+        url: localizedUrl(lang, `/learn/${slug}`),
+        inLanguage: lang === "zh" ? "zh-CN" : "en",
+        isPartOf: { "@type": "WebSite", name: siteName, url: localizedUrl(lang) },
+        author: { "@type": "Organization", name: "HHY Language contributors", url: "https://github.com/hh696-wq/hhy-vm" },
+        version: "1.0.0",
+        about: ["HHY Language", "system scripting", "Flow pipelines"]
+      }} />
       <article className="chapter-article">
         <p className="eyebrow">{lang === "zh" ? `第 ${chapter.order} 章` : `Chapter ${chapter.order}`}</p>
         <h1>{chapter.title[lang]}</h1>

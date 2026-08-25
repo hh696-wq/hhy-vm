@@ -1,0 +1,47 @@
+name: HHY website
+
+on:
+  push:
+    paths:
+      - "website/**"
+      - ".github/workflows/website.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - ".github/workflows/website.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install HHY build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev
+
+      - name: Build HHY documentation checker
+        run: make
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install website dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Verify HHY examples, lint, types, and production build
+        working-directory: website
+        run: npm run check
