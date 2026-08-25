@@ -316,7 +316,10 @@ case "$open_limit_output" in *"ResourceLimitError"*"max_open_files"*) ;; *) fail
 [ "$process_limit_status" -eq 1 ] || fail "max_processes was not enforced"
 case "$process_limit_output" in *"ResourceLimitError"*"max_processes"*) ;; *) fail "max_processes diagnostic is incorrect" ;; esac
 [ "$memory_limit_status" -eq 1 ] || fail "max_memory returned status $memory_limit_status"
-case "$memory_limit_output" in *"ResourceLimitError"*"max_memory"*) ;; *) fail "max_memory diagnostic is incorrect" ;; esac
+case "$memory_limit_output" in
+    *"ResourceLimitError"*"max_memory"*) ;;
+    *) fail "max_memory diagnostic is incorrect: $memory_limit_output" ;;
+esac
 [ "$invalid_limit_status" -eq 3 ] || fail "invalid --limit was not CLI usage error"
 
 mkdir -p tests/output/memory-unwind
@@ -329,7 +332,10 @@ memory_unwind_output=$("$HHY_BIN" run --limit max_memory=96kib \
 memory_unwind_status=$?
 set -e
 [ "$memory_unwind_status" -eq 1 ] || fail "memory unwind returned status $memory_unwind_status"
-case "$memory_unwind_output" in *"ResourceLimitError"*"max_memory"*) ;; *) fail "memory unwind diagnostic is incorrect" ;; esac
+case "$memory_unwind_output" in
+    *"ResourceLimitError"*"max_memory"*) ;;
+    *) fail "memory unwind diagnostic is incorrect: $memory_unwind_output" ;;
+esac
 [ "$(cat tests/output/memory-unwind/result.txt)" = "preserved" ] ||
     fail "memory exhaustion damaged the previous atomic output"
 find tests/output/memory-unwind -name '*.hhy-tmp-*' -print | grep . >/dev/null 2>&1 &&
