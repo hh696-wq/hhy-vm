@@ -1,0 +1,126 @@
+name: Publish HHY release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.package }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            package: darwin-arm64
+            uname_arch: arm64
+          - runner: ubuntu-24.04
+            package: linux-x86_64
+            uname_arch: x86_64
+          - runner: ubuntu-24.04-arm
+            package: linux-arm64
+            uname_arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+
+      - name: Verify tag and architecture
+        shell: bash
+        run: |
+          test "${GITHUB_REF_NAME}" = "v$(cat VERSION)"
+          test "$(uname -m)" = "${{ matrix.uname_arch }}"
+
+      - name: Install macOS build dependencies
+        if: runner.os == 'macOS'
+        run: brew install pcre2 bdw-gc
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev patchelf
+
+      - name: Test release source
+        run: |
+          python3 tests/check_contracts.py
+          make test
+          sh tests/check-docs.sh build/hhy docs/HHY_V1.md
+          sh tests/check-docs.sh build/hhy README.md
+
+      - name: Build relocatable archive
+        run: make dist
+
+      - name: Verify archive from a clean directory
+        shell: bash
+        run: |
+          archive=$(find dist -maxdepth 1 -type f -name '*.tar.gz')
+          checksum=$(find dist -maxdepth 1 -type f -name '*.sha256')
+          if command -v sha256sum >/dev/null; then
+            (cd dist && sha256sum --check "$(basename "$checksum")")
+          else
+            (cd dist && shasum -a 256 -c "$(basename "$checksum")")
+          fi
+          verify_dir=$(mktemp -d)
+          tar -xzf "$archive" -C "$verify_dir"
+          "$verify_dir"/hhy-*/bin/hhy --version
+          "$verify_dir"/hhy-*/bin/hhy check "$verify_dir"/hhy-*/examples/01-log-errors.hhy
+
+      - name: Attest release archives
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/*.tar.gz
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-${{ matrix.package }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+
+      - name: Download verified assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: hhy-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create combined checksum manifest
+        working-directory: release-assets
+        run: sha256sum *.tar.gz > SHA256SUMS
+
+      - name: Create draft, attach every asset, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(cat VERSION)
+          gh release create "$GITHUB_REF_NAME" release-assets/* \
+            --verify-tag \
+            --draft \
+            --title "HHY Language $version" \
+            --notes-file "docs/releases/v$version.md"
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

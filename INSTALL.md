@@ -3,7 +3,23 @@
 Current stable version: `1.0.0` (from the repository `VERSION` file).
 HHY v1.0 supports macOS arm64 and Linux x86_64/arm64.
 
-## Dependencies
+## Install a release binary
+
+Download the archive for your platform from the
+[GitHub Releases page](https://github.com/hh696-wq/hhy-vm/releases/latest), then:
+
+```sh
+tar -xzf hhy-1.0.0-PLATFORM-ARCH.tar.gz
+cd hhy-1.0.0-PLATFORM-ARCH
+./bin/hhy --version
+./bin/hhy run examples/07-language-basics.hhy
+```
+
+Release archives include required non-system runtime libraries. Keep `bin/`
+and `lib/` together; add the extracted `bin` directory to `PATH` if desired.
+Verify the archive with its `.sha256` file before running it.
+
+## Dependencies for building from source
 
 macOS with Homebrew:
 

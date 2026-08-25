@@ -88,17 +88,18 @@ dist:
 	$(MAKE) clean
 	$(MAKE) all
 	rm -rf build/$(PACKAGE)
-	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/docs build/$(PACKAGE)/examples dist
+	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/lib build/$(PACKAGE)/docs build/$(PACKAGE)/examples dist
 	cp $(TARGET) build/$(PACKAGE)/bin/hhy
 	cp README.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
 	cp docs/HHY_V1.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md build/$(PACKAGE)/docs/
 	CC="$(CC)" sh scripts/build-info.sh $(TARGET) > build/$(PACKAGE)/BUILD_INFO.txt
 	cp examples/*.hhy examples/README.md build/$(PACKAGE)/examples/
+	sh scripts/bundle-runtime.sh build/$(PACKAGE)
 	COPYFILE_DISABLE=1 tar -C build -czf dist/$(PACKAGE).tar.gz $(PACKAGE)
 	@if command -v sha256sum >/dev/null 2>&1; then \
-		sha256sum dist/$(PACKAGE).tar.gz > dist/$(PACKAGE).tar.gz.sha256; \
+		(cd dist && sha256sum $(PACKAGE).tar.gz > $(PACKAGE).tar.gz.sha256); \
 	else \
-		shasum -a 256 dist/$(PACKAGE).tar.gz > dist/$(PACKAGE).tar.gz.sha256; \
+		(cd dist && shasum -a 256 $(PACKAGE).tar.gz > $(PACKAGE).tar.gz.sha256); \
 	fi
 
 clean:

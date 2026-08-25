@@ -136,6 +136,22 @@ http.get("https://example.com/users")
 更多可执行场景见 [examples](examples/README.md)。README 与规范中的完整
 HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语言实现脱节。
 
+## 下载并运行
+
+从 [GitHub Releases](https://github.com/hh696-wq/hhy-vm/releases/latest)
+下载与你的系统和 CPU 架构匹配的压缩包。发行包包含所需的非系统运行库，解压后
+保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
+
+```sh
+tar -xzf hhy-1.0.0-PLATFORM-ARCH.tar.gz
+cd hhy-1.0.0-PLATFORM-ARCH
+./bin/hhy --version
+./bin/hhy run examples/07-language-basics.hhy
+```
+
+发布页同时提供逐文件 `.sha256` 和汇总 `SHA256SUMS`，运行前应先校验下载内容。
+从源码构建和系统级安装方式见 [INSTALL.md](INSTALL.md)。
+
 ## 命令行工具
 
 | 命令 | 用途 |

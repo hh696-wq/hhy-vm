@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.runtime/
+npm-debug.log*
+.DS_Store
+*.tsbuildinfo
+implementation-*.png
+qa-comparison-*.png

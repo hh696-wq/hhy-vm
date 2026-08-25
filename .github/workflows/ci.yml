@@ -34,7 +34,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev
+          sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev patchelf
 
       - name: Validate callable contracts
         run: python3 tests/check_contracts.py
