@@ -60,6 +60,8 @@ jobs:
         run: |
           sha256sum --check dist/*.sha256
           tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
+          tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
+          tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
           tar -tzf dist/*.tar.gz | grep -E 'docs/HHY_V1.md$'
           tar -tzf dist/*.tar.gz | grep -E 'docs/THIRD_PARTY_NOTICES.md$'
           tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'
@@ -113,6 +115,8 @@ jobs:
         run: |
           shasum -a 256 -c dist/*.sha256
           tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
+          tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
+          tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
           tar -tzf dist/*.tar.gz | grep -E 'docs/HHY_V1.md$'
           tar -tzf dist/*.tar.gz | grep -E 'docs/THIRD_PARTY_NOTICES.md$'
           tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'

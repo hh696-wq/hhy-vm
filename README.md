@@ -120,3 +120,20 @@ hhy run examples/00-hello.hhy
 - [第三方依赖与许可证边界](docs/DEPENDENCIES.md)
 - [HHY 扩展系统版本路线图](docs/EXTENSION_ROADMAP.md)
 - [HHY v1.0 典型脚本](examples/README.md)
+
+## 开源许可证
+
+HHY Language 采用 [Apache License 2.0](LICENSE) 开源。你可以免费使用、
+复制、修改、分发、商用和进行二次开发，也可以在遵守许可证的前提下将
+修改版或衍生作品采用不同条款发布。
+
+分发原版或修改版时必须遵守 Apache-2.0，主要包括：
+
+- 向接收者提供 Apache License 2.0 许可证副本。
+- 在被修改的文件中清楚标注修改事实。
+- 保留适用的版权、专利、商标和署名声明。
+- 随分发内容保留项目的 `NOTICE` 署名信息。
+
+Apache-2.0 包含明确的贡献者专利授权，但不授予 HHY 名称、Logo 或其他
+商标的使用权。完整法律条款以 [LICENSE](LICENSE) 为准；第三方依赖继续
+适用各自的许可证，详见 [第三方许可证声明](docs/THIRD_PARTY_NOTICES.md)。

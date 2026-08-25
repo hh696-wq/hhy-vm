@@ -90,7 +90,7 @@ dist:
 	rm -rf build/$(PACKAGE)
 	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/docs build/$(PACKAGE)/examples dist
 	cp $(TARGET) build/$(PACKAGE)/bin/hhy
-	cp README.md INSTALL.md build/$(PACKAGE)/
+	cp README.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
 	cp docs/HHY_V1.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md build/$(PACKAGE)/docs/
 	CC="$(CC)" sh scripts/build-info.sh $(TARGET) > build/$(PACKAGE)/BUILD_INFO.txt
 	cp examples/*.hhy examples/README.md build/$(PACKAGE)/examples/
