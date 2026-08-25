@@ -783,6 +783,7 @@ if command -v python3 >/dev/null 2>&1; then
         attempts=$((attempts + 1))
     done
     if [ ! -s "$port_file" ]; then
+        kill "$server_pid" 2>/dev/null || true
         set +e
         wait "$server_pid"
         server_status=$?
