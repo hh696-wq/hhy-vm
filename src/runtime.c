@@ -3871,7 +3871,7 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
         bool result = strcmp(name, "all") == 0;
         Value item;
         while (stream_next(rt, site, argv[0].as.stream, &item)) {
-            Value tested = call_value(rt, env, site, argv[1], 1, &item); bool accepted;
+            Value tested = call_value(rt, env, site, argv[1], 1, &item); bool accepted = false;
             if (!require_bool(rt, site, tested, &accepted)) break;
             if (strcmp(name, "any") == 0 && accepted) { result = true; break; }
             if (strcmp(name, "all") == 0 && !accepted) { result = false; break; }
