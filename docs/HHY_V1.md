@@ -1468,19 +1468,19 @@ source |> transform |> filter |> action
 
 | 发布门槛 | 当前证据 | 状态 |
 |---|---|---|
-| Grammar、优先级、换行、Pipe 与 Map/Block | Lexer token 与 Parser AST 逐字快照；多错误恢复、严格 import grammar；`HHY_V1.md` 的 21 个完整示例和 README 示例均通过 Parser + Checker；stray `}` fuzz 超时回归 | macOS、Linux arm64 已验证 |
-| Value、String、Map、逻辑系统类型、GC 与资源 unwind | 嵌入 U+0000、UTF-8 入口、Bytes 与 BytesBuffer 区分、Result/File/Directory/FileEvent/Process/CommandResult tag、跨 worker 序列化、List/Map 深度相等、系统对象不泄漏 Map-only API、null 键存在性、GC 压力、max_memory、原子输出及文件/进程/HTTP 连续失败 unwind 回归 | macOS、Linux arm64 ASan/UBSan 已验证 |
-| 惰性 Flow、有限/大文件/无限事件流 | lazy、惰性 processes 快照、提前 close、屏障 PlanError、不可 Hash 的 group key 与不可比较的 sort key 拒绝、200000 项 GC Flow、五类验收程序 | macOS、Linux arm64 已验证 |
-| 文件、进程、HTTP、JSON、CSV、Regex | 本地文件、真实进程、本地 HTTP server、二进制 response、UTF-16 surrogate、CSV 多行与 PCRE2 限制测试 | macOS、Linux arm64 已验证；Linux x86_64 Release 已验证 |
-| watch、parallel、取消与错误传播 | 原生 watcher、rename 归一化、FileEvent worker 快照、保序 worker、early close、fail-fast、Ctrl+C/timeout 回归 | macOS、Linux arm64 已验证；Linux x86_64 Release 已验证 |
-| CLI、REPL、fmt、check、模块 | CLI exit code、REPL 多行 Pipe、fmt 幂等、Checker、模块缓存/导出/限定名缺失测试 | macOS、Linux arm64 已验证；Linux x86_64 Release 已验证 |
-| Contract Registry、Execution Plan 与 EffectDispatcher | Checker/Runtime 共用 94 项 callable Registry；每项具有具体 input/output/threading 元数据；实现/登记一致性、占位元数据拒绝、qualified arity、唯一性校验、dry-run 文件/进程/网络 plan 与脱敏；dry-run parallel 不 fork 且保持惰性顺序值；Error stage 为 callable 名 | macOS、Linux arm64 ASan/UBSan 已验证；Linux x86_64 Release 已验证 |
+| Grammar、优先级、换行、Pipe 与 Map/Block | Lexer token 与 Parser AST 逐字快照；多错误恢复、严格 import grammar；`HHY_V1.md` 的 21 个完整示例和 README 示例均通过 Parser + Checker；stray `}` fuzz 超时回归 | macOS、Linux arm64、原生 Linux x86_64 已验证 |
+| Value、String、Map、逻辑系统类型、GC 与资源 unwind | 嵌入 U+0000、UTF-8 入口、Bytes 与 BytesBuffer 区分、Result/File/Directory/FileEvent/Process/CommandResult tag、跨 worker 序列化、List/Map 深度相等、系统对象不泄漏 Map-only API、null 键存在性、GC 压力、max_memory、原子输出及文件/进程/HTTP 连续失败 unwind 回归 | macOS、Linux arm64、原生 Linux x86_64 ASan/UBSan 已验证 |
+| 惰性 Flow、有限/大文件/无限事件流 | lazy、惰性 processes 快照、提前 close、屏障 PlanError、不可 Hash 的 group key 与不可比较的 sort key 拒绝、200000 项 GC Flow、五类验收程序 | macOS、Linux arm64、原生 Linux x86_64 已验证 |
+| 文件、进程、HTTP、JSON、CSV、Regex | 本地文件、真实进程、本地 HTTP server、二进制 response、UTF-16 surrogate、CSV 多行与 PCRE2 限制测试 | macOS、Linux arm64、原生 Linux x86_64 已验证 |
+| watch、parallel、取消与错误传播 | 原生 watcher、rename 归一化、FileEvent worker 快照、保序 worker、early close、fail-fast、Ctrl+C/timeout 回归 | macOS、Linux arm64、原生 Linux x86_64 已验证 |
+| CLI、REPL、fmt、check、模块 | CLI exit code、REPL 多行 Pipe、fmt 幂等、Checker、模块缓存/导出/限定名缺失测试 | macOS、Linux arm64、原生 Linux x86_64 已验证 |
+| Contract Registry、Execution Plan 与 EffectDispatcher | Checker/Runtime 共用 94 项 callable Registry；每项具有具体 input/output/threading 元数据；实现/登记一致性、占位元数据拒绝、qualified arity、唯一性校验、dry-run 文件/进程/网络 plan 与脱敏；dry-run parallel 不 fork 且保持惰性顺序值；Error stage 为 callable 名 | macOS、Linux arm64、原生 Linux x86_64 ASan/UBSan 已验证 |
 | macOS arm64 Release 与 checksummed archive | 独立 Release 测试、`BUILD_INFO.txt`、第三方 notices、SHA-256 | 已验证 |
-| 覆盖引导 fuzz | Linux arm64 Clang/libFuzzer + ASan/UBSan 最新运行 16 秒、201496 次；此前发现并修复 Parser 恢复不前进超时，样本已进入 corpus；macOS fuzz-smoke 1000 输入通过 | Linux arm64 已验证；原生 Linux x86_64 CI 待执行 |
+| 覆盖引导 fuzz | Linux arm64 Clang/libFuzzer + ASan/UBSan 最新运行 16 秒、201496 次；此前发现并修复 Parser 恢复不前进超时，样本已进入 corpus；macOS fuzz-smoke 1000 输入通过；原生 Linux x86_64 CI 运行 libFuzzer + ASan/UBSan | Linux arm64 与原生 Linux x86_64 已验证 |
 | Linux arm64 | GCC 严格编译；Debug ASan/UBSan、Release、完整测试、fuzz-smoke、Clang/libFuzzer、archive 与 SHA-256 | 已验证 |
-| Linux x86_64 | Apple 转译容器中 GCC Release、完整测试、archive 与 SHA-256 已通过；ASan 在进入 HHY 测试输入前因转译地址空间与 BDWGC `GC_init` 冲突退出；`.github/workflows/ci.yml` 已定义原生 x86_64 架构断言、ASan/UBSan、Release、libFuzzer、文档与打包门禁 | Release 已验证；原生 CI 配置已就绪、实际运行待执行 |
+| Linux x86_64 | GitHub Actions 原生 Ubuntu 24.04 x86_64 完成架构断言、Debug ASan/UBSan、Release、94 项 contract 校验、完整测试、libFuzzer、文档执行、archive 内容与 SHA-256；可复核运行：[`#5 / 1380011`](https://github.com/hh696-wq/hhy-vm/actions/runs/32814306026) | 原生 CI 已验证 |
 
-只有所有“待执行/待执行 CI”项转为可复核的通过证据，才允许把 `VERSION` 冻结为 `1.0.0`。异构 QEMU 不能替代原生 sanitizer 证据，也不能把模拟器启动失败记为实现通过或失败。
+只有所有发布条件均有可复核的通过证据，才允许把 `VERSION` 冻结为 `1.0.0`。异构 QEMU 不能替代原生 sanitizer 证据，也不能把模拟器启动失败记为实现通过或失败。
 
 ## Appendix A：核心 EBNF 草案
 
