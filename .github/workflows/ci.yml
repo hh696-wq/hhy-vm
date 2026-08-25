@@ -9,17 +9,27 @@ permissions:
   contents: read
 
 jobs:
-  linux-x86_64:
-    name: Linux x86_64 native sanitizer and release
-    runs-on: ubuntu-24.04
+  linux:
+    name: Linux ${{ matrix.package_arch }} native sanitizer and release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            uname_arch: x86_64
+            package_arch: x86_64
+          - runner: ubuntu-24.04-arm
+            uname_arch: aarch64
+            package_arch: arm64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
-      - name: Assert native x86_64 runner
-        run: test "$(uname -m)" = x86_64
+      - name: Assert native architecture
+        run: test "$(uname -m)" = "${{ matrix.uname_arch }}"
 
       - name: Install build dependencies
         run: |
@@ -57,7 +67,60 @@ jobs:
       - name: Upload release evidence
         uses: actions/upload-artifact@v4
         with:
-          name: hhy-linux-x86_64-${{ github.sha }}
+          name: hhy-linux-${{ matrix.package_arch }}-${{ github.sha }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  macos-arm64:
+    name: macOS arm64 native sanitizer and release
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Assert native arm64 runner
+        run: test "$(uname -m)" = arm64
+
+      - name: Install build dependencies
+        run: brew install pcre2 bdw-gc
+
+      - name: Validate callable contracts
+        run: python3 tests/check_contracts.py
+
+      - name: Debug ASan and UBSan suite
+        run: make test-debug
+
+      - name: Release suite
+        run: make clean && make test
+
+      - name: Deterministic fuzz smoke
+        run: make fuzz-smoke
+
+      - name: Validate executable documentation
+        run: |
+          sh tests/check-docs.sh build/hhy docs/HHY_V1.md
+          sh tests/check-docs.sh build/hhy README.md
+
+      - name: Build checksummed archive
+        run: make dist
+
+      - name: Verify archive and required notices
+        run: |
+          shasum -a 256 -c dist/*.sha256
+          tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/HHY_V1.md$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/THIRD_PARTY_NOTICES.md$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hhy-darwin-arm64-${{ github.sha }}
           path: |
             dist/*.tar.gz
             dist/*.sha256

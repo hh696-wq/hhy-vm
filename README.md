@@ -20,7 +20,25 @@ HHY 通过统一的管道模型连接文件、进程、网络与结构化数据�
 
 HHY 不是自然语言理解系统，也不依赖 AI。每条语句都有确定的 grammar、类型规则和执行语义，使用 C 从零实现。
 
-当前状态：v1.0 实现与规范收敛阶段（开发版本仍为 `0.5.0-dev`，尚未冒充稳定版）。核心语言、惰性 Flow、系统 I/O、网络、watch、取消和有界保序 parallel 已经可以真实执行。
+## 当前版本与 v1.0 进度
+
+| 项目 | 当前状态 |
+|---|---|
+| 唯一开发版本 | `0.5.0-dev`（与仓库根目录 `VERSION` 一致） |
+| 目标版本 | `1.0.0` Stable |
+| 实现进度 | v1.0 规范内的语言、Flow、系统标准库与工具链已经落地 |
+| 验证进度 | macOS arm64、Linux arm64、原生 Linux x86_64 已完成 Release 与完整测试；公开 CI 正在统一为三平台门禁 |
+| 发布状态 | 最终规范审计与版本冻结中；尚未冒充稳定版 |
+
+v1.0 的目标不是堆叠功能数量，而是交付一门可以安装、可以编写真实系统脚本、
+错误与资源行为可预测的 Flow-first 语言：
+
+- 完整动态脚本语言：变量、作用域、集合、函数、闭包、分支、循环、模块与错误处理。
+- 统一 Flow：`source |> transform |> filter |> action`，惰性、拉取式、单次消费。
+- 系统一等公民：文件、目录、文本、JSON、CSV、Regex、进程、HTTP、watch 与原生单位。
+- 有界并发：保序 `parallel(n)`、背压、失败取消、隔离 worker 与 Sendable 校验。
+- 可发布工具链：`run`、`repl`、`fmt`、`check`、dry-run Execution Plan、资源限制和稳定退出码。
+- 正式支持 macOS arm64、Linux arm64、Linux x86_64，并提供带 SHA-256 的安装包。
 
 ## 构建与检查
 
@@ -55,7 +73,7 @@ hhy run examples/00-hello.hhy
 - `hhy --version`：输出版本
 - `hhy run --dry-run <file.hhy>`：通过 Contract Registry 输出脱敏 Execution Plan，并拦截文件写入、进程启动和网络发送
 
-当前 Runtime 已支持：
+## v1.0 已完成的实现
 
 - 变量、块级作用域、函数、闭包、条件、循环和错误传播
 - List、Map、Result、File/Directory/FileEvent、Process/CommandResult、Path、Bytes、Duration、Percent 和基础运算
@@ -83,7 +101,16 @@ hhy run examples/00-hello.hhy
 - 即时错误与惰性错误统一 `on_error` 恢复
 - 规范化 CLI 退出码 `0–5`
 
-尚未完成的 v1.0 发布闭环主要是原生 Linux x86_64 sanitizer/CI、macOS CI 与最终 contract 冻结。Linux arm64 的 Debug/Release、完整测试、覆盖引导 libFuzzer 和发行包已经实测通过；Linux x86_64 的 Release、完整测试和发行包已在模拟环境通过，但 QEMU 不能替代原生 sanitizer 证据。String 与 Map 已使用显式长度并覆盖嵌入 `U+0000` 的回归测试；结构化错误、资源 unwind、五类核心验收程序和 checksummed archive 均已进入回归套件。当前 parallel 使用隔离 worker 进程。项目不会在剩余证据完成前标记 v1.0。
+## 剩余发布门槛
+
+- 按 `HHY_V1.md` 第 36 节完成逐项发布审计并冻结 contract。
+- 让 macOS arm64、Linux arm64、Linux x86_64 在同一公开 CI 上全部通过。
+- 将 `VERSION` 从 `0.5.0-dev` 冻结为 `1.0.0`，重新生成三平台制品与 SHA-256。
+- 确认 1.0.0 最终提交的 sanitizer、fuzz、文档执行与制品门禁全部通过。
+
+原生 Linux x86_64 的第一份公开全绿证据见
+[GitHub Actions #5](https://github.com/hh696-wq/hhy-vm/actions/runs/32814306026)。项目不会在
+上述门槛完成前标记 v1.0。
 
 ## 文档
 
