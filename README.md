@@ -27,8 +27,8 @@ HHY 不是自然语言理解系统，也不依赖 AI。每条语句都有确定�
 | 当前稳定版本 | `1.0.0`（与仓库根目录 `VERSION` 一致） |
 | 版本目标 | `1.0.0` Stable 已冻结 |
 | 实现进度 | v1.0 规范内的语言、Flow、系统标准库与工具链已经落地 |
-| 验证进度 | macOS arm64、Linux arm64、Linux x86_64 的统一公开门禁已经通过 |
-| 发布状态 | v1.0 contract 与版本已冻结；正在验证 `1.0.0` 最终提交与制品 |
+| 验证进度 | `1.0.0` 在 macOS arm64、Linux arm64、Linux x86_64 的统一公开门禁已经通过 |
+| 发布状态 | v1.0 contract、版本与支持矩阵已经冻结并验证 |
 
 v1.0 的目标不是堆叠功能数量，而是交付一门可以安装、可以编写真实系统脚本、
 错误与资源行为可预测的 Flow-first 语言：
@@ -106,10 +106,10 @@ hhy run examples/00-hello.hhy
 - `HHY_V1.md` 第 36 节发布条件已经逐项审计，核心 contract 已冻结。
 - 三个正式平台已在同一公开 CI 上完成 sanitizer、Release、fuzz、文档与制品验证。
 - `VERSION`、文档、`hhy --version` 和安装包统一为 `1.0.0`。
-- `1.0.0` 冻结提交仍须通过同一三平台门禁；门禁失败即撤销稳定发布结论并修复。
+- `1.0.0` 冻结提交已通过同一三平台门禁并生成三个带 SHA-256 的制品。
 
-冻结前的三平台全绿候选证据见
-[GitHub Actions #10](https://github.com/hh696-wq/hhy-vm/actions/runs/32816589393)。
+`1.0.0` 冻结提交的三平台全绿证据见
+[GitHub Actions #11](https://github.com/hh696-wq/hhy-vm/actions/runs/32817348334)。
 
 ## 文档
 
