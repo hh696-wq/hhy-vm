@@ -3,6 +3,10 @@ set -eu
 
 HHY_BIN=${1:-build/hhy}
 
+# Generated test artifacts are intentionally ignored by Git. A clean checkout
+# must create the root before the first lexer/parser snapshot is written.
+mkdir -p tests/output
+
 fail() {
     echo "test failure: $1" >&2
     exit 1
