@@ -773,7 +773,7 @@ set -e
 if command -v python3 >/dev/null 2>&1; then
     port_file=tests/output/http-port
     rm -f "$port_file"
-    python3 tests/http_server.py "$port_file" >tests/output/http-server.log 2>&1 &
+    python3 -u tests/http_server.py "$port_file" >tests/output/http-server.log 2>&1 &
     server_pid=$!
     trap 'kill "$server_pid" 2>/dev/null || true' EXIT INT TERM
     attempts=0
@@ -783,8 +783,13 @@ if command -v python3 >/dev/null 2>&1; then
         attempts=$((attempts + 1))
     done
     if [ ! -s "$port_file" ]; then
+        set +e
+        wait "$server_pid"
+        server_status=$?
+        set -e
         server_log=$(cat tests/output/http-server.log 2>/dev/null || true)
-        fail "local HTTP test server did not start: $server_log"
+        python_description=$(python3 --version 2>&1 || true)
+        fail "local HTTP test server did not start (status=$server_status, python=$python_description): $server_log"
     fi
     http_port=$(sed -n '1p' "$port_file")
     http_output=$("$HHY_BIN" run tests/valid/http-flow.hhy "http://127.0.0.1:$http_port/users.json")
