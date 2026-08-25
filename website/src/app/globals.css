@@ -179,6 +179,15 @@ button, input { font: inherit; }
 .docs-sidebar nav a.active { color: var(--blue); background: #eaf2ff; font-weight: 720; }
 .spec-link { display: block; margin: 18px 12px 0; color: var(--blue); font-size: 13px; font-weight: 700; }
 .docs-content { min-width: 0; max-width: 860px; }
+.terminal-shot { margin: 22px 0 32px; overflow: hidden; border: 1px solid #29364c; border-radius: 16px; background: #08101d; color: #dce8f8; box-shadow: 0 22px 48px rgba(8, 16, 29, .18); }
+.terminal-shot figcaption { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-bottom: 1px solid #233048; background: #101a2a; }
+.terminal-shot figcaption > span { width: 10px; height: 10px; border-radius: 50%; background: #ff605c; }
+.terminal-shot figcaption > span:nth-child(2) { background: #ffbd44; }
+.terminal-shot figcaption > span:nth-child(3) { background: #00ca4e; }
+.terminal-shot figcaption strong { margin-left: 6px; color: #93a4bd; font: 600 12px/1 var(--font-mono), monospace; letter-spacing: .08em; text-transform: uppercase; }
+.terminal-command { display: flex; gap: 10px; padding: 18px 20px 14px; color: #f3f7fc; font: 600 13px/1.7 var(--font-mono), monospace; overflow-wrap: anywhere; }
+.terminal-command span { color: #33d6b0; }
+.terminal-shot pre { margin: 0; padding: 0 20px 22px; overflow-x: auto; color: #9fb0c8; font: 13px/1.72 var(--font-mono), monospace; white-space: pre; }
 .docs-hero { padding: 22px 0 40px; }
 .docs-hero h1, .chapter-article h1 { margin: 10px 0 16px; font-size: clamp(42px, 5vw, 64px); letter-spacing: -.055em; line-height: 1.04; }
 .docs-hero > p:last-child, .chapter-summary { max-width: 760px; color: var(--ink-soft); font-size: 20px; line-height: 1.7; }

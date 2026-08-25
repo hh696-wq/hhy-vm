@@ -16,8 +16,8 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
     path: "/learn",
     title: lang === "zh" ? "HHY 中文教程与语言手册" : "HHY Tutorial and Language Manual",
     description: lang === "zh"
-      ? "HHY 1.0.0 中文教程：安装并运行 .hhy 脚本，学习变量、函数、Flow、文件、JSON、进程、HTTP、并发、模块和错误处理。"
-      : "The HHY 1.0.0 tutorial: install and run .hhy scripts, then learn variables, functions, Flow, files, JSON, processes, HTTP, parallelism, modules, and errors.",
+      ? "HHY 1.0.0 中文教程与实战案例：学习 Flow、文件、JSON、进程、HTTP、并发，并用 HHY 完成日志、巡检、构建、报表和备份任务。"
+      : "The HHY 1.0.0 tutorial and practical recipes for Flow, files, JSON, processes, HTTP, parallelism, logs, health checks, builds, reports, and backups.",
     keywords: lang === "zh" ? ["HHY中文教程", "HHY语言手册", "hhy run"] : ["HHY tutorial", "HHY language manual", "hhy run"]
   });
 }
@@ -44,7 +44,7 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
         <span className="round-icon"><BookOpenText size={30} weight="duotone" /></span>
         <p className="eyebrow">HHY V1.0.0</p>
         <h1>{lang === "zh" ? "学习 HHY" : "Learn HHY"}</h1>
-        <p>{lang === "zh" ? "从安装解释器开始，逐步掌握 Flow、系统标准库和可靠的自动化脚本。这里的示例只描述 V1.0.0 已实现并验证的行为。" : "Start with the interpreter, then master Flow, the system standard library, and reliable automation scripts. Every example documents behavior implemented and verified in V1.0.0."}</p>
+        <p>{lang === "zh" ? "从安装解释器开始，逐步掌握 Flow、系统标准库和可靠的自动化脚本，并通过日志、巡检、构建、报表和备份案例直接落地。这里的示例只描述 V1.0.0 已实现并验证的行为。" : "Start with the interpreter, master Flow and the system standard library, then apply HHY to logs, health checks, builds, reports, and backups. Every example documents behavior implemented and verified in V1.0.0."}</p>
       </div>
       <div className="chapter-grid">
         {chapters.map((chapter) => (

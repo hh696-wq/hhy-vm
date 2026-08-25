@@ -10,12 +10,14 @@ export type ChapterSlug =
   | "http"
   | "parallel-watch"
   | "modules-errors"
+  | "practical-recipes"
   | "cli-reference";
 
 export type DocBlock =
   | { type: "p"; text: string }
   | { type: "note"; text: string }
   | { type: "code"; language: "hhy" | "sh" | "text"; code: string }
+  | { type: "terminal"; command: string; output: string }
   | { type: "list"; items: string[] };
 
 export type DocSection = {
@@ -115,6 +117,290 @@ urls
   module: `import { add } from "./math.hhy"
 
 add(20, 22) |> print`,
+  practicalLogs: `if length(args) != 2 {
+    print_error("usage: hhy run log-errors.hhy <log-dir> <output-file>")
+    exit(3)
+}
+
+let log_dir = path(args[0])
+let output_file = path(args[1])
+
+log_dir
+    |> files("**/*.log")
+    |> where { file -> file.size > 1mib }
+    |> parallel(4) { file ->
+    read_lines(file.path)
+        |> where { line -> regex_match(line, /ERROR|WARN/) }
+        |> map { line -> "{file.path}: {line}" }
+        |> collect
+}
+    |> flat_map { lines -> lines |> stream }
+    |> save_lines(output_file)
+    |> on_error { err ->
+    print_error(err)
+    throw(err)
+}`,
+  practicalHealth: `let services = [
+    { name: "users", url: "https://api.example.com/users/health" },
+    { name: "orders", url: "https://api.example.com/orders/health" },
+    { name: "billing", url: "https://api.example.com/billing/health" }
+]
+
+services
+    |> stream
+    |> parallel(3) { service ->
+    let response = attempt {
+        http.get(service.url)
+            |> timeout(3s)
+            |> retry({ count: 2, backoff: 100ms })
+            |> send
+            |> response_body
+            |> parse_json
+    }
+
+    let mut status = "unreachable"
+    let mut error_message = null
+
+    if response.ok {
+        status = response.value.status
+    } else {
+        error_message = response.error.message
+    }
+
+    return {
+        name: service.name,
+        ok: response.ok,
+        status: status,
+        error: error_message
+    }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> print`,
+  practicalActiveUsers: `if length(args) != 2 {
+    print_error("usage: hhy run active-users.hhy <url> <output-file>")
+    exit(3)
+}
+
+http.get(args[0])
+    |> timeout(5s)
+    |> retry({ count: 3, backoff: 200ms })
+    |> send
+    |> response_body
+    |> parse_json
+    |> get("users")
+    |> stream
+    |> where { user -> user.active == true }
+    |> map { user ->
+    { id: user.id, name: user.name, email: user.email }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> save_text(path(args[1]))
+    |> on_error { err ->
+    print_error(err)
+    throw(err)
+}`,
+  practicalProcesses: `every(5s)
+    |> for_each { tick ->
+    processes
+        |> where { process ->
+        process.cpu > 70% or process.memory > 1gib
+    }
+        |> sort_by({ order: "desc" }) { process -> process.memory }
+        |> take(10)
+        |> map { process ->
+        {
+            pid: process.pid,
+            name: process.name,
+            cpu: process.cpu,
+            memory: process.memory
+        }
+    }
+        |> print
+}`,
+  practicalWatch: `if length(args) != 1 {
+    print_error("usage: hhy run watch-build.hhy <source-dir>")
+    exit(3)
+}
+
+let source_dir = path(args[0])
+
+watch(source_dir, { recursive: true })
+    |> where { event ->
+    event.kind != "removed" and
+    (event.path.extension == ".c" or event.path.extension == ".h")
+}
+    |> debounce(300ms)
+    |> for_each { event ->
+    print("changed: {event.path}")
+
+    let result = run(["make"], { timeout: 2min, cwd: system.cwd })
+
+    if result.exit_code != 0 {
+        print_error(result.stderr)
+    } else {
+        print(result.stdout)
+    }
+}`,
+  practicalCsv: `if length(args) != 2 {
+    print_error("usage: hhy run csv-report.hhy <input.csv> <output.json>")
+    exit(3)
+}
+
+read_lines(path(args[0]))
+    |> parse_csv({ header: true })
+    |> where { employee -> employee.active == "true" }
+    |> group_by { employee -> employee.department }
+    |> map { group ->
+    {
+        department: group.key,
+        employees: group.values |> count,
+        total_salary: group.values
+            |> map { employee -> employee.salary |> to_float }
+            |> sum
+    }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> save_text(path(args[1]))`,
+  practicalBackup: `if length(args) != 2 {
+    print_error("usage: hhy run backup-large.hhy <source-dir> <backup-dir>")
+    exit(3)
+}
+
+let source_dir = path(args[0])
+let backup_dir = path(args[1])
+
+source_dir
+    |> files("**/*")
+    |> where { file -> file.is_file and file.size > 100mib }
+    |> for_each { file ->
+    let target = path_join(backup_dir, file.name)
+    print("copy {file.path} -> {target}")
+    copy(file.path, target, { overwrite: false, create_parents: true })
+}
+    |> on_error { err ->
+    print_error(err)
+    throw(err)
+}`,
+  businessReleaseGate: `let checks = [
+    { name: "unit-tests", command: ["make", "test"] },
+    { name: "lint", command: ["npm", "run", "lint"] },
+    { name: "production-build", command: ["npm", "run", "build"] }
+]
+
+let report = checks
+    |> stream
+    |> parallel(3) { check ->
+    let result = run(check.command, { timeout: 10min, max_output: 8mib })
+    return {
+        name: check.name,
+        passed: result.exit_code == 0,
+        exit_code: result.exit_code,
+        output: result.stdout
+    }
+}
+    |> collect
+
+report |> encode_json({ pretty: true }) |> save_text(path("release-gate.json"))
+
+if report |> any { check -> check.passed == false } {
+    print_error("release blocked: one or more checks failed")
+    exit(1)
+}
+
+print("release gate passed")`,
+  businessSecretAudit: `if length(args) != 2 {
+    print_error("usage: hhy run secret-audit.hhy <source-dir> <report-file>")
+    exit(3)
+}
+
+path(args[0])
+    |> files("**/*")
+    |> where { file ->
+    file.extension == ".env" or
+    file.extension == ".yml" or
+    file.extension == ".json" or
+    file.extension == ".ts"
+}
+    |> parallel(4) { file ->
+    read_lines(file.path)
+        |> where { line ->
+        regex_match(line, /API_KEY|SECRET|PASSWORD|BEGIN PRIVATE KEY/)
+    }
+        |> map { line -> "{file.path}: {line}" }
+        |> collect
+}
+    |> flat_map { matches -> matches |> stream }
+    |> save_lines(path(args[1]))`,
+  businessReconcile: `if length(args) != 3 {
+    print_error("usage: hhy run reconcile.hhy <orders.csv> <payments.csv> <report.json>")
+    exit(3)
+}
+
+[path(args[0]), path(args[1])]
+    |> stream
+    |> flat_map { input ->
+    read_lines(input) |> parse_csv({ header: true })
+}
+    |> group_by { record -> record.order_id }
+    |> where { group ->
+    (group.values |> count) != 2 or
+    (group.values |> map { record -> record.amount } |> distinct |> count) != 1
+}
+    |> map { group ->
+    { order_id: group.key, records: group.values, issue: "missing_or_amount_mismatch" }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> save_text(path(args[2]))`,
+  businessTenantSnapshot: `let tenants = [
+    { id: "acme", url: "https://api.example.com/acme/usage" },
+    { id: "nova", url: "https://api.example.com/nova/usage" },
+    { id: "orbit", url: "https://api.example.com/orbit/usage" }
+]
+
+tenants
+    |> stream
+    |> parallel(3) { tenant ->
+    let result = attempt {
+        http.get(tenant.url)
+            |> timeout(5s)
+            |> retry({ count: 3, backoff: 200ms })
+            |> send
+            |> response_body
+            |> parse_json
+    }
+
+    if result.ok {
+        return { tenant: tenant.id, ok: true, usage: result.value, error: null }
+    }
+
+    return { tenant: tenant.id, ok: false, usage: null, error: result.error.message }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> save_text(path("tenant-usage-snapshot.json"))`,
+  businessAssetAudit: `if length(args) != 2 {
+    print_error("usage: hhy run asset-audit.hhy <asset-dir> <report.json>")
+    exit(3)
+}
+
+path(args[0])
+    |> files("**/*")
+    |> where { file ->
+    file.is_file and
+    (file.extension == ".png" or file.extension == ".jpg" or file.extension == ".mp4")
+}
+    |> where { file -> file.size > 5mib }
+    |> sort_by({ order: "desc" }) { file -> file.size }
+    |> map { file ->
+    { path: file.path, bytes: file.size, extension: file.extension }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> save_text(path(args[1]))`,
   cli: `hhy run script.hhy
 hhy check script.hhy
 hhy fmt script.hhy
@@ -377,8 +663,174 @@ export const chapters: Chapter[] = [
     }
   },
   {
-    slug: "cli-reference",
+    slug: "practical-recipes",
     order: 10,
+    title: { zh: "实战：可直接落地的自动化", en: "Practical Automation Recipes" },
+    summary: { zh: "完整收录 examples/00–08，并增加发布门禁、安全审计、订单对账、租户快照和素材治理。", en: "Every example from examples/00–08, plus release gates, security audits, reconciliation, tenant snapshots, and asset governance." },
+    sections: {
+      zh: [
+        { title: "00 · Hello HHY 与 Flow 入门", blocks: [
+          { type: "p", text: "最小可运行案例：把 List 转成 Stream，依次完成映射和过滤，最后输出结果。对应 examples/00-hello.hhy。" },
+          { type: "code", language: "hhy", code: code.hello },
+          { type: "terminal", command: "hhy run examples/00-hello.hhy", output: "HHY: Flow\nHHY: Pipe\nHHY: System\n\n✓ exit 0 · Flow 管道执行完成" }
+        ] },
+        { title: "并发提取日志告警", blocks: [
+          { type: "p", text: "递归扫描大日志文件，使用 4 个 worker 提取 ERROR/WARN 行，并将来源文件写入结果。适合服务器日志归档、故障排查和定时任务。" },
+          { type: "code", language: "hhy", code: code.practicalLogs },
+          { type: "code", language: "sh", code: "hhy run log-errors.hhy ./logs ./output/errors.txt" },
+          { type: "terminal", command: "hhy run log-errors.hhy ./logs ./output/errors.txt && head -3 ./output/errors.txt", output: "logs/api.log: 2026-08-25T09:18:42Z ERROR database timeout after 3000ms\nlogs/worker.log: 2026-08-25T09:18:44Z WARN retrying job #1842\nlogs/api.log: 2026-08-25T09:18:47Z ERROR upstream returned 502\n\n✓ exit 0 · 3 条告警已写入 output/errors.txt" }
+        ] },
+        { title: "从 API 同步活跃用户", blocks: [
+          { type: "p", text: "请求用户接口，经过超时、重试、JSON 解析和字段裁剪后，只把活跃用户原子写入本地文件。对应 examples/02-active-users.hhy。" },
+          { type: "code", language: "hhy", code: code.practicalActiveUsers },
+          { type: "code", language: "sh", code: "hhy run active-users.hhy https://api.example.com/users active-users.json" },
+          { type: "terminal", command: "hhy run active-users.hhy http://127.0.0.1:9000/users active-users.json && cat active-users.json", output: "[\n  { \"id\": 101, \"name\": \"Ada\", \"email\": \"ada@example.com\" },\n  { \"id\": 108, \"name\": \"Linus\", \"email\": \"linus@example.com\" }\n]\n\n✓ exit 0 · 2 位活跃用户已写入 active-users.json" }
+        ] },
+        { title: "进程 CPU / 内存监控", blocks: [
+          { type: "p", text: "每 5 秒读取一次进程快照，找出 CPU 超过 70% 或内存超过 1 GiB 的进程，并按内存倒序输出前 10 个。对应 examples/03-process-monitor.hhy。" },
+          { type: "code", language: "hhy", code: code.practicalProcesses },
+          { type: "terminal", command: "hhy run examples/03-process-monitor.hhy", output: "[{ pid: 8421, name: \"node\", cpu: 82.4%, memory: 1.42 GiB },\n { pid: 9107, name: \"hhy\",  cpu: 74.1%, memory: 86.3 MiB }]\n\nnext sample in 5s… · Ctrl+C 安全退出" }
+        ] },
+        { title: "批量服务健康检查", blocks: [
+          { type: "p", text: "并发探测多个服务，统一设置超时与重试；单个接口失败时记录错误，不中断整批巡检。可接入发布检查或 CI。" },
+          { type: "code", language: "hhy", code: code.practicalHealth },
+          { type: "terminal", command: "hhy run health-check.hhy", output: "[\n  { \"name\": \"users\",   \"ok\": true,  \"status\": \"healthy\", \"error\": null },\n  { \"name\": \"orders\",  \"ok\": true,  \"status\": \"healthy\", \"error\": null },\n  { \"name\": \"billing\", \"ok\": false, \"status\": \"unreachable\", \"error\": \"request timed out\" }\n]\n\n✓ exit 0 · 3 个服务并发完成，单点失败未中断批次" }
+        ] },
+        { title: "业务进阶 01 · 发布质量门禁", blocks: [
+          { type: "p", text: "在发布前并行执行测试、Lint 和生产构建，生成机器可读报告；任一检查失败就用稳定退出码阻止发布。适合 CI/CD、灰度发布和交付验收。" },
+          { type: "code", language: "hhy", code: code.businessReleaseGate },
+          { type: "terminal", command: "hhy run release-gate.hhy", output: "unit-tests       PASS  4.28s\nlint             PASS  1.14s\nproduction-build PASS  6.72s\nrelease-gate.json written\n\n✓ exit 0 · release gate passed" }
+        ] },
+        { title: "业务进阶 02 · 源码敏感信息审计", blocks: [
+          { type: "p", text: "并发扫描配置与源码，定位疑似 API Key、密码和私钥内容，汇总成可供安全团队复核的报告。适合提交前检查和合规巡检。" },
+          { type: "code", language: "hhy", code: code.businessSecretAudit },
+          { type: "terminal", command: "hhy run secret-audit.hhy ./services secret-findings.txt", output: "services/billing/.env: PAYMENT_API_KEY=***\nservices/auth/config.yml: PASSWORD: ***\n\n✓ exit 0 · 2 条疑似敏感信息待复核" },
+          { type: "note", text: "示例输出已脱敏。实际落地时应限制报告权限，并在流水线中避免打印秘密原文。" }
+        ] },
+        { title: "业务进阶 03 · 订单与支付自动对账", blocks: [
+          { type: "p", text: "把订单 CSV 与支付 CSV 合并为一条数据流，按 order_id 分组，找出缺少记录或金额不一致的异常订单。适合每日财务对账。" },
+          { type: "code", language: "hhy", code: code.businessReconcile },
+          { type: "terminal", command: "hhy run reconcile.hhy orders.csv payments.csv exceptions.json", output: "orders: 12,480 · payments: 12,472\nmatched: 12,461\nexceptions: 19 → exceptions.json\n\n✓ exit 0 · 对账报告已原子写入" }
+        ] },
+        { title: "业务进阶 04 · SaaS 多租户用量快照", blocks: [
+          { type: "p", text: "有界并发拉取各租户用量，统一处理超时和重试；单租户失败被隔离并记录，不影响整份快照生成。适合计费、容量分析和客户成功报表。" },
+          { type: "code", language: "hhy", code: code.businessTenantSnapshot },
+          { type: "terminal", command: "hhy run tenant-snapshot.hhy", output: "acme  ✓ requests=184203 storage_gb=82.4\nnova  ✓ requests=99102  storage_gb=41.8\norbit ✗ request timed out\n\n✓ exit 0 · tenant-usage-snapshot.json 包含成功数据与失败原因" }
+        ] },
+        { title: "业务进阶 05 · 大体积素材治理", blocks: [
+          { type: "p", text: "遍历图片与视频素材，筛选超过 5 MiB 的文件并按体积倒序生成 JSON 清单，帮助内容团队定位需要压缩或迁移的资产。" },
+          { type: "code", language: "hhy", code: code.businessAssetAudit },
+          { type: "terminal", command: "hhy run asset-audit.hhy ./public asset-report.json", output: "scanned 1,842 assets\nlarge assets: 27\nlargest: public/video/launch.mp4 · 184.2 MiB\n\n✓ exit 0 · asset-report.json 已生成" }
+        ] },
+        { title: "监听源码并自动构建", blocks: [
+          { type: "p", text: "监听 C 代码变化，通过 debounce 合并短时间内的连续保存，再执行 make。构建失败只打印错误，监听任务继续运行。" },
+          { type: "code", language: "hhy", code: code.practicalWatch },
+          { type: "code", language: "sh", code: "hhy run watch-build.hhy ./src" },
+          { type: "terminal", command: "hhy run watch-build.hhy ./src", output: "watching ./src recursively…\nchanged: src/runtime/flow.c\ncc -std=c11 -O2 -c src/runtime/flow.c\ncc build/*.o -lcurl -lpcre2-8 -lgc -o build/hhy\nBuild complete: build/hhy\n\n✓ watcher remains active · waiting for the next change" }
+        ] },
+        { title: "从 CSV 生成部门汇总报表", blocks: [
+          { type: "p", text: "读取员工 CSV，筛选在职人员，按部门统计人数和薪资总额，最后原子写入格式化 JSON。输入列为 name、department、active、salary。" },
+          { type: "code", language: "hhy", code: code.practicalCsv },
+          { type: "code", language: "sh", code: "hhy run csv-report.hhy employees.csv department-report.json" },
+          { type: "terminal", command: "hhy run csv-report.hhy employees.csv department-report.json && cat department-report.json", output: "[\n  { \"department\": \"Engineering\", \"employees\": 12, \"total_salary\": 2160000 },\n  { \"department\": \"Product\", \"employees\": 5, \"total_salary\": 810000 }\n]\n\n✓ exit 0 · department-report.json 已原子写入" }
+        ] },
+        { title: "大文件备份（支持 dry-run）", blocks: [
+          { type: "p", text: "找出超过 100 MiB 的文件并复制到备份目录。先用 dry-run 检查动作计划，确认无误后再真实执行。" },
+          { type: "code", language: "hhy", code: code.practicalBackup },
+          { type: "code", language: "sh", code: "hhy run --dry-run backup-large.hhy ./downloads ./backup\nhhy run backup-large.hhy ./downloads ./backup" },
+          { type: "terminal", command: "hhy run --dry-run backup-large.hhy ./downloads ./backup", output: "copy downloads/archive.tar -> backup/archive.tar\ncopy downloads/database.dump -> backup/database.dump\n[dry-run] copy downloads/archive.tar → backup/archive.tar\n[dry-run] copy downloads/database.dump → backup/database.dump\n\n✓ exit 0 · 仅生成计划，没有写入文件" },
+          { type: "note", text: "备份脚本默认不覆盖同名文件，并自动创建目标目录；正式执行前仍建议先运行 dry-run。" }
+        ] },
+        { title: "07 · 语言基础综合练习", blocks: [
+          { type: "p", text: "用一个小型汇总任务串起变量、List、Map、函数、条件、循环、作用域和错误处理。对应 examples/07-language-basics.hhy。" },
+          { type: "code", language: "hhy", code: code.basics },
+          { type: "terminal", command: "hhy run examples/07-language-basics.hhy", output: "{\n  \"count\": 2,\n  \"total\": 40,\n  \"average\": 20\n}\n\n✓ exit 0 · 汇总结果已生成" }
+        ] }
+      ],
+      en: [
+        { title: "00 · Hello HHY and Flow", blocks: [
+          { type: "p", text: "The smallest runnable example: turn a List into a Stream, map and filter values, then print the result. Corresponds to examples/00-hello.hhy." },
+          { type: "code", language: "hhy", code: code.hello },
+          { type: "terminal", command: "hhy run examples/00-hello.hhy", output: "HHY: Flow\nHHY: Pipe\nHHY: System\n\n✓ exit 0 · Flow pipeline completed" }
+        ] },
+        { title: "Extract log alerts concurrently", blocks: [
+          { type: "p", text: "Recursively scan large log files with four workers, extract ERROR/WARN lines, and retain each source path. Useful for incident response and scheduled log jobs." },
+          { type: "code", language: "hhy", code: code.practicalLogs },
+          { type: "code", language: "sh", code: "hhy run log-errors.hhy ./logs ./output/errors.txt" },
+          { type: "terminal", command: "hhy run log-errors.hhy ./logs ./output/errors.txt && head -3 ./output/errors.txt", output: "logs/api.log: 2026-08-25T09:18:42Z ERROR database timeout after 3000ms\nlogs/worker.log: 2026-08-25T09:18:44Z WARN retrying job #1842\nlogs/api.log: 2026-08-25T09:18:47Z ERROR upstream returned 502\n\n✓ exit 0 · 3 alerts written to output/errors.txt" }
+        ] },
+        { title: "Sync active users from an API", blocks: [
+          { type: "p", text: "Fetch users with timeout and retry, parse JSON, select fields, and atomically save only active users. Corresponds to examples/02-active-users.hhy." },
+          { type: "code", language: "hhy", code: code.practicalActiveUsers },
+          { type: "code", language: "sh", code: "hhy run active-users.hhy https://api.example.com/users active-users.json" },
+          { type: "terminal", command: "hhy run active-users.hhy http://127.0.0.1:9000/users active-users.json && cat active-users.json", output: "[\n  { \"id\": 101, \"name\": \"Ada\", \"email\": \"ada@example.com\" },\n  { \"id\": 108, \"name\": \"Linus\", \"email\": \"linus@example.com\" }\n]\n\n✓ exit 0 · 2 active users written to active-users.json" }
+        ] },
+        { title: "Monitor process CPU and memory", blocks: [
+          { type: "p", text: "Sample processes every five seconds, keep CPU-heavy or memory-heavy entries, and print the top ten by memory. Corresponds to examples/03-process-monitor.hhy." },
+          { type: "code", language: "hhy", code: code.practicalProcesses },
+          { type: "terminal", command: "hhy run examples/03-process-monitor.hhy", output: "[{ pid: 8421, name: \"node\", cpu: 82.4%, memory: 1.42 GiB },\n { pid: 9107, name: \"hhy\",  cpu: 74.1%, memory: 86.3 MiB }]\n\nnext sample in 5s… · Ctrl+C exits safely" }
+        ] },
+        { title: "Check service health in batches", blocks: [
+          { type: "p", text: "Probe multiple services concurrently with consistent timeouts and retries. A failed endpoint is recorded without terminating the whole batch." },
+          { type: "code", language: "hhy", code: code.practicalHealth },
+          { type: "terminal", command: "hhy run health-check.hhy", output: "[\n  { \"name\": \"users\",   \"ok\": true,  \"status\": \"healthy\", \"error\": null },\n  { \"name\": \"orders\",  \"ok\": true,  \"status\": \"healthy\", \"error\": null },\n  { \"name\": \"billing\", \"ok\": false, \"status\": \"unreachable\", \"error\": \"request timed out\" }\n]\n\n✓ exit 0 · all 3 checks completed despite one endpoint failure" }
+        ] },
+        { title: "Business 01 · Release quality gate", blocks: [
+          { type: "p", text: "Run tests, lint, and production builds in parallel, save a machine-readable report, and block a release with a stable exit code when any check fails." },
+          { type: "code", language: "hhy", code: code.businessReleaseGate },
+          { type: "terminal", command: "hhy run release-gate.hhy", output: "unit-tests       PASS  4.28s\nlint             PASS  1.14s\nproduction-build PASS  6.72s\nrelease-gate.json written\n\n✓ exit 0 · release gate passed" }
+        ] },
+        { title: "Business 02 · Source secret audit", blocks: [
+          { type: "p", text: "Scan configuration and source files concurrently for suspected API keys, passwords, and private keys, then produce a security review report." },
+          { type: "code", language: "hhy", code: code.businessSecretAudit },
+          { type: "terminal", command: "hhy run secret-audit.hhy ./services secret-findings.txt", output: "services/billing/.env: PAYMENT_API_KEY=***\nservices/auth/config.yml: PASSWORD: ***\n\n✓ exit 0 · 2 suspected secrets require review" },
+          { type: "note", text: "The example output is redacted. Restrict report access and avoid printing raw secrets in production pipelines." }
+        ] },
+        { title: "Business 03 · Order and payment reconciliation", blocks: [
+          { type: "p", text: "Merge order and payment CSV files into one flow, group records by order_id, and report missing records or mismatched amounts." },
+          { type: "code", language: "hhy", code: code.businessReconcile },
+          { type: "terminal", command: "hhy run reconcile.hhy orders.csv payments.csv exceptions.json", output: "orders: 12,480 · payments: 12,472\nmatched: 12,461\nexceptions: 19 → exceptions.json\n\n✓ exit 0 · reconciliation report written atomically" }
+        ] },
+        { title: "Business 04 · Multi-tenant usage snapshot", blocks: [
+          { type: "p", text: "Fetch tenant usage with bounded concurrency, consistent retries, and failure isolation. Useful for billing, capacity analysis, and customer success reports." },
+          { type: "code", language: "hhy", code: code.businessTenantSnapshot },
+          { type: "terminal", command: "hhy run tenant-snapshot.hhy", output: "acme  ✓ requests=184203 storage_gb=82.4\nnova  ✓ requests=99102  storage_gb=41.8\norbit ✗ request timed out\n\n✓ exit 0 · snapshot contains both data and failure reasons" }
+        ] },
+        { title: "Business 05 · Oversized asset governance", blocks: [
+          { type: "p", text: "Find large image and video assets, sort them by size, and produce a JSON inventory for compression or storage migration work." },
+          { type: "code", language: "hhy", code: code.businessAssetAudit },
+          { type: "terminal", command: "hhy run asset-audit.hhy ./public asset-report.json", output: "scanned 1,842 assets\nlarge assets: 27\nlargest: public/video/launch.mp4 · 184.2 MiB\n\n✓ exit 0 · asset-report.json generated" }
+        ] },
+        { title: "Watch sources and rebuild", blocks: [
+          { type: "p", text: "Watch C sources, debounce rapid saves, and run make. Build failures are reported while the watcher stays alive." },
+          { type: "code", language: "hhy", code: code.practicalWatch },
+          { type: "code", language: "sh", code: "hhy run watch-build.hhy ./src" },
+          { type: "terminal", command: "hhy run watch-build.hhy ./src", output: "watching ./src recursively…\nchanged: src/runtime/flow.c\ncc -std=c11 -O2 -c src/runtime/flow.c\ncc build/*.o -lcurl -lpcre2-8 -lgc -o build/hhy\nBuild complete: build/hhy\n\n✓ watcher remains active · waiting for the next change" }
+        ] },
+        { title: "Build a department report from CSV", blocks: [
+          { type: "p", text: "Read employee CSV records, keep active employees, aggregate headcount and salary by department, and atomically save formatted JSON." },
+          { type: "code", language: "hhy", code: code.practicalCsv },
+          { type: "code", language: "sh", code: "hhy run csv-report.hhy employees.csv department-report.json" },
+          { type: "terminal", command: "hhy run csv-report.hhy employees.csv department-report.json && cat department-report.json", output: "[\n  { \"department\": \"Engineering\", \"employees\": 12, \"total_salary\": 2160000 },\n  { \"department\": \"Product\", \"employees\": 5, \"total_salary\": 810000 }\n]\n\n✓ exit 0 · department-report.json written atomically" }
+        ] },
+        { title: "Back up large files with dry-run", blocks: [
+          { type: "p", text: "Find files over 100 MiB and copy them into a backup directory. Inspect the plan with dry-run before performing real writes." },
+          { type: "code", language: "hhy", code: code.practicalBackup },
+          { type: "code", language: "sh", code: "hhy run --dry-run backup-large.hhy ./downloads ./backup\nhhy run backup-large.hhy ./downloads ./backup" },
+          { type: "terminal", command: "hhy run --dry-run backup-large.hhy ./downloads ./backup", output: "copy downloads/archive.tar -> backup/archive.tar\ncopy downloads/database.dump -> backup/database.dump\n[dry-run] copy downloads/archive.tar → backup/archive.tar\n[dry-run] copy downloads/database.dump → backup/database.dump\n\n✓ exit 0 · plan generated without writing files" },
+          { type: "note", text: "The recipe refuses to overwrite files and creates parent directories, but you should still inspect the dry-run plan first." }
+        ] },
+        { title: "07 · Language basics in one task", blocks: [
+          { type: "p", text: "A small aggregation task combining variables, Lists, Maps, functions, conditions, loops, scopes, and error handling. Corresponds to examples/07-language-basics.hhy." },
+          { type: "code", language: "hhy", code: code.basics },
+          { type: "terminal", command: "hhy run examples/07-language-basics.hhy", output: "{\n  \"count\": 2,\n  \"total\": 40,\n  \"average\": 20\n}\n\n✓ exit 0 · summary generated" }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "cli-reference",
+    order: 11,
     title: { zh: "CLI 参考", en: "CLI Reference" },
     summary: { zh: "运行、检查、格式化、REPL 与 dry-run。", en: "Run, check, format, use the REPL, and inspect dry-run plans." },
     sections: {

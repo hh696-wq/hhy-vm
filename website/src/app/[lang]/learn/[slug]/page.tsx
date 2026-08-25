@@ -55,6 +55,13 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
               if (block.type === "p") return <p key={index}>{block.text}</p>;
               if (block.type === "note") return <aside className="doc-note" key={index}>{block.text}</aside>;
               if (block.type === "list") return <ul key={index}>{block.items.map((item) => <li key={item}>{item}</li>)}</ul>;
+              if (block.type === "terminal") return (
+                <figure className="terminal-shot" key={index}>
+                  <figcaption><span /><span /><span /><strong>{lang === "zh" ? "实际运行结果" : "Actual run"}</strong></figcaption>
+                  <div className="terminal-command"><span>$</span>{block.command}</div>
+                  <pre>{block.output}</pre>
+                </figure>
+              );
               return <CodeBlock code={block.code} language={block.language} filename={block.language === "hhy" ? "example.hhy" : undefined} locale={lang} compact key={index} />;
             })}
           </section>

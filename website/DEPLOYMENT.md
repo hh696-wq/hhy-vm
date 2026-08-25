@@ -3,14 +3,19 @@
 The production site uses the Next.js standalone output and PM2. Build on the
 Linux server so native dependencies and generated files match the target host.
 
+## Release archive
+
+The production archive contains source code and lockfiles, but excludes
+`node_modules`, `.next`, local caches, screenshots, and macOS metadata. Build on
+the Linux server so generated files match the target host.
+
 ## First deployment
 
 ```sh
-cd /home/hhylang/website
+unzip -o hhylang.dev-v1.0.0_YYYYMMDD.zip
+cd hhylang-website
 npm ci
-npm run check
-cp -R public .next/standalone/
-cp -R .next/static .next/standalone/.next/
+npm run build
 pm2 start ecosystem.config.cjs
 pm2 save
 ```
@@ -18,13 +23,17 @@ pm2 save
 ## Update
 
 ```sh
-cd /home/hhylang/website
+unzip -o hhylang.dev-v1.0.0_YYYYMMDD.zip
+cd hhylang-website
 npm ci
-npm run check
-cp -R public .next/standalone/
-cp -R .next/static .next/standalone/.next/
+npm run build
 pm2 restart hhylang-website --update-env
+pm2 save
 ```
+
+`npm run build` automatically copies `public` and `.next/static` into the
+standalone runtime. PM2 listens only on `127.0.0.1:8100`; expose the site through
+Nginx or another TLS reverse proxy.
 
 ## Verify
 

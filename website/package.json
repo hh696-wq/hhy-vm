@@ -5,11 +5,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/prepare-standalone.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:hhy": "node scripts/validate-hhy-examples.mjs",
     "check": "npm run check:hhy && npm run lint && npm run typecheck && npm run build"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
