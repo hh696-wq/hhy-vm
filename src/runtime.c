@@ -281,17 +281,21 @@ static bool runtime_memory_available(Runtime *rt, size_t size) {
 }
 
 static void *rt_alloc(Runtime *rt, size_t size) {
-    if (!runtime_memory_available(rt, size == 0 ? 1 : size)) runtime_memory_limit(rt);
-    void *pointer = GC_malloc(size == 0 ? 1 : size);
+    size_t requested = size == 0 ? 1 : size;
+    if (!runtime_memory_available(rt, requested)) runtime_memory_limit(rt);
+    void *pointer = GC_malloc(requested);
     if (pointer == NULL) runtime_memory_limit(rt);
+    if (!runtime_memory_available(rt, 0)) runtime_memory_limit(rt);
     memset(pointer, 0, size);
     return pointer;
 }
 
 static void *rt_alloc_atomic(Runtime *rt, size_t size) {
-    if (!runtime_memory_available(rt, size == 0 ? 1 : size)) runtime_memory_limit(rt);
-    void *pointer = GC_malloc_atomic(size == 0 ? 1 : size);
+    size_t requested = size == 0 ? 1 : size;
+    if (!runtime_memory_available(rt, requested)) runtime_memory_limit(rt);
+    void *pointer = GC_malloc_atomic(requested);
     if (pointer == NULL) runtime_memory_limit(rt);
+    if (!runtime_memory_available(rt, 0)) runtime_memory_limit(rt);
     memset(pointer, 0, size);
     return pointer;
 }
@@ -5257,12 +5261,6 @@ int hhy_repl(void) {
     clock_gettime(CLOCK_MONOTONIC, &rt.started_at);
     GC_gcollect();
     rt.memory_baseline = GC_get_memory_use();
-    size_t repl_heap_limit = GC_get_heap_size();
-    if (repl_heap_limit <= SIZE_MAX - 1024 * 1024 &&
-        rt.limits.max_memory <= SIZE_MAX - repl_heap_limit - 1024 * 1024)
-        repl_heap_limit += rt.limits.max_memory + 1024 * 1024;
-    else repl_heap_limit = SIZE_MAX;
-    GC_set_max_heap_size(repl_heap_limit);
     HhyToken site_token = {.start = "repl", .length = 4, .line = 1, .column = 1};
     HhyNode site = {.kind = HHY_N_PROGRAM, .token = site_token};
     Env *session = env_new(&rt, runtime_core_environment(&rt, &site, 0, NULL));
@@ -5337,12 +5335,6 @@ HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
     clock_gettime(CLOCK_MONOTONIC, &rt->started_at);
     GC_gcollect();
     rt->memory_baseline = GC_get_memory_use();
-    size_t heap_limit = GC_get_heap_size();
-    if (heap_limit <= SIZE_MAX - 1024 * 1024 &&
-        rt->limits.max_memory <= SIZE_MAX - heap_limit - 1024 * 1024)
-        heap_limit += rt->limits.max_memory + 1024 * 1024;
-    else heap_limit = SIZE_MAX;
-    GC_set_max_heap_size(heap_limit);
     if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
         HhyRunResult failed = {.ok = false, .exit_code = 4};
         fputs("hhy: cannot initialize HTTP runtime\n", stderr);
