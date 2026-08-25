@@ -6,6 +6,8 @@ A lightweight, flow-first scripting language for system automation.
 
 **Built solo. Designed to flow.**
 
+**Current stable release: V1.0.0**
+
 Official website: [hhylang.dev](https://hhylang.dev)
 
 ```hhy
@@ -20,15 +22,15 @@ HHY 通过统一的管道模型连接文件、进程、网络与结构化数据�
 
 HHY 不是自然语言理解系统，也不依赖 AI。每条语句都有确定的 grammar、类型规则和执行语义，使用 C 从零实现。
 
-## 当前版本与 v1.0 进度
+## 当前正式版本：V1.0.0
 
 | 项目 | 当前状态 |
 |---|---|
-| 当前稳定版本 | `1.0.0`（与仓库根目录 `VERSION` 一致） |
-| 版本目标 | `1.0.0` Stable 已冻结 |
-| 实现进度 | v1.0 规范内的语言、Flow、系统标准库与工具链已经落地 |
-| 验证进度 | `1.0.0` 在 macOS arm64、Linux arm64、Linux x86_64 的统一公开门禁已经通过 |
-| 发布状态 | v1.0 contract、版本与支持矩阵已经冻结并验证 |
+| 当前稳定版本 | `V1.0.0`（与仓库根目录 `VERSION` 的 `1.0.0` 一致） |
+| 版本状态 | Stable；V1.0 contract、版本与支持矩阵已经冻结 |
+| 实现状态 | V1.0 规范内的语言、Flow、系统标准库与工具链已经完整落地 |
+| 验证状态 | V1.0.0 已通过 macOS arm64、Linux arm64、Linux x86_64 统一公开门禁 |
+| 发布状态 | 可构建、可安装、可运行，并提供带 SHA-256 的三平台制品 |
 
 v1.0 的目标不是堆叠功能数量，而是交付一门可以安装、可以编写真实系统脚本、
 错误与资源行为可预测的 Flow-first 语言：
@@ -108,8 +110,8 @@ hhy run examples/00-hello.hhy
 - `VERSION`、文档、`hhy --version` 和安装包统一为 `1.0.0`。
 - `1.0.0` 冻结提交已通过同一三平台门禁并生成三个带 SHA-256 的制品。
 
-`1.0.0` 冻结提交的三平台全绿证据见
-[GitHub Actions #11](https://github.com/hh696-wq/hhy-vm/actions/runs/32817348334)。
+当前 `V1.0.0` 主分支的三平台全绿证据见
+[GitHub Actions #12](https://github.com/hh696-wq/hhy-vm/actions/runs/32817804874)。
 
 ## 文档
 
