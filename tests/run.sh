@@ -7,6 +7,8 @@ HHY_BIN=${1:-build/hhy}
 # must create the root before the first lexer/parser snapshot is written.
 mkdir -p tests/output
 
+sh tests/check-version.sh "$HHY_BIN"
+
 fail() {
     echo "test failure: $1" >&2
     exit 1
@@ -775,11 +777,15 @@ if command -v python3 >/dev/null 2>&1; then
     server_pid=$!
     trap 'kill "$server_pid" 2>/dev/null || true' EXIT INT TERM
     attempts=0
-    while [ ! -s "$port_file" ] && [ "$attempts" -lt 50 ]; do
+    while [ ! -s "$port_file" ] && kill -0 "$server_pid" 2>/dev/null &&
+          [ "$attempts" -lt 200 ]; do
         sleep 0.05
         attempts=$((attempts + 1))
     done
-    [ -s "$port_file" ] || fail "local HTTP test server did not start"
+    if [ ! -s "$port_file" ]; then
+        server_log=$(cat tests/output/http-server.log 2>/dev/null || true)
+        fail "local HTTP test server did not start: $server_log"
+    fi
     http_port=$(sed -n '1p' "$port_file")
     http_output=$("$HHY_BIN" run tests/valid/http-flow.hhy "http://127.0.0.1:$http_port/users.json")
     case "$http_output" in

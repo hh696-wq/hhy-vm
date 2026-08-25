@@ -1,6 +1,7 @@
 # HHY Language v1.0 统一规范
 
-> 状态：实现同步规范 v0.5（v1.0 尚未冻结）  
+> 当前实现版本：`0.5.0-dev`（以仓库根目录 `VERSION` 为准）
+> 目标规范：v1.0（尚未冻结）
 > 官网：[hhylang.dev](https://hhylang.dev)  
 > 定位：Flow-first system scripting language  
 > 口号：Pipe Everything.
