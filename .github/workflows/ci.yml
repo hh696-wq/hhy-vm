@@ -58,7 +58,7 @@ jobs:
 
       - name: Verify archive and required notices
         run: |
-          sha256sum --check dist/*.sha256
+          (cd dist && sha256sum --check *.sha256)
           tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
           tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
           tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
@@ -113,7 +113,7 @@ jobs:
 
       - name: Verify archive and required notices
         run: |
-          shasum -a 256 -c dist/*.sha256
+          (cd dist && shasum -a 256 -c *.sha256)
           tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
           tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
           tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
