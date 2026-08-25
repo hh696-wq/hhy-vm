@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Semantic release tag (must match VERSION)"
+        required: true
+        default: "v1.0.0"
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: read
@@ -38,7 +47,7 @@ jobs:
       - name: Verify tag and architecture
         shell: bash
         run: |
-          test "${GITHUB_REF_NAME}" = "v$(cat VERSION)"
+          test "${RELEASE_TAG}" = "v$(cat VERSION)"
           test "$(uname -m)" = "${{ matrix.uname_arch }}"
 
       - name: Install macOS build dependencies
@@ -118,9 +127,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(cat VERSION)
-          gh release create "$GITHUB_REF_NAME" release-assets/* \
-            --verify-tag \
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            tag_option="--verify-tag"
+          else
+            tag_option="--target $GITHUB_SHA"
+          fi
+          gh release create "$RELEASE_TAG" release-assets/* \
+            $tag_option \
             --draft \
             --title "HHY Language $version" \
             --notes-file "docs/releases/v$version.md"
-          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          gh release edit "$RELEASE_TAG" --draft=false --latest
