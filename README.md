@@ -1,14 +1,21 @@
-# HHY
+<div align="center">
+  <img src="assets/brand/hhy-logo-option-3.png" width="260" alt="HHY Language logo">
 
-> **Pipe Everything.**
+  # HHY Language
 
-A lightweight, flow-first scripting language for system automation.
+  **Pipe Everything.**
 
-**Built solo. Designed to flow.**
+  A flow-first scripting language for system automation.
 
-**Current stable release: V1.0.0**
+  [Website](https://hhylang.dev) · [Language Specification](docs/HHY_V1.md) · [Examples](examples/README.md) · [Known Limitations](docs/KNOWN_LIMITATIONS.md)
 
-Official website: [hhylang.dev](https://hhylang.dev)
+  [![Version](https://img.shields.io/badge/version-1.0.0-0969da)](VERSION)
+  [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
+  [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
+</div>
+
+HHY 是一门用 C 从零实现的系统脚本语言。它通过统一的 Flow 模型连接文件、
+进程、网络和结构化数据，让系统自动化像描述数据流一样直接。
 
 ```hhy
 processes
@@ -18,122 +25,159 @@ processes
     |> print
 ```
 
-HHY 通过统一的管道模型连接文件、进程、网络与结构化数据，让系统自动化像描述数据流一样简单。
+HHY 不是自然语言理解系统，也不依赖 AI。源码具有确定的 grammar、类型规则
+和执行语义。它的核心表达始终是：
 
-HHY 不是自然语言理解系统，也不依赖 AI。每条语句都有确定的 grammar、类型规则和执行语义，使用 C 从零实现。
-
-## 当前正式版本：V1.0.0
-
-| 项目 | 当前状态 |
-|---|---|
-| 当前稳定版本 | `V1.0.0`（与仓库根目录 `VERSION` 的 `1.0.0` 一致） |
-| 版本状态 | Stable；V1.0 contract、版本与支持矩阵已经冻结 |
-| 实现状态 | V1.0 规范内的语言、Flow、系统标准库与工具链已经完整落地 |
-| 验证状态 | V1.0.0 已通过 macOS arm64、Linux arm64、Linux x86_64 统一公开门禁 |
-| 发布状态 | 可构建、可安装、可运行，并提供带 SHA-256 的三平台制品 |
-
-v1.0 的目标不是堆叠功能数量，而是交付一门可以安装、可以编写真实系统脚本、
-错误与资源行为可预测的 Flow-first 语言：
-
-- 完整动态脚本语言：变量、作用域、集合、函数、闭包、分支、循环、模块与错误处理。
-- 统一 Flow：`source |> transform |> filter |> action`，惰性、拉取式、单次消费。
-- 系统一等公民：文件、目录、文本、JSON、CSV、Regex、进程、HTTP、watch 与原生单位。
-- 有界并发：保序 `parallel(n)`、背压、失败取消、隔离 worker 与 Sendable 校验。
-- 可发布工具链：`run`、`repl`、`fmt`、`check`、dry-run Execution Plan、资源限制和稳定退出码。
-- 正式支持 macOS arm64、Linux arm64、Linux x86_64，并提供带 SHA-256 的安装包。
-
-## 构建与检查
-
-构建需要 C11 编译器、`make`、libcurl、PCRE2 和 BDWGC。macOS 可执行
-`brew install curl pcre2 bdw-gc`，Apple Clang 可直接编译：
-
-```sh
-make
-./build/hhy check examples/*.hhy
-./build/hhy ast examples/01-log-errors.hhy
-./build/hhy run examples/07-language-basics.hhy
-./build/hhy run --limit max_runtime=30s --limit max_memory=256mib script.hhy
-make test
-make test-debug
+```text
+source |> transform |> filter |> action
 ```
 
-安装为全局 `hhy` 命令（Apple Silicon Homebrew 环境）：
+## 为什么是 HHY
+
+- **Flow-first**：`|>` 不是附加语法，而是标准库和运行时共同遵循的执行模型。
+- **系统能力是一等公民**：直接处理文件、目录、文本、JSON、CSV、进程、HTTP 和文件监听。
+- **面向真实脚本**：具有变量、集合、函数、闭包、分支、循环、模块和结构化错误处理。
+- **原生单位**：直接书写 `10mib`、`500ms`、`2h` 和 `80%`，避免隐含换算。
+- **可预测执行**：惰性 Stream、有界并发、背压、取消、资源限制和稳定退出码。
+
+## 快速开始
+
+当前稳定版本是 **V1.0.0**（`1.0.0`），正式支持 macOS arm64、Linux arm64 和
+Linux x86_64。
+
+### 从源码构建
+
+需要 C11 编译器、`make`、libcurl、PCRE2 和 BDWGC。macOS 可以先安装依赖：
+
+```sh
+brew install curl pcre2 bdw-gc
+```
+
+然后构建并验证：
+
+```sh
+git clone https://github.com/hh696-wq/hhy-vm.git
+cd hhy-vm
+make
+./build/hhy --version
+make test
+```
+
+### 安装
 
 ```sh
 make install PREFIX="$(brew --prefix)"
-hhy run examples/00-hello.hhy
+hhy --version
 ```
 
-当前可用命令：
+其他安装位置和 Linux 说明见 [INSTALL.md](INSTALL.md)。
 
-- `hhy check <file.hhy>...`：语法与核心语义检查
-- `hhy ast <file.hhy>`：输出 AST
-- `hhy tokens <file.hhy>`：输出 Token
-- `hhy fmt <file.hhy>...` / `hhy fmt --check <file.hhy>...`：格式化或验证格式
-- `hhy repl`：启动持久作用域、多行输入 REPL
-- `hhy run <file.hhy> [args...]`：执行脚本并传入参数
-- `hhy --version`：输出版本
-- `hhy run --dry-run <file.hhy>`：通过 Contract Registry 输出脱敏 Execution Plan，并拦截文件写入、进程启动和网络发送
+### 运行第一个脚本
 
-## v1.0 已完成的实现
+创建 `hello.hhy`：
 
-- 变量、块级作用域、函数、闭包、条件、循环和错误传播
-- List、Map、Result、File/Directory/FileEvent、Process/CommandResult、Path、Bytes、Duration、Percent 和基础运算
-- Checker/Runtime 共用的 Callable Contract Registry，以及统一 EffectDispatcher 和 Error stage
-- 惰性、拉取式、单次消费 Stream，以及 `map/where/take/collect/count/sum/for_each`
-- `read_text/read_lines/write_text/append_text/save_text/save_lines/files`
-- UTF-8/Unicode 文本、严格 JSON 解析与编码、流式 CSV（header/delimiter/quote）
-- argv 直传的 `run` 和 `stdout_lines`
-- `http.get/post/put/delete`、`timeout/retry/send/response_body`
-- Range、高级 Flow barrier、Regex 与流式 CSV
-- `env`、`system`、`processes`
-- Pure HHY Module：相对 import、具名导入、别名、export、缓存和循环检测
-- 不可变集合更新、Path 操作和 copy/move/remove
-- `hhy script.hhy` 与 `hhy run script.hhy` 两种执行入口
-- 统一 Ctrl+C CancellationToken，子进程、HTTP 和 Stream 共同响应
-- `every(Duration)` 无限 Tick Stream
-- `watch(Path)` 递归文件事件 Stream
-- `parallel(n)` 有界并发、输入顺序输出、失败取消和跨 worker 值校验
-- Checker 对 Parallel mutable/Stream 捕获执行静态 Sendable 拒绝
-- `sleep(Duration)` 及统一取消响应
-- `run(args, options)` 的 cwd、env、stdin、timeout 与 max_output
-- HTTP 16 MiB 响应限制、Flow/JSON 集合物化上限和全局 parallel 上限
-- HTTP query/header/body/proxy/redirect、二进制响应和写入
-- Path 词法规范化与可选的循环安全 symlink 遍历
-- 即时错误与惰性错误统一 `on_error` 恢复
-- 规范化 CLI 退出码 `0–5`
+```hhy
+let language = "HHY"
 
-## v1.0 发布验证
+["Flow", "Pipe", "System"]
+    |> map { word -> "{language}: {word}" }
+    |> print
+```
 
-- `HHY_V1.md` 第 36 节发布条件已经逐项审计，核心 contract 已冻结。
-- 三个正式平台已在同一公开 CI 上完成 sanitizer、Release、fuzz、文档与制品验证。
-- `VERSION`、文档、`hhy --version` 和安装包统一为 `1.0.0`。
-- `1.0.0` 冻结提交已通过同一三平台门禁并生成三个带 SHA-256 的制品。
+运行：
 
-当前 `V1.0.0` 主分支的三平台全绿证据见
-[GitHub Actions #12](https://github.com/hh696-wq/hhy-vm/actions/runs/32817804874)。
+```sh
+hhy run hello.hhy
+```
+
+也可以直接执行仓库中的示例：
+
+```sh
+hhy run examples/07-language-basics.hhy
+```
+
+## 语言一览
+
+### 文件与文本
+
+```hhy
+path("./logs")
+    |> files("**/*.log")
+    |> flat_map { file -> read_lines(file.path) }
+    |> where { line -> contains(line, "ERROR") }
+    |> take(20)
+    |> print
+```
+
+### HTTP 与 JSON
+
+```hhy
+http.get("https://example.com/users")
+    |> timeout(5s)
+    |> retry(3)
+    |> send
+    |> response_body
+    |> parse_json
+    |> print
+```
+
+### 有界并发
+
+```hhy
+["https://example.com", "https://example.org"]
+    |> parallel(2) { url ->
+    http.get(url)
+        |> timeout(5s)
+        |> send
+}
+    |> print
+```
+
+更多可执行场景见 [examples](examples/README.md)。README 与规范中的完整
+HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语言实现脱节。
+
+## 命令行工具
+
+| 命令 | 用途 |
+|---|---|
+| `hhy run <script.hhy> [args...]` | 运行脚本并传递参数 |
+| `hhy repl` | 启动交互式环境 |
+| `hhy check <file.hhy>...` | 检查语法和核心语义 |
+| `hhy fmt <file.hhy>...` | 格式化源码 |
+| `hhy ast <file.hhy>` | 输出抽象语法树 |
+| `hhy tokens <file.hhy>` | 输出词法 Token |
+| `hhy run --dry-run <file.hhy>` | 生成脱敏执行计划，不执行外部副作用 |
+
+运行 `hhy --help` 查看完整参数和资源限制选项。
+
+## V1.0.0 状态
+
+V1.0 contract 和支持矩阵已经冻结。每次主分支提交都会在 macOS arm64、
+Linux arm64 和 Linux x86_64 上执行严格编译、sanitizer、完整测试、fuzz、
+文档验证、发行包内容检查和 SHA-256 校验。
+
+- 当前版本来源：[VERSION](VERSION)
+- 语言的唯一规范来源：[docs/HHY_V1.md](docs/HHY_V1.md)
+- 已知限制：[docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md)
+- 三平台持续验证：[GitHub Actions](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
 
 ## 文档
 
-- [HHY Language v1.0 统一规范](docs/HHY_V1.md)
-- [HHY v1.0 已知限制](docs/KNOWN_LIMITATIONS.md)
-- [第三方依赖与许可证边界](docs/DEPENDENCIES.md)
-- [HHY 扩展系统版本路线图](docs/EXTENSION_ROADMAP.md)
-- [HHY v1.0 典型脚本](examples/README.md)
+- [HHY Language V1.0 统一规范](docs/HHY_V1.md)
+- [安装说明](INSTALL.md)
+- [典型脚本](examples/README.md)
+- [扩展系统路线图](docs/EXTENSION_ROADMAP.md)
+- [第三方依赖与许可证](docs/DEPENDENCIES.md)
+- [第三方许可证声明](docs/THIRD_PARTY_NOTICES.md)
 
-## 开源许可证
+## 许可证
 
-HHY Language 采用 [Apache License 2.0](LICENSE) 开源。你可以免费使用、
-复制、修改、分发、商用和进行二次开发，也可以在遵守许可证的前提下将
-修改版或衍生作品采用不同条款发布。
+HHY Language 使用 [Apache License 2.0](LICENSE)。允许使用、修改、分发、
+商用和二次开发；重新分发时必须遵守许可证中的署名、变更说明和 `NOTICE`
+保留要求。第三方依赖继续适用各自的许可证。
 
-分发原版或修改版时必须遵守 Apache-2.0，主要包括：
+---
 
-- 向接收者提供 Apache License 2.0 许可证副本。
-- 在被修改的文件中清楚标注修改事实。
-- 保留适用的版权、专利、商标和署名声明。
-- 随分发内容保留项目的 `NOTICE` 署名信息。
-
-Apache-2.0 包含明确的贡献者专利授权，但不授予 HHY 名称、Logo 或其他
-商标的使用权。完整法律条款以 [LICENSE](LICENSE) 为准；第三方依赖继续
-适用各自的许可证，详见 [第三方许可证声明](docs/THIRD_PARTY_NOTICES.md)。
+<div align="center">
+  <strong>Built solo. Designed to flow.</strong>
+</div>
