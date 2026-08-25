@@ -1,0 +1,8 @@
+import "../modules/math.hhy" as math
+import { add, name as module_name, optional } from "../modules/math.hhy"
+
+print(math.name)
+print(add(20, 22))
+print(module_name)
+print(optional)
+print(pick({ present: null }, ["present"]))

@@ -1,0 +1,2 @@
+import "./cycle-a.hhy" as a
+export let name = "b"

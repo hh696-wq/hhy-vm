@@ -1,0 +1,27 @@
+let result = attempt { 42 }
+print(type(result))
+print(type([result] |> stream |> parallel(1) { value -> value } |> first))
+let failed = attempt { require({}, "missing") }
+let copied_failure = [failed] |> stream |> parallel(1) { value -> value } |> first
+print(type(copied_failure))
+print(copied_failure.error.kind)
+
+let file = path("tests/fixtures")
+    |> files("lines.txt")
+    |> first
+print(type(file))
+print(type([file] |> stream |> parallel(1) { value -> value } |> first))
+
+let directory = path("tests")
+    |> files("fixtures")
+    |> first
+print(type(directory))
+print(type([directory] |> stream |> parallel(1) { value -> value } |> first))
+
+let command = run(["printf", "ok"])
+print(type(command))
+print(type([command] |> stream |> parallel(1) { value -> value } |> first))
+
+let process = processes |> first
+print(type(process))
+print(type([process] |> stream |> parallel(1) { value -> value } |> first))

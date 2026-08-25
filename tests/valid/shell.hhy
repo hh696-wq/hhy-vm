@@ -1,0 +1,2 @@
+let result = shell("printf 'Pipe Everything.'")
+print(result.stdout)

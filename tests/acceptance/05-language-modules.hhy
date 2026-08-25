@@ -1,0 +1,24 @@
+import { normalize } from "./lib/data.hhy"
+
+fn summarize(items) {
+    let mut total = 0
+
+    for item in items {
+        if item.enabled {
+            total = total + item.score
+        }
+    }
+
+    return {
+        count: items |> stream |> count,
+        total: total
+    }
+}
+
+let result = summarize([
+        { enabled: true, score: 10 },
+        { enabled: false, score: 20 },
+        { enabled: true, score: 30 }
+])
+
+result |> normalize |> encode_json |> print

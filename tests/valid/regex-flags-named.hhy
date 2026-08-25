@@ -1,0 +1,6 @@
+regex_match("zero\npipe\nend", /^pipe$/m) |> print
+regex_match("pipe\nflow", /pipe.flow/s) |> print
+regex_match("语言", /^\p{L}+$/u) |> print
+regex_captures("HHY-42", /(?<name>[A-Z]+)-(?<version>[0-9]+)/).named.name.match |> print
+regex_captures("HHY-42", /(?<name>[A-Z]+)-(?<version>[0-9]+)/).named.version.match |> print
+

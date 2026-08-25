@@ -1,0 +1,9 @@
+read_text(path("tests/fixtures/users.json"))
+    |> parse_json
+    |> get("users")
+    |> stream
+    |> where { user -> user.active }
+    |> map { user -> user.name }
+    |> collect
+    |> encode_json
+    |> print

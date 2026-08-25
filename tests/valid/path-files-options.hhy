@@ -1,0 +1,16 @@
+path("a/./b/../c//") |> print
+path("/a/../../a/c") |> print
+path("") |> print
+path("src/runtime.c").name |> print
+path("src/runtime.c").extension |> print
+path("src/runtime.c").parent |> print
+
+path(args[0])
+    |> files("**/*.txt")
+    |> count
+    |> print
+
+path(args[0])
+    |> files("**/*.txt", { follow_symlinks: true })
+    |> count
+    |> print

@@ -1,0 +1,5 @@
+[1]
+    |> stream
+    |> parallel(1) { value -> [value] |> stream }
+    |> collect
+    |> print

@@ -1,0 +1,6 @@
+read_lines(path("tests/fixtures/people.csv"))
+    |> parse_csv({ header: true })
+    |> map { person -> { name: person.name, team: person.team, note: person.note } }
+    |> encode_csv({ header: true })
+    |> collect
+    |> print

@@ -1,0 +1,3 @@
+{ name: "HHY", values: [1, true] }
+    |> encode_json({ pretty: true })
+    |> print

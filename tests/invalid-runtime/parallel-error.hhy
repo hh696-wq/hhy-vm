@@ -1,0 +1,11 @@
+[1, 2, 3, 4]
+    |> stream
+    |> parallel(2) { value ->
+        if value == 2 {
+            throw("parallel boom")
+        }
+        sleep(20ms)
+        return value
+    }
+    |> collect
+    |> print

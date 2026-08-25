@@ -1,0 +1,11 @@
+let result = run(["printf", "alpha\nbeta\ngamma\n"])
+
+if result.exit_code != 0 {
+    throw(result.stderr)
+}
+
+result
+    |> stdout_lines
+    |> where { line -> contains(line, "a") }
+    |> take(2)
+    |> print

@@ -1,0 +1,15 @@
+for index in range(0, 100) {
+    attempt { read_text(path("tests/fixtures/does-not-exist.txt")) }
+}
+print(contains(read_text(path("tests/fixtures/lines.txt")), "ERROR"))
+
+for index in range(0, 100) {
+    run(["hhy-command-that-does-not-exist"])
+}
+print(run(["printf", "ok"]).exit_code)
+
+for index in range(0, 25) {
+    attempt { http.get(args[0] + "/does-not-exist") |> send }
+}
+let body = http.get(args[0] + "/inspect") |> send |> response_body
+print(contains(body, "query"))

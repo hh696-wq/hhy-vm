@@ -1,0 +1,11 @@
+http.get(args[0])
+    |> timeout(2s)
+    |> retry({ count: 1 })
+    |> send
+    |> response_body
+    |> parse_json
+    |> get("users")
+    |> stream
+    |> where { user -> user.active }
+    |> count
+    |> print

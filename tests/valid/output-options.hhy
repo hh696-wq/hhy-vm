@@ -1,0 +1,21 @@
+let target = path("tests/output/nested/options/value.txt")
+write_text(target, "first", { create_parents: true, overwrite: false })
+print(read_text(target))
+
+try {
+    write_text(target, "second", { overwrite: false })
+} catch err {
+    print(err.kind)
+}
+
+write_text(target, "second", { overwrite: true })
+print(read_text(target))
+
+try {
+    ["replacement", 1]
+        |> stream
+        |> save_lines(target)
+} catch err {
+    print(err.kind)
+}
+print(read_text(target))

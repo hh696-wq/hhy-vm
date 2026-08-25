@@ -1,0 +1,9 @@
+let bytes = read_bytes(path("tests/fixtures/lines.txt"))
+print(byte_length(bytes) > 0)
+
+let file = path("tests/fixtures") |> files("lines.txt") |> first
+print(type(file.created))
+print(type(file.modified))
+print(length(system.hostname) > 0)
+print(system.cpu > 0)
+print(type(system.temp))

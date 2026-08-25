@@ -1,0 +1,5 @@
+let first =
+let recovered = 1
+let second =
+let final = 2
+print(recovered)

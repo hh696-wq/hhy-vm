@@ -1,0 +1,17 @@
+let inspected = http.get(args[0] + "/inspect", {
+    query: { name: "HHY flow", enabled: true, page: 2 },
+    headers: { "X-HHY-Test": "query-header" }
+}) |> send |> response_body |> parse_json
+
+print(inspected.query.name[0])
+print(inspected.query.enabled[0])
+print(inspected.query.page[0])
+print(inspected.header)
+
+let posted = http.post(args[0] + "/post", {
+    body: "Pipe Everything.",
+    headers: { "X-HHY-Test": "body-header" }
+}) |> send |> response_body |> parse_json
+
+print(posted.body)
+print(posted.header)

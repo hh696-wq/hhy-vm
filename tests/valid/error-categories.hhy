@@ -1,0 +1,22 @@
+let io = attempt { read_text(path("tests/fixtures/does-not-exist.txt")) }
+print(io.error.kind)
+print(io.error.code)
+
+let key = attempt { require({}, "missing") }
+print(key.error.kind)
+print(key.error.code)
+
+let type_error = attempt { length(1) }
+print(type_error.error.kind)
+
+let value_error = attempt { 1 / 0 }
+print(value_error.error.kind)
+
+let index_error = attempt { [1][4] }
+print(index_error.error.kind)
+
+let url_error = attempt { http.get("file:///tmp/not-http") }
+print(url_error.error.kind)
+
+let csv_error = attempt { "\"unterminated" |> parse_csv |> collect }
+print(csv_error.error.kind)

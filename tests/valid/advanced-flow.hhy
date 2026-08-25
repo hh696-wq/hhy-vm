@@ -1,0 +1,27 @@
+[3, 1, 2, 3]
+    |> stream
+    |> distinct
+    |> sort_by({ order: "desc" }) { value -> value }
+    |> skip(1)
+    |> take(2)
+    |> print
+
+[[1, 2], [3, 4]]
+    |> stream
+    |> flat_map { values -> values |> stream }
+    |> collect
+    |> print
+
+let groups = [
+    { team: "blue", score: 10 },
+    { team: "red", score: 20 },
+    { team: "blue", score: 30 }
+]
+    |> stream
+    |> group_by { item -> item.team }
+    |> map { group -> { team: group.key, count: group.values |> stream |> count } }
+    |> collect
+    |> print
+
+1..6 |> stream |> any { value -> value > 4 } |> print
+1..6 |> stream |> all { value -> value > 0 } |> print

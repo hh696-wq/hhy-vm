@@ -1,0 +1,1 @@
+print(parse_json("{\"name\":1,\"name\":2}"))

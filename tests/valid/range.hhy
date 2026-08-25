@@ -1,0 +1,12 @@
+let mut total = 0
+
+for number in 1..5 {
+    total = total + number
+}
+
+print(total)
+
+range(5, 9)
+    |> stream
+    |> map { it * 2 }
+    |> print

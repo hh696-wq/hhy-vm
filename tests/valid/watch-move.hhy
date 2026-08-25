@@ -1,0 +1,2 @@
+move(path(args[0]), path(args[1]), { overwrite: true })
+

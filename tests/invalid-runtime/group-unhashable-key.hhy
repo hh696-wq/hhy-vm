@@ -1,0 +1,4 @@
+[1, 2]
+    |> stream
+    |> group_by { value -> [value] }
+    |> collect

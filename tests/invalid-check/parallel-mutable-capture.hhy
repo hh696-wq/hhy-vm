@@ -1,0 +1,9 @@
+let mut total = 0
+
+[1, 2]
+    |> stream
+    |> parallel(2) { value ->
+        total = total + value
+        return total
+    }
+    |> collect

@@ -1,0 +1,36 @@
+#!/usr/bin/env hhy
+
+# 从 HTTP API 读取用户，保留活跃用户并输出为 JSON。
+# 用法：hhy 02-active-users.hhy https://api.example.com/users active-users.json
+
+if length(args) != 2 {
+    print_error("usage: hhy 02-active-users.hhy <url> <output-file>")
+    exit(3)
+}
+
+let url = args[0]
+let output_file = path(args[1])
+
+http.get(url)
+    |> timeout(5s)
+    |> retry({ count: 3, backoff: 200ms })
+    |> send
+    |> response_body
+    |> parse_json
+    |> get("users")
+    |> stream
+    |> where { user -> user.active == true }
+    |> map { user ->
+    {
+        id: user.id,
+        name: user.name,
+        email: user.email
+    }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> save_text(output_file)
+    |> on_error { err ->
+    print_error(err)
+    throw(err)
+}

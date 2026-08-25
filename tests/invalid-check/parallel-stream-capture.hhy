@@ -1,0 +1,8 @@
+let source = [1, 2, 3] |> stream
+
+[1]
+    |> stream
+    |> parallel(1) { value ->
+        return source
+    }
+    |> collect

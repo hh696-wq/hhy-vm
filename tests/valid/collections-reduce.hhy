@@ -1,0 +1,13 @@
+let total = [1, 2, 3, 4]
+    |> stream
+    |> reduce(0) { state -> state.acc + state.item }
+
+print(total)
+print(get(["a", "b"], 1))
+print(contains([1, 2, 3], 2))
+
+{ first: 10, second: 20 }
+    |> stream
+    |> map { entry -> entry.key }
+    |> collect
+    |> print

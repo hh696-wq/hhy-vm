@@ -1,0 +1,4 @@
+print(length("你好HHY"))
+print(upper("héllo"))
+print(lower("ÄBC"))
+print(byte_length("你好"))

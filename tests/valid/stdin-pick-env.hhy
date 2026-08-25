@@ -1,0 +1,10 @@
+let selected = { name: "HHY", version: 1, hidden: true }
+    |> pick(["name", "version"])
+
+print(selected)
+print(require_env("HHY_TEST_REQUIRED"))
+
+stdin_lines()
+    |> map { line -> upper(line) }
+    |> collect
+    |> print

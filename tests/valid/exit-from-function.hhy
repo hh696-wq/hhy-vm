@@ -1,0 +1,6 @@
+fn stop() {
+    exit(7)
+}
+
+stop()
+print("unreachable")

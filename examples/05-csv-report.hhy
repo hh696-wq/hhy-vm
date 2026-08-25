@@ -1,0 +1,30 @@
+#!/usr/bin/env hhy
+
+# 从员工 CSV 生成部门人数与薪资汇总 JSON。
+# 输入列：name,department,active,salary
+# 用法：hhy 05-csv-report.hhy employees.csv department-report.json
+
+if length(args) != 2 {
+    print_error("usage: hhy 05-csv-report.hhy <input.csv> <output.json>")
+    exit(3)
+}
+
+let input_file = path(args[0])
+let output_file = path(args[1])
+
+read_lines(input_file)
+    |> parse_csv({ header: true })
+    |> where { employee -> employee.active == "true" }
+    |> group_by { employee -> employee.department }
+    |> map { group ->
+    {
+        department: group.key,
+        employees: group.values |> count,
+        total_salary: group.values
+            |> map { employee -> employee.salary |> to_float }
+            |> sum
+    }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> save_text(output_file)

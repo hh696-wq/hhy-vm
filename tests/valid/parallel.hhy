@@ -1,0 +1,14 @@
+let values = [3, 1, 2, 4]
+
+values
+    |> stream
+    |> parallel(2) { value ->
+        if value == 3 {
+            sleep(80ms)
+        } else {
+            sleep(10ms)
+        }
+        return value * 2
+    }
+    |> collect
+    |> print

@@ -1,0 +1,8 @@
+[1, 2, 3, 4]
+    |> stream
+    |> parallel(4) { value ->
+        sleep(5s)
+        return value
+    }
+    |> collect
+    |> print

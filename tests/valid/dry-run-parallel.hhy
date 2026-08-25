@@ -1,0 +1,5 @@
+[1, 2, 3]
+    |> stream
+    |> parallel(2) { value -> value * 2 }
+    |> collect
+    |> print

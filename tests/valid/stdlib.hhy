@@ -1,0 +1,21 @@
+let original = [1, 2] |> append(3)
+let changed = original |> remove_at(0)
+print(changed)
+
+let data = { name: "HHY" } |> put("version", 1)
+print(require(data, "name"))
+print(data |> remove_key("name") |> encode_json)
+
+print(" a,b,c " |> trim |> split(",") |> join("|"))
+print(to_int("42") + 1)
+print(is_type(path("."), "Path"))
+
+let source = path("tests/output/source.txt")
+let copied = path("tests/output/copied.txt")
+let moved = path("tests/output/moved.txt")
+write_text(source, "flow")
+copy(source, copied, { overwrite: true })
+move(copied, moved, { overwrite: true })
+print(read_text(moved))
+remove(source)
+remove(moved)

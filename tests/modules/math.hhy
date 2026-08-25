@@ -1,0 +1,8 @@
+export let name = "math"
+export let optional = null
+
+export fn add(a, b) {
+    return a + b
+}
+
+let private_value = 99

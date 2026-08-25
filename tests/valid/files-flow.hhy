@@ -1,0 +1,5 @@
+path("tests/fixtures/tree")
+    |> files("**/*.log")
+    |> map { file -> file.name }
+    |> collect
+    |> print

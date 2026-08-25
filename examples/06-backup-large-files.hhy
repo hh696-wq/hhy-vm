@@ -1,0 +1,26 @@
+#!/usr/bin/env hhy
+
+# 把目录中大于 100 MiB 的文件复制到备份目录。
+# 可使用 `hhy run --dry-run` 先检查动作计划。
+# 用法：hhy 06-backup-large-files.hhy ./downloads ./backup
+
+if length(args) != 2 {
+    print_error("usage: hhy 06-backup-large-files.hhy <source-dir> <backup-dir>")
+    exit(3)
+}
+
+let source_dir = path(args[0])
+let backup_dir = path(args[1])
+
+source_dir
+    |> files("**/*")
+    |> where { file -> file.is_file and file.size > 100mib }
+    |> for_each { file ->
+    let target = path_join(backup_dir, file.name)
+    print("copy {file.path} -> {target}")
+    copy(file.path, target, { overwrite: false, create_parents: true })
+}
+    |> on_error { err ->
+    print_error(err)
+    throw(err)
+}

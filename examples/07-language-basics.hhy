@@ -1,0 +1,40 @@
+#!/usr/bin/env hhy
+
+# 变量、List、Map、函数、条件、循环、作用域和错误处理。
+
+fn summarize(items) {
+    let mut total = 0
+    let mut enabled_count = 0
+    let mut average = 0
+
+    for item in items {
+        if item.enabled {
+            total = total + item.score
+            enabled_count = enabled_count + 1
+        }
+    }
+
+    if enabled_count > 0 {
+        average = total / enabled_count
+    }
+
+    return {
+        count: enabled_count,
+        total: total,
+        average: average
+    }
+}
+
+let items = [
+    { name: "alpha", enabled: true, score: 10 },
+    { name: "beta", enabled: false, score: 20 },
+    { name: "gamma", enabled: true, score: 30 }
+]
+
+try {
+    let result = summarize(items)
+    result |> encode_json({ pretty: true }) |> print
+} catch err {
+    print_error(err)
+    exit(1)
+}

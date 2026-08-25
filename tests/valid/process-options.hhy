@@ -1,0 +1,10 @@
+let input = run(["/bin/cat"], { stdin: "HHY_STDIN\n", max_output: 1mb })
+input.stdout |> trim |> print
+
+let environment = run(["/usr/bin/env"], { env: { HHY_TEST_VALUE: "flow-env" } })
+environment
+    |> stdout_lines
+    |> where { line -> starts_with(line, "HHY_TEST_VALUE=") }
+    |> map { line -> split(line, "=")[1] }
+    |> first
+    |> print

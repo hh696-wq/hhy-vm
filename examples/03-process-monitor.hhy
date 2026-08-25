@@ -1,0 +1,22 @@
+#!/usr/bin/env hhy
+
+# 每 5 秒打印 CPU 超过 70% 或内存超过 1 GiB 的前 10 个进程。
+
+every(5s)
+    |> for_each { tick ->
+    processes
+        |> where { process ->
+        process.cpu > 70% or process.memory > 1gib
+    }
+        |> sort_by({ order: "desc" }) { process -> process.memory }
+        |> take(10)
+        |> map { process ->
+        {
+            pid: process.pid,
+            name: process.name,
+            cpu: process.cpu,
+            memory: process.memory
+        }
+    }
+        |> print
+}

@@ -1,0 +1,9 @@
+fn demo() {   
+ # preserved comment   
+ let values = [1, 2]    
+ values
+ |> map { value ->
+ return value * 2   
+ }
+ |> print
+}

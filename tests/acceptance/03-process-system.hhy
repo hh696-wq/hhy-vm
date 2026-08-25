@@ -1,0 +1,6 @@
+processes
+    |> where { process -> process.memory > 0b or process.cpu >= 0% }
+    |> sort_by({ order: "desc" }) { process -> process.memory }
+    |> take(10)
+    |> count
+    |> print

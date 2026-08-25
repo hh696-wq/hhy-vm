@@ -1,0 +1,10 @@
+let lines = ["INFO boot", "error disk", "WARN slow", "ERROR net"]
+
+lines
+    |> stream
+    |> where { line -> regex_match(line, /error|warn/i) }
+    |> collect
+    |> print
+
+regex_captures("code=418", /[0-9]+/) |> print
+regex_captures("user=tom age=42", /user=([a-z]+) age=([0-9]+)/).groups |> print

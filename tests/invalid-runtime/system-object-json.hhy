@@ -1,0 +1,2 @@
+let file = path("tests/fixtures") |> files("lines.txt") |> first
+encode_json(file)

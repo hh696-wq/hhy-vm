@@ -1,0 +1,7 @@
+let response = http.get(args[0] + "/binary") |> send
+let bytes = response |> response_bytes
+
+print(byte_length(bytes))
+let decoded = attempt { response |> response_body }
+print(decoded.error.kind)
+write_bytes(path(args[1]), bytes)

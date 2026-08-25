@@ -1,0 +1,41 @@
+#!/usr/bin/env hhy
+
+# 并发检查多个 HTTP 服务；单个服务失败不会终止整批任务。
+
+let services = [
+    { name: "users", url: "https://api.example.com/users/health" },
+    { name: "orders", url: "https://api.example.com/orders/health" },
+    { name: "billing", url: "https://api.example.com/billing/health" }
+]
+
+services
+    |> stream
+    |> parallel(3) { service ->
+    let response = attempt {
+        http.get(service.url)
+            |> timeout(3s)
+            |> retry({ count: 2, backoff: 100ms })
+            |> send
+            |> response_body
+            |> parse_json
+    }
+
+    let mut status = "unreachable"
+    let mut error_message = null
+
+    if response.ok {
+        status = response.value.status
+    } else {
+        error_message = response.error.message
+    }
+
+    return {
+        name: service.name,
+        ok: response.ok,
+        status: status,
+        error: error_message
+    }
+}
+    |> collect
+    |> encode_json({ pretty: true })
+    |> print

@@ -1,0 +1,8 @@
+if length(args) == 0 {
+    print("no args")
+} else {
+    args
+        |> stream
+        |> map { value -> upper(value) }
+        |> print
+}

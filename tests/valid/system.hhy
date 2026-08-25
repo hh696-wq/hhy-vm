@@ -1,0 +1,9 @@
+print(type(env.PATH))
+print(type(system.cwd))
+print(system.cpu_count > 0)
+
+processes
+    |> take(2)
+    |> map { process -> process.pid > 0 }
+    |> all { valid -> valid }
+    |> print

@@ -1,0 +1,4 @@
+[1, 2]
+    |> stream
+    |> parallel(2)
+    |> collect

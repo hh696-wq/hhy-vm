@@ -1,0 +1,32 @@
+#!/usr/bin/env hhy
+
+# 监听 C 源码变化，在 300ms 静默期后执行一次构建。
+# 用法：hhy 04-watch-and-build.hhy ./src
+
+if length(args) != 1 {
+    print_error("usage: hhy 04-watch-and-build.hhy <source-dir>")
+    exit(3)
+}
+
+let source_dir = path(args[0])
+
+watch(source_dir, { recursive: true })
+    |> where { event ->
+    event.kind != "removed" and
+    (event.path.extension == ".c" or event.path.extension == ".h")
+}
+    |> debounce(300ms)
+    |> for_each { event ->
+    print("changed: {event.path}")
+
+    let result = run(
+        ["make"],
+        { timeout: 2min, cwd: system.cwd }
+    )
+
+    if result.exit_code != 0 {
+        print_error(result.stderr)
+    } else {
+        print(result.stdout)
+    }
+}

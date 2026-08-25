@@ -1,0 +1,65 @@
+name: HHY v1.0 release evidence
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x86_64:
+    name: Linux x86_64 native sanitizer and release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assert native x86_64 runner
+        run: test "$(uname -m)" = x86_64
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev
+
+      - name: Validate callable contracts
+        run: python3 tests/check_contracts.py
+
+      - name: Debug ASan and UBSan suite
+        run: make test-debug
+
+      - name: Release suite
+        run: make clean && make test
+
+      - name: Coverage-guided fuzzing
+        run: make fuzz-ci FUZZ_CC=clang
+
+      - name: Validate executable documentation
+        run: |
+          sh tests/check-docs.sh build/hhy docs/HHY_V1.md
+          sh tests/check-docs.sh build/hhy README.md
+
+      - name: Build checksummed archive
+        run: make dist
+
+      - name: Verify archive and required notices
+        run: |
+          sha256sum --check dist/*.sha256
+          tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/HHY_V1.md$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/THIRD_PARTY_NOTICES.md$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hhy-linux-x86_64-${{ github.sha }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14

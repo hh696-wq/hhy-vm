@@ -1,0 +1,4 @@
+[1]
+    |> stream
+    |> sort_by({ order: "asc" }) { value -> { key: value } }
+    |> collect

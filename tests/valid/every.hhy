@@ -1,0 +1,4 @@
+every(1ms)
+    |> take(3)
+    |> map { tick -> tick.index }
+    |> print

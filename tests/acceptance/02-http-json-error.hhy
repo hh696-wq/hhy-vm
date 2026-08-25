@@ -1,0 +1,17 @@
+http.get(args[0])
+    |> timeout(5s)
+    |> retry({ count: 3, backoff: 20ms })
+    |> send
+    |> response_body
+    |> parse_json
+    |> get("users")
+    |> stream
+    |> where { user -> user.active }
+    |> map { user -> { name: user.name } }
+    |> collect
+    |> encode_json({ pretty: true })
+    |> save_text(path(args[1]))
+    |> on_error { err ->
+    print_error(err)
+    throw(err)
+}

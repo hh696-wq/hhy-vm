@@ -1,0 +1,12 @@
+let mut calls = 0
+
+let flow = [1, 2, 3]
+    |> stream
+    |> map { number ->
+        calls = calls + 1
+        return number * 10
+    }
+
+print(calls)
+flow |> take(1) |> print
+print(calls)

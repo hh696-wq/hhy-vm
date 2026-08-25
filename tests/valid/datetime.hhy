@@ -1,0 +1,7 @@
+let utc = datetime.parse("2026-08-24 12:30:00", "%Y-%m-%d %H:%M:%S", "UTC")
+let local = datetime.parse("2026-08-24 20:30:00", "%Y-%m-%d %H:%M:%S", "+08:00")
+
+print(utc == local)
+print(utc)
+print((utc + 2s) - utc)
+print(type(now()))

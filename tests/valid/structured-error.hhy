@@ -1,0 +1,10 @@
+let result = attempt {
+    read_text(path("tests/fixtures/does-not-exist.txt"))
+}
+
+print(result.ok)
+print(result.error.kind)
+print(result.error.code)
+print(contains(result.error.message, "cannot open"))
+print(result.error.source)
+print(result.error.stage)

@@ -1,0 +1,12 @@
+let target = path("tests/output/dry-run.txt")
+write_text(target, "should not exist")
+run(["touch", "tests/output/dry-run-process.txt"])
+let plan = http.get("https://user:secret@example.invalid/path?token=secret")
+    |> timeout(2s)
+    |> retry({ count: 2, backoff: 10ms })
+    |> send
+print(plan.method)
+print(plan.url)
+print(plan.timeout)
+print(plan.retry_count)
+print("planned")

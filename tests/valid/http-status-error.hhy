@@ -1,0 +1,4 @@
+http.get(args[0])
+    |> send
+    |> response_body
+    |> print

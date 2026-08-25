@@ -1,0 +1,4 @@
+let value = parse_json("{\"emoji\":\"\\uD83D\\uDE00\"}")
+print(value.emoji)
+print(length(value.emoji))
+print(encode_json(value))

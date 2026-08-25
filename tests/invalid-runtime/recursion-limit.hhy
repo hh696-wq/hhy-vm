@@ -1,0 +1,5 @@
+fn recurse(value) {
+    return recurse(value + 1)
+}
+
+recurse(0)

@@ -1,0 +1,11 @@
+let encoded = "name;note\nAda;'pipe;flow'"
+    |> parse_csv({ header: true, delimiter: ";", quote: "'" })
+    |> encode_csv({ header: true, delimiter: ";", quote: "'" })
+    |> collect
+
+encoded |> print
+
+"name;note\nAda;'pipe;flow'"
+    |> parse_csv({ header: true, delimiter: ";", quote: "'" })
+    |> collect
+    |> print

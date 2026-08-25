@@ -1,0 +1,5 @@
+import http
+import datetime
+
+print(type(http.get))
+print(type(datetime.parse))

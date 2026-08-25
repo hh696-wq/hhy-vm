@@ -1,0 +1,7 @@
+{
+  "users": [
+    { "name": "Ada", "active": true, "score": 98.5 },
+    { "name": "Linus", "active": false, "score": 91 },
+    { "name": "Grace", "active": true, "score": 99 }
+  ]
+}

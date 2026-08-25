@@ -1,0 +1,12 @@
+read_text(path("tests/fixtures/does-not-exist.txt"))
+    |> on_error { err -> "fallback text" }
+    |> print
+
+read_lines(path("tests/fixtures/does-not-exist.txt"))
+    |> on_error { err -> ["fallback line"] |> stream }
+    |> collect
+    |> print
+
+"successful scalar"
+    |> on_error { err -> "must not run" }
+    |> print

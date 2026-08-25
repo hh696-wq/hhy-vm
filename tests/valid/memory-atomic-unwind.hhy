@@ -1,0 +1,4 @@
+[path(args[0])]
+    |> stream
+    |> map { source -> read_text(source) }
+    |> save_text(path(args[1]))

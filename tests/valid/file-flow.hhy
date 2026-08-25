@@ -1,0 +1,8 @@
+let input = path("tests/fixtures/lines.txt")
+let output = path("tests/output/errors.txt")
+
+read_lines(input)
+    |> where { line -> contains(line, "ERROR") }
+    |> save_lines(output)
+
+read_text(output) |> print

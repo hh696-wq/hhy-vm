@@ -1,0 +1,4 @@
+INFO boot
+ERROR one
+WARN slow
+ERROR two

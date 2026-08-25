@@ -1,0 +1,7 @@
+write_text(path(args[1]), "ready")
+
+watch(path(args[0]), { recursive: true })
+    |> where { event -> event.path.extension == ".c" }
+    |> debounce(20ms)
+    |> take(1)
+    |> for_each { event -> run(["true"]) }

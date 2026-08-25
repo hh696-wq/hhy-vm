@@ -1,0 +1,232 @@
+   1:19  NEWLINE      
+
+   2:1   NEWLINE      
+
+   3:79  NEWLINE      
+
+   4:1   NEWLINE      
+
+   5:1   fn           fn
+   5:4   IDENTIFIER   summarize
+   5:13  (            (
+   5:14  IDENTIFIER   items
+   5:19  )            )
+   5:21  {            {
+   5:22  NEWLINE      
+
+   6:5   let          let
+   6:9   mut          mut
+   6:13  IDENTIFIER   total
+   6:19  =            =
+   6:21  INT          0
+   6:22  NEWLINE      
+
+   7:5   let          let
+   7:9   mut          mut
+   7:13  IDENTIFIER   enabled_count
+   7:27  =            =
+   7:29  INT          0
+   7:30  NEWLINE      
+
+   8:5   let          let
+   8:9   mut          mut
+   8:13  IDENTIFIER   average
+   8:21  =            =
+   8:23  INT          0
+   8:24  NEWLINE      
+
+   9:1   NEWLINE      
+
+  10:5   for          for
+  10:9   IDENTIFIER   item
+  10:14  in           in
+  10:17  IDENTIFIER   items
+  10:23  {            {
+  10:24  NEWLINE      
+
+  11:9   if           if
+  11:12  IDENTIFIER   item
+  11:16  .            .
+  11:17  IDENTIFIER   enabled
+  11:25  {            {
+  11:26  NEWLINE      
+
+  12:13  IDENTIFIER   total
+  12:19  =            =
+  12:21  IDENTIFIER   total
+  12:27  +            +
+  12:29  IDENTIFIER   item
+  12:33  .            .
+  12:34  IDENTIFIER   score
+  12:39  NEWLINE      
+
+  13:13  IDENTIFIER   enabled_count
+  13:27  =            =
+  13:29  IDENTIFIER   enabled_count
+  13:43  +            +
+  13:45  INT          1
+  13:46  NEWLINE      
+
+  14:9   }            }
+  14:10  NEWLINE      
+
+  15:5   }            }
+  15:6   NEWLINE      
+
+  16:1   NEWLINE      
+
+  17:5   if           if
+  17:8   IDENTIFIER   enabled_count
+  17:22  >            >
+  17:24  INT          0
+  17:26  {            {
+  17:27  NEWLINE      
+
+  18:9   IDENTIFIER   average
+  18:17  =            =
+  18:19  IDENTIFIER   total
+  18:25  /            /
+  18:27  IDENTIFIER   enabled_count
+  18:40  NEWLINE      
+
+  19:5   }            }
+  19:6   NEWLINE      
+
+  20:1   NEWLINE      
+
+  21:5   return       return
+  21:12  {            {
+  21:13  NEWLINE      
+
+  22:9   IDENTIFIER   count
+  22:14  :            :
+  22:16  IDENTIFIER   enabled_count
+  22:29  ,            ,
+  22:30  NEWLINE      
+
+  23:9   IDENTIFIER   total
+  23:14  :            :
+  23:16  IDENTIFIER   total
+  23:21  ,            ,
+  23:22  NEWLINE      
+
+  24:9   IDENTIFIER   average
+  24:16  :            :
+  24:18  IDENTIFIER   average
+  24:25  NEWLINE      
+
+  25:5   }            }
+  25:6   NEWLINE      
+
+  26:1   }            }
+  26:2   NEWLINE      
+
+  27:1   NEWLINE      
+
+  28:1   let          let
+  28:5   IDENTIFIER   items
+  28:11  =            =
+  28:13  [            [
+  28:14  NEWLINE      
+
+  29:5   {            {
+  29:7   IDENTIFIER   name
+  29:11  :            :
+  29:13  STRING       "alpha"
+  29:20  ,            ,
+  29:22  IDENTIFIER   enabled
+  29:29  :            :
+  29:31  true         true
+  29:35  ,            ,
+  29:37  IDENTIFIER   score
+  29:42  :            :
+  29:44  INT          10
+  29:47  }            }
+  29:48  ,            ,
+  29:49  NEWLINE      
+
+  30:5   {            {
+  30:7   IDENTIFIER   name
+  30:11  :            :
+  30:13  STRING       "beta"
+  30:19  ,            ,
+  30:21  IDENTIFIER   enabled
+  30:28  :            :
+  30:30  false        false
+  30:35  ,            ,
+  30:37  IDENTIFIER   score
+  30:42  :            :
+  30:44  INT          20
+  30:47  }            }
+  30:48  ,            ,
+  30:49  NEWLINE      
+
+  31:5   {            {
+  31:7   IDENTIFIER   name
+  31:11  :            :
+  31:13  STRING       "gamma"
+  31:20  ,            ,
+  31:22  IDENTIFIER   enabled
+  31:29  :            :
+  31:31  true         true
+  31:35  ,            ,
+  31:37  IDENTIFIER   score
+  31:42  :            :
+  31:44  INT          30
+  31:47  }            }
+  31:48  NEWLINE      
+
+  32:1   ]            ]
+  32:2   NEWLINE      
+
+  33:1   NEWLINE      
+
+  34:1   try          try
+  34:5   {            {
+  34:6   NEWLINE      
+
+  35:5   let          let
+  35:9   IDENTIFIER   result
+  35:16  =            =
+  35:18  IDENTIFIER   summarize
+  35:27  (            (
+  35:28  IDENTIFIER   items
+  35:33  )            )
+  35:34  NEWLINE      
+
+  36:5   IDENTIFIER   result
+  36:12  |>           |>
+  36:15  IDENTIFIER   encode_json
+  36:26  (            (
+  36:27  {            {
+  36:29  IDENTIFIER   pretty
+  36:35  :            :
+  36:37  true         true
+  36:42  }            }
+  36:43  )            )
+  36:45  |>           |>
+  36:48  IDENTIFIER   print
+  36:53  NEWLINE      
+
+  37:1   }            }
+  37:3   catch        catch
+  37:9   IDENTIFIER   err
+  37:13  {            {
+  37:14  NEWLINE      
+
+  38:5   IDENTIFIER   print_error
+  38:16  (            (
+  38:17  IDENTIFIER   err
+  38:20  )            )
+  38:21  NEWLINE      
+
+  39:5   IDENTIFIER   exit
+  39:9   (            (
+  39:10  INT          1
+  39:11  )            )
+  39:12  NEWLINE      
+
+  40:1   }            }
+  40:2   NEWLINE      
+
+  41:1   EOF          

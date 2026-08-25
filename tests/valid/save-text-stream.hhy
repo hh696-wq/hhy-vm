@@ -1,0 +1,2 @@
+read_lines(path("tests/fixtures/save-text-lines.txt"))
+    |> save_text(path("tests/output/save-text-stream.txt"))

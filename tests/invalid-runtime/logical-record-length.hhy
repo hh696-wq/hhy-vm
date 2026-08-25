@@ -1,0 +1,2 @@
+let result = attempt { 1 }
+print(length(result))

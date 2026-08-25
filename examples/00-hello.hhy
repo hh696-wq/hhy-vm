@@ -1,0 +1,9 @@
+let language = "HHY"
+
+[1, 2, 3, 4, 5]
+    |> stream
+    |> map { number -> number * 2 }
+    |> where { number -> number > 5 }
+    |> print
+
+print("Hello " + language)

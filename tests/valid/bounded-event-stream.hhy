@@ -1,0 +1,6 @@
+every(1ms)
+    |> take(2)
+    |> collect
+    |> length
+    |> print
+

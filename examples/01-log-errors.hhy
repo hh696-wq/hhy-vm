@@ -1,0 +1,28 @@
+#!/usr/bin/env hhy
+
+# 在目录中递归寻找大于 1 MiB 的日志，并发提取 ERROR/WARN 行。
+# 用法：hhy 01-log-errors.hhy ./logs ./output/errors.txt
+
+if length(args) != 2 {
+    print_error("usage: hhy 01-log-errors.hhy <log-dir> <output-file>")
+    exit(3)
+}
+
+let log_dir = path(args[0])
+let output_file = path(args[1])
+
+log_dir
+    |> files("**/*.log")
+    |> where { file -> file.size > 1mib }
+    |> parallel(4) { file ->
+    read_lines(file.path)
+        |> where { line -> regex_match(line, /ERROR|WARN/) }
+        |> map { line -> "{file.path}: {line}" }
+        |> collect
+}
+    |> flat_map { lines -> lines |> stream }
+    |> save_lines(output_file)
+    |> on_error { err ->
+    print_error(err)
+    throw(err)
+}

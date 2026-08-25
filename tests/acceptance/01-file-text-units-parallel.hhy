@@ -1,0 +1,10 @@
+path(args[0])
+    |> files("**/*.log")
+    |> where { file -> file.size > 1mb }
+    |> parallel(4) { file ->
+    read_lines(file.path)
+        |> where { line -> contains(line, "ERROR") }
+        |> collect
+}
+    |> flat_map { lines -> lines |> stream }
+    |> save_lines(path(args[1]))

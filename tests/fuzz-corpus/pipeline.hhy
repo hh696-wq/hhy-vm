@@ -1,0 +1,1 @@
+"./logs" |> files("*.log") |> read_lines |> where { line -> contains(line, "ERROR") }

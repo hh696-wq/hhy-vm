@@ -1,0 +1,14 @@
+let mut seen = 0
+
+range(0, 100000)
+    |> stream
+    |> for_each { value ->
+        let transient = {
+            index: value,
+            payload: [value, value + 1, value + 2]
+        }
+        seen = seen + length(transient)
+    }
+
+seen |> print
+
