@@ -24,11 +24,11 @@ HHY 不是自然语言理解系统，也不依赖 AI。每条语句都有确定�
 
 | 项目 | 当前状态 |
 |---|---|
-| 唯一开发版本 | `0.5.0-dev`（与仓库根目录 `VERSION` 一致） |
-| 目标版本 | `1.0.0` Stable |
+| 当前稳定版本 | `1.0.0`（与仓库根目录 `VERSION` 一致） |
+| 版本目标 | `1.0.0` Stable 已冻结 |
 | 实现进度 | v1.0 规范内的语言、Flow、系统标准库与工具链已经落地 |
-| 验证进度 | macOS arm64、Linux arm64、原生 Linux x86_64 已完成 Release 与完整测试；公开 CI 正在统一为三平台门禁 |
-| 发布状态 | 最终规范审计与版本冻结中；尚未冒充稳定版 |
+| 验证进度 | macOS arm64、Linux arm64、Linux x86_64 的统一公开门禁已经通过 |
+| 发布状态 | v1.0 contract 与版本已冻结；正在验证 `1.0.0` 最终提交与制品 |
 
 v1.0 的目标不是堆叠功能数量，而是交付一门可以安装、可以编写真实系统脚本、
 错误与资源行为可预测的 Flow-first 语言：
@@ -101,16 +101,15 @@ hhy run examples/00-hello.hhy
 - 即时错误与惰性错误统一 `on_error` 恢复
 - 规范化 CLI 退出码 `0–5`
 
-## 剩余发布门槛
+## v1.0 发布验证
 
-- 按 `HHY_V1.md` 第 36 节完成逐项发布审计并冻结 contract。
-- 让 macOS arm64、Linux arm64、Linux x86_64 在同一公开 CI 上全部通过。
-- 将 `VERSION` 从 `0.5.0-dev` 冻结为 `1.0.0`，重新生成三平台制品与 SHA-256。
-- 确认 1.0.0 最终提交的 sanitizer、fuzz、文档执行与制品门禁全部通过。
+- `HHY_V1.md` 第 36 节发布条件已经逐项审计，核心 contract 已冻结。
+- 三个正式平台已在同一公开 CI 上完成 sanitizer、Release、fuzz、文档与制品验证。
+- `VERSION`、文档、`hhy --version` 和安装包统一为 `1.0.0`。
+- `1.0.0` 冻结提交仍须通过同一三平台门禁；门禁失败即撤销稳定发布结论并修复。
 
-原生 Linux x86_64 的第一份公开全绿证据见
-[GitHub Actions #5](https://github.com/hh696-wq/hhy-vm/actions/runs/32814306026)。项目不会在
-上述门槛完成前标记 v1.0。
+冻结前的三平台全绿候选证据见
+[GitHub Actions #10](https://github.com/hh696-wq/hhy-vm/actions/runs/32816589393)。
 
 ## 文档
 

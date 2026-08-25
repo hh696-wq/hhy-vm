@@ -1,7 +1,7 @@
 # Installing HHY
 
-Current source version: `0.5.0-dev` (from the repository `VERSION` file).
-The v1.0 target supports macOS arm64 and Linux x86_64/arm64.
+Current stable version: `1.0.0` (from the repository `VERSION` file).
+HHY v1.0 supports macOS arm64 and Linux x86_64/arm64.
 
 ## Dependencies
 
