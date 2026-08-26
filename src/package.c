@@ -242,9 +242,12 @@ int hhy_package_install(const char *source, bool assume_yes) {
         fputs("hhy: extension copy or integrity verification failed\n", stderr); return 4;
     }
     char hash_path[PATH_MAX], source_lib[PATH_MAX], target_lib[PATH_MAX];
-    snprintf(hash_path, sizeof(hash_path), "%s/SHA256", target);
-    snprintf(source_lib, sizeof(source_lib), "%s/lib", resolved);
-    snprintf(target_lib, sizeof(target_lib), "%s/lib", target);
+    if (snprintf(hash_path, sizeof(hash_path), "%s/SHA256", target) >= (int)sizeof(hash_path) ||
+        snprintf(source_lib, sizeof(source_lib), "%s/lib", resolved) >= (int)sizeof(source_lib) ||
+        snprintf(target_lib, sizeof(target_lib), "%s/lib", target) >= (int)sizeof(target_lib)) {
+        unlink(target_executable); unlink(target_manifest); rmdir(target_bin); rmdir(target);
+        fputs("hhy: extension package path is too long\n", stderr); return 4;
+    }
     FILE *hash = fopen(hash_path, "wb");
     bool hash_ok = hash != NULL;
     if (hash_ok) hash_ok = fprintf(hash, "%s  hhy.toml\n%s  bin/%s\n",
@@ -320,8 +323,11 @@ int hhy_package_remove(const char *name) {
         fputs("hhy: package is not installed\n", stderr); return 3;
     }
     char bin[PATH_MAX], lib[PATH_MAX];
-    snprintf(bin, sizeof(bin), "%s/bin", target); snprintf(lib, sizeof(lib), "%s/lib", target);
-    snprintf(hash_path, sizeof(hash_path), "%s/SHA256", target);
+    if (snprintf(bin, sizeof(bin), "%s/bin", target) >= (int)sizeof(bin) ||
+        snprintf(lib, sizeof(lib), "%s/lib", target) >= (int)sizeof(lib) ||
+        snprintf(hash_path, sizeof(hash_path), "%s/SHA256", target) >= (int)sizeof(hash_path)) {
+        fputs("hhy: installed package path is too long\n", stderr); return 4;
+    }
     FILE *record = fopen(hash_path, "rb"); bool ok = record != NULL; char line[PATH_MAX + 80];
     while (ok && fgets(line, sizeof(line), record) != NULL) {
         char expected[65], relative[PATH_MAX], installed[PATH_MAX];
