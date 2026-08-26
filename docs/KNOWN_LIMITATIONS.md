@@ -41,3 +41,4 @@
 ## 验证环境说明
 
 - Apple Silicon 上的 Docker x86_64 翻译后端与 BDWGC + ASan 地址空间初始化不兼容；该组合在进入 HHY 测试前失败。因此翻译容器只用于 Linux x86_64 Release 验证，不能替代真实 Linux x86_64 runner 的 sanitizer/CI 发布证据。
+- 原生 Linux x86_64 的 BDWGC 在 ASan 下执行极低内存 unwind 用例时会在 `GC_malloc_kind_global` 内崩溃。该平台因此运行 UBSan 完整测试、Release 完整测试以及不依赖该低内存路径的 ASan+UBSan coverage fuzz；Linux arm64 与 macOS arm64 继续运行 ASan+UBSan 完整测试。

@@ -54,7 +54,8 @@ build/release/%.o: src/%.c
 	@mkdir -p build/release
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-DEBUG_CFLAGS := -std=c11 -Wall -Wextra -Wpedantic -Werror -O0 -g3 -fsanitize=address,undefined
+SANITIZERS ?= address,undefined
+DEBUG_CFLAGS := -std=c11 -Wall -Wextra -Wpedantic -Werror -O0 -g3 -fsanitize=$(SANITIZERS)
 
 $(DEBUG_TARGET): $(DEBUG_OBJECTS)
 	@mkdir -p build

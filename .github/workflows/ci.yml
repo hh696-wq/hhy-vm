@@ -18,9 +18,11 @@ jobs:
           - runner: ubuntu-24.04
             uname_arch: x86_64
             package_arch: x86_64
+            sanitizers: undefined
           - runner: ubuntu-24.04-arm
             uname_arch: aarch64
             package_arch: arm64
+            sanitizers: address,undefined
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
 
@@ -40,8 +42,8 @@ jobs:
       - name: Validate callable contracts
         run: python3 tests/check_contracts.py
 
-      - name: Debug ASan and UBSan suite
-        run: make test-debug
+      - name: Debug sanitizer suite
+        run: make test-debug SANITIZERS=${{ matrix.sanitizers }}
 
       - name: Release suite
         run: make clean && make test
