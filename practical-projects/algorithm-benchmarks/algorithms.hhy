@@ -1,0 +1,74 @@
+fn fibonacci(n) {
+    if n < 2 {
+        return n
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+fn prime_count(limit) {
+    let mut count = 0
+    let mut candidate = 2
+    while candidate <= limit {
+        let mut divisor = 2
+        let mut prime = true
+        while divisor * divisor <= candidate {
+            if candidate % divisor == 0 {
+                prime = false
+                divisor = candidate
+            }
+            divisor = divisor + 1
+        }
+        if prime {
+            count = count + 1
+        }
+        candidate = candidate + 1
+    }
+    return count
+}
+
+fn gcd(a_value, b_value) {
+    let mut a = a_value
+    let mut b = b_value
+    while b != 0 {
+        let remainder = a % b
+        a = b
+        b = remainder
+    }
+    return a
+}
+
+fn gcd_grid(limit) {
+    let mut checksum = 0
+    let mut row = 1
+    while row <= limit {
+        let mut column = 1
+        while column <= limit {
+            checksum = checksum + gcd(row, column)
+            column = column + 1
+        }
+        row = row + 1
+    }
+    return checksum
+}
+
+if length(args) != 2 {
+    print_error("usage: hhy run algorithms.hhy <fibonacci|prime_count|gcd_grid> <input>")
+    exit(3)
+}
+
+let algorithm = args[0]
+let input = to_int(args[1])
+let mut result = 0
+
+if algorithm == "fibonacci" {
+    result = fibonacci(input)
+} else if algorithm == "prime_count" {
+    result = prime_count(input)
+} else if algorithm == "gcd_grid" {
+    result = gcd_grid(input)
+} else {
+    print_error("unknown algorithm", algorithm)
+    exit(3)
+}
+
+print(algorithm, result)

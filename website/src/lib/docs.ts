@@ -15,6 +15,7 @@ export type ChapterSlug =
   | "dataflow-etl-project"
   | "asset-governance-project"
   | "hong-kong-film-companies-project"
+  | "algorithm-benchmarks-project"
   | "syntax-reference"
   | "standard-library"
   | "extensions-roadmap"
@@ -1866,6 +1867,58 @@ export const chapters: Chapter[] = [
     }
   },
   {
+    slug: "algorithm-benchmarks-project",
+    order: 15,
+    title: { zh: "实战项目：算法耗时对比", en: "Project: Algorithm Benchmarks" },
+    summary: { zh: "用相同输入和校验值比较 HHY、Go、Python、PHP 的递归、质数统计与 GCD 算法耗时。", en: "Compare HHY, Go, Python, and PHP on recursive Fibonacci, prime counting, and GCD workloads with identical inputs and checksums." },
+    sections: {
+      zh: [
+        { title: "四种语言、同一套算法", blocks: [
+          { type: "p", text: "该项目分别用 HHY、Go、Python 和 PHP 实现三种纯 CPU 算法。基准脚本先构建 Go，再对每个语言和算法预热 1 次、正式运行 5 次，通过 perf_counter_ns 记录独立进程墙钟耗时，并在统计前强制验证四种实现的输出完全一致。" },
+          { type: "table", columns: ["算法", "输入", "验证结果", "主要压力"], rows: [["朴素递归 Fibonacci", "22", "17711", "递归与函数调用"], ["试除法质数统计", "3000", "430", "分支与嵌套循环"], ["欧几里得 GCD 网格", "70×70", "14197", "整数取模与双层循环"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/algorithm-benchmarks", label: "在 GitHub 查看完整基准项目 ↗", description: "包含四种语言源码、自动校验计时器、机器环境报告、CSV 结果及中英文方法说明。" }
+        ] },
+        { title: "可复现项目结构", blocks: [
+          { type: "image", src: "/algorithm-benchmarks-tree.png", alt: "HHY Go Python PHP 算法耗时基准项目目录树", caption: "四份算法实现共享同一配置；benchmark.py 负责编译 Go、预热、计时、校验和写出 CSV/JSON。", width: 900, height: 760, size: "medium" },
+          { type: "table", columns: ["文件", "职责"], rows: [["algorithms.*", "HHY、Go、Python、PHP 的对应实现"], ["config.json", "算法输入、预热次数和正式运行次数"], ["benchmark.py", "独立进程执行、纳秒计时、校验与中位数统计"], ["results/*", "完整 CSV、运行环境和原始范围"]] }
+        ] },
+        { title: "本机真实耗时", blocks: [
+          { type: "p", text: "以下结果来自 Apple Silicon arm64、macOS 26.6.2：HHY 1.1.0、Go 1.27.0、Python 3.14.7、PHP 8.5.9。数值为 5 次正式运行的墙钟时间中位数，包含进程启动时间，但不包含 Go 编译时间。" },
+          { type: "table", columns: ["算法", "HHY", "Go", "Python", "PHP"], rows: [["Fibonacci(22)", "1850.439 ms", "2.185 ms", "15.447 ms", "32.601 ms"], ["Prime count(3000)", "666.554 ms", "2.113 ms", "15.210 ms", "31.969 ms"], ["GCD grid(70)", "890.378 ms", "2.276 ms", "14.793 ms", "32.598 ms"]] },
+          { type: "image", src: "/algorithm-benchmarks-run.png", alt: "HHY Go Python PHP 三种算法真实基准运行结果", caption: "真实运行截图：每组四种语言的校验值一致；截图展示 5 次运行中位数。", width: 1180, height: 760, size: "wide" },
+          { type: "note", text: "这不是语言的绝对排名，只描述本机、当前版本、当前实现和这些小输入。短任务中进程启动占 Go、Python、PHP 的较大比例；HHY 耗时主要来自解释执行密集循环和函数调用。" }
+        ] },
+        { title: "如何解读与复跑", blocks: [
+          { type: "p", text: "结果清楚说明 HHY 当前定位：它的优势是把文件、进程、HTTP、并发与结构化数据放进同一条可靠 Flow，而不是替代 Go 执行数值热点。生产自动化可以让 HHY 负责编排，把密集计算下沉到进程扩展或专用程序。" },
+          { type: "code", language: "sh", code: "sh practical-projects/algorithm-benchmarks/run.sh" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/practical-projects/algorithm-benchmarks/results/benchmark.csv", label: "查看完整 CSV 结果 ↗", description: "查看每个算法、语言的中位数、最小值、最大值、校验值与运行次数。" }
+        ] }
+      ],
+      en: [
+        { title: "Four languages, identical algorithms", blocks: [
+          { type: "p", text: "The project implements three CPU-bound algorithms in HHY, Go, Python, and PHP. The harness builds Go first, performs one warm-up and five measured runs per language/workload, records independent-process wall time with perf_counter_ns, and requires every implementation to produce exactly the same output before reporting timings." },
+          { type: "table", columns: ["Algorithm", "Input", "Verified result", "Primary pressure"], rows: [["Naive recursive Fibonacci", "22", "17711", "Recursion and calls"], ["Trial-division prime count", "3000", "430", "Branches and nested loops"], ["Euclidean GCD grid", "70×70", "14197", "Integer modulo and nested loops"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/algorithm-benchmarks", label: "View the complete benchmark on GitHub ↗", description: "Includes four implementations, the validating timer, environment report, CSV results, and bilingual methodology." }
+        ] },
+        { title: "Reproducible project layout", blocks: [
+          { type: "image", src: "/algorithm-benchmarks-tree.png", alt: "HHY Go Python PHP algorithm benchmark project tree", caption: "Four implementations share one configuration. benchmark.py builds Go, warms up, measures, validates, and writes CSV/JSON.", width: 900, height: 760, size: "medium" },
+          { type: "table", columns: ["File", "Responsibility"], rows: [["algorithms.*", "Matching HHY, Go, Python, and PHP implementations"], ["config.json", "Inputs, warm-up count, and measured-run count"], ["benchmark.py", "Subprocess execution, nanosecond timing, validation, and medians"], ["results/*", "Complete CSV, environment, and observed ranges"]] }
+        ] },
+        { title: "Actual timings on this machine", blocks: [
+          { type: "p", text: "These results were measured on Apple Silicon arm64 with macOS 26.6.2, HHY 1.1.0, Go 1.27.0, Python 3.14.7, and PHP 8.5.9. Values are medians of five measured wall-clock runs. Process startup is included; Go compilation is excluded." },
+          { type: "table", columns: ["Algorithm", "HHY", "Go", "Python", "PHP"], rows: [["Fibonacci(22)", "1850.439 ms", "2.185 ms", "15.447 ms", "32.601 ms"], ["Prime count(3000)", "666.554 ms", "2.113 ms", "15.210 ms", "31.969 ms"], ["GCD grid(70)", "890.378 ms", "2.276 ms", "14.793 ms", "32.598 ms"]] },
+          { type: "image", src: "/algorithm-benchmarks-run.png", alt: "Actual HHY Go Python PHP timings for three algorithms", caption: "Actual benchmark output: all four checksums match in every workload; timings are five-run medians.", width: 1180, height: 760, size: "wide" },
+          { type: "note", text: "This is not an absolute language ranking. It describes one machine, these versions, implementations, and small inputs. Startup dominates much of the short Go, Python, and PHP runs; HHY primarily spends time interpreting dense loops and calls." }
+        ] },
+        { title: "Interpretation and rerun", blocks: [
+          { type: "p", text: "The result clarifies HHY's current role: its strength is composing files, processes, HTTP, concurrency, and structured data in one reliable Flow—not replacing Go in numeric hot loops. Production automation can use HHY for orchestration and delegate dense computation to a process extension or specialized executable." },
+          { type: "code", language: "sh", code: "sh practical-projects/algorithm-benchmarks/run.sh" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/practical-projects/algorithm-benchmarks/results/benchmark.csv", label: "View the complete CSV results ↗", description: "Inspect median, minimum, maximum, checksum, and run count for every language and workload." }
+        ] }
+      ]
+    }
+  },
+  {
     slug: "extensions-roadmap",
     order: 17,
     title: { zh: "扩展系统", en: "Extension System" },
@@ -2068,7 +2121,7 @@ export function getChapter(slug: string): Chapter | undefined {
 }
 
 export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" {
-  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project") return "project";
+  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project" || chapter.slug === "algorithm-benchmarks-project") return "project";
   if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension") return "extension";
   if (chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"

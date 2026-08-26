@@ -1,0 +1,13 @@
+algorithm,input,language,median_ms,min_ms,max_ms,result,runs
+fibonacci,22,HHY,1850.439,1235.237,3602.714,17711,5
+fibonacci,22,Go,2.185,2.0,2.514,17711,5
+fibonacci,22,Python,15.447,15.064,15.696,17711,5
+fibonacci,22,PHP,32.601,32.217,33.06,17711,5
+prime_count,3000,HHY,666.554,635.124,837.13,430,5
+prime_count,3000,Go,2.113,2.05,2.249,430,5
+prime_count,3000,Python,15.21,15.107,15.512,430,5
+prime_count,3000,PHP,31.969,31.524,32.29,430,5
+gcd_grid,70,HHY,890.378,624.923,1019.213,14197,5
+gcd_grid,70,Go,2.276,2.077,2.477,14197,5
+gcd_grid,70,Python,14.793,14.511,15.25,14197,5
+gcd_grid,70,PHP,32.598,32.234,32.749,14197,5
