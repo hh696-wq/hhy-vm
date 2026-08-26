@@ -55,7 +55,9 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
             ? (lang === "zh" ? "实战项目 · 已通过自测" : "Project · Self-tested")
           : chapterKind(chapter) === "reference"
             ? (lang === "zh" ? "HHY 参考" : "HHY Reference")
-            : (lang === "zh" ? "扩展系统 · v1.1 已实现" : "Extension system · Implemented in v1.1")}</p>
+          : chapterKind(chapter) === "extension"
+            ? (lang === "zh" ? "HHY 扩展 · v1.1 已实现" : "HHY Extension · Implemented in v1.1")
+            : (lang === "zh" ? "HHY 路线图" : "HHY Roadmap")}</p>
         <h1>{chapter.title[lang]}</h1>
         <p className="chapter-summary">{chapter.summary[lang]}</p>
         {chapter.sections[lang].map((section) => (

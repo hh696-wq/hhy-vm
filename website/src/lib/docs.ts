@@ -17,6 +17,7 @@ export type ChapterSlug =
   | "syntax-reference"
   | "standard-library"
   | "extensions-roadmap"
+  | "database-extension"
   | "language-vm-roadmap"
   | "practical-recipes"
   | "cli-reference";
@@ -1814,8 +1815,8 @@ export const chapters: Chapter[] = [
   {
     slug: "extensions-roadmap",
     order: 17,
-    title: { zh: "扩展系统与数据库扩展", en: "Extension System and Database Extension" },
-    summary: { zh: "面向扩展开发者的 v1.1.0 实现说明：本地包、进程协议、加载链路和官方 C 数据库扩展。", en: "The v1.1.0 implementation guide for extension developers: local packages, the process protocol, load lifecycle, and the official C database extension." },
+    title: { zh: "扩展系统", en: "Extension System" },
+    summary: { zh: "面向扩展开发者的 v1.1.0 实现说明：本地包清单、权限声明、进程协议、加载链路和 callable 注册。", en: "The v1.1.0 implementation guide for extension developers: local manifests, capability declarations, the process protocol, load lifecycle, and callable registration." },
     sections: {
       zh: [
         { title: "v1.1.0 已实现的边界", blocks: [
@@ -1884,8 +1885,76 @@ export const chapters: Chapter[] = [
     }
   },
   {
-    slug: "language-vm-roadmap",
+    slug: "database-extension",
     order: 18,
+    title: { zh: "数据库扩展使用指南", en: "Database Extension Guide" },
+    summary: { zh: "安装官方 database 0.2.0 扩展，通过 JSON 配置连接 MySQL/PostgreSQL，并完成查询、写入与事务。", en: "Install the official database 0.2.0 extension, configure MySQL/PostgreSQL with JSON, and run queries, writes, and transactions." },
+    sections: {
+      zh: [
+        { title: "当前支持范围", blocks: [
+          { type: "note", text: "database 0.2.0 随 HHY v1.1.0 发布，是仓库中真实可运行的 C11 进程扩展。当前支持 MySQL、PostgreSQL、参数化查询、参数化写入和第一版事务；连接 handle、连接池、流式查询与完整数据库类型映射属于后续版本。" },
+          { type: "table", columns: ["Callable", "用途", "当前边界"], rows: [["database.ping(url)", "验证连接并返回数据库信息", "每次调用建立短连接"], ["database.query(url, sql, params, max_rows?)", "执行有界参数化查询", "结果包含 columns 与 rows"], ["database.execute(url, sql, params)", "执行参数化写入或受控 DDL", "返回受影响行数"], ["database.transaction(url, statements)", "原子执行 1–100 条写语句", "仅 INSERT/UPDATE/DELETE；失败整体回滚"]] }
+        ] },
+        { title: "构建并安装扩展", blocks: [
+          { type: "code", language: "sh", code: "make -C extensions/database\n./build/hhy install ./extensions/database\n./build/hhy list" },
+          { type: "p", text: "install 会校验 hhy.toml、HHY 版本范围、扩展命令和 SHA-256 完整性，并在安装前展示网络 capability。安装成功后，脚本中的 import database 会启动隔离扩展进程、完成 Protocol 1 握手并注册四个 callable。" }
+        ] },
+        { title: "使用 JSON 配置数据库地址", blocks: [
+          { type: "code", language: "sh", code: "cd extensions/database/examples/hhy_extension_test\ncp config.example.json config.local.json\nchmod 600 config.local.json" },
+          { type: "code", language: "text", filename: "config.local.json", code: "{\n  \"url\": \"mysql://root:CHANGE_ME@127.0.0.1:3306/hhy_extension_test\",\n  \"database\": \"hhy_extension_test\",\n  \"max_rows\": 1000\n}" },
+          { type: "table", columns: ["驱动", "连接 URL 示例", "参数占位符"], rows: [["MySQL", "mysql://user:password@127.0.0.1:3306/hhy_extension_test", "?"], ["PostgreSQL", "postgresql://user:password@127.0.0.1:5432/hhy_extension_test", "$1、$2……"]] },
+          { type: "note", text: "把 CHANGE_ME 替换为本机密码。config.local.json 已加入示例目录的 .gitignore；不要把真实密码写进 .hhy 源码、文档或 Git。示例脚本还会强制检查 database 必须是 hhy_extension_test，避免误操作业务库。" }
+        ] },
+        { title: "查询测试库有多少张表", blocks: [
+          { type: "code", language: "sh", code: "./build/hhy run \\\n  extensions/database/examples/hhy_extension_test/read.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json" },
+          { type: "code", language: "hhy", filename: "read.hhy", code: "import database\nimport { load_database_config } from \"./lib/config.hhy\"\n\nlet config = load_database_config(args[0])\nlet result = database.query(\n    config.url,\n    \"SELECT COUNT(*) AS table_count FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'\",\n    [config.database],\n    1\n)\n\nprint(\"Database\", config.database)\nprint(\"Table count\", result.rows[0].table_count)" },
+          { type: "p", text: "仓库中的完整 read.hhy 还会列出每张表的名称、存储引擎和估算行数。SQL 值通过 params 传给驱动的 prepared statement，不会拼接进查询文本。" }
+        ] },
+        { title: "写入与事务", blocks: [
+          { type: "code", language: "sh", code: "./build/hhy run extensions/database/examples/hhy_extension_test/write-demo.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json --write\n\n./build/hhy run extensions/database/examples/hhy_extension_test/transaction.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json --write" },
+          { type: "code", language: "hhy", filename: "transaction-example.hhy", code: "database.transaction(config.url, [\n    { sql: \"INSERT INTO _hhy_transaction_test (id, message) VALUES (?, ?)\", params: [1, \"created\"] },\n    { sql: \"UPDATE _hhy_transaction_test SET message = ? WHERE id = ?\", params: [\"committed\", 1] }\n]) |> print" },
+          { type: "note", text: "两个写示例都要求显式 --write，并且只操作 hhy_extension_test 中的专用临时表。transaction 不接受 SELECT 或 DDL；任一语句失败时扩展会回滚整个事务。" }
+        ] },
+        { title: "错误排查与完整资料", blocks: [
+          { type: "table", columns: ["现象", "检查项"], rows: [["ModuleNotFoundError", "先执行 install，并用 hhy list 确认 database 0.2.0 已安装"], ["cannot open .../read.hhy", "从仓库根目录运行完整路径，目录名是 hhy_extension_test"], ["连接失败", "检查服务、端口、用户名、密码、库名及 hhy.toml 声明的本机网络范围"], ["SQL 参数错误", "MySQL 使用 ?；PostgreSQL 使用 $1、$2……；标识符不能作为值参数"]] },
+          { type: "link", href: "/zh/learn/extensions-roadmap", label: "继续阅读扩展系统原理", description: "了解清单校验、权限声明、进程加载、Protocol 1 握手和扩展开发者约束。" }
+        ] }
+      ],
+      en: [
+        { title: "Current support", blocks: [
+          { type: "note", text: "database 0.2.0 ships with HHY v1.1.0 and is a real C11 process extension in the repository. It currently supports MySQL, PostgreSQL, parameterized reads, parameterized writes, and the first transaction API. Connection handles, pooling, streaming queries, and complete database type mapping are future work." },
+          { type: "table", columns: ["Callable", "Purpose", "Current boundary"], rows: [["database.ping(url)", "Validate connectivity and return database information", "Creates a short-lived connection per call"], ["database.query(url, sql, params, max_rows?)", "Run a bounded parameterized query", "Result contains columns and rows"], ["database.execute(url, sql, params)", "Run a parameterized write or controlled DDL", "Returns affected-row information"], ["database.transaction(url, statements)", "Atomically run 1–100 writes", "INSERT/UPDATE/DELETE only; rolls back on failure"]] }
+        ] },
+        { title: "Build and install", blocks: [
+          { type: "code", language: "sh", code: "make -C extensions/database\n./build/hhy install ./extensions/database\n./build/hhy list" },
+          { type: "p", text: "install validates hhy.toml, the HHY version range, the extension command, and SHA-256 integrity, then displays network capabilities before confirmation. After installation, import database starts the isolated extension process, completes the Protocol 1 handshake, and registers all four callables." }
+        ] },
+        { title: "Configure the database URL with JSON", blocks: [
+          { type: "code", language: "sh", code: "cd extensions/database/examples/hhy_extension_test\ncp config.example.json config.local.json\nchmod 600 config.local.json" },
+          { type: "code", language: "text", filename: "config.local.json", code: "{\n  \"url\": \"mysql://root:CHANGE_ME@127.0.0.1:3306/hhy_extension_test\",\n  \"database\": \"hhy_extension_test\",\n  \"max_rows\": 1000\n}" },
+          { type: "table", columns: ["Driver", "Connection URL example", "Parameter placeholder"], rows: [["MySQL", "mysql://user:password@127.0.0.1:3306/hhy_extension_test", "?"], ["PostgreSQL", "postgresql://user:password@127.0.0.1:5432/hhy_extension_test", "$1, $2, …"]] },
+          { type: "note", text: "Replace CHANGE_ME with the local password. config.local.json is ignored by Git in the example directory; never put real credentials in .hhy source, documentation, or Git. The examples also require the database field to equal hhy_extension_test so they cannot target an application database accidentally." }
+        ] },
+        { title: "Count the tables in the test database", blocks: [
+          { type: "code", language: "sh", code: "./build/hhy run \\\n  extensions/database/examples/hhy_extension_test/read.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json" },
+          { type: "code", language: "hhy", filename: "read.hhy", code: "import database\nimport { load_database_config } from \"./lib/config.hhy\"\n\nlet config = load_database_config(args[0])\nlet result = database.query(\n    config.url,\n    \"SELECT COUNT(*) AS table_count FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'\",\n    [config.database],\n    1\n)\n\nprint(\"Database\", config.database)\nprint(\"Table count\", result.rows[0].table_count)" },
+          { type: "p", text: "The complete read.hhy in the repository also lists every table's name, storage engine, and estimated row count. SQL values go through the driver's prepared-statement parameter API and are never concatenated into the query text." }
+        ] },
+        { title: "Writes and transactions", blocks: [
+          { type: "code", language: "sh", code: "./build/hhy run extensions/database/examples/hhy_extension_test/write-demo.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json --write\n\n./build/hhy run extensions/database/examples/hhy_extension_test/transaction.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json --write" },
+          { type: "code", language: "hhy", filename: "transaction-example.hhy", code: "database.transaction(config.url, [\n    { sql: \"INSERT INTO _hhy_transaction_test (id, message) VALUES (?, ?)\", params: [1, \"created\"] },\n    { sql: \"UPDATE _hhy_transaction_test SET message = ? WHERE id = ?\", params: [\"committed\", 1] }\n]) |> print" },
+          { type: "note", text: "Both write examples require an explicit --write flag and touch only dedicated temporary tables inside hhy_extension_test. transaction rejects SELECT and DDL; if any statement fails, the extension rolls back the entire transaction." }
+        ] },
+        { title: "Troubleshooting and complete reference", blocks: [
+          { type: "table", columns: ["Symptom", "Check"], rows: [["ModuleNotFoundError", "Run install first and use hhy list to confirm database 0.2.0 is installed"], ["cannot open .../read.hhy", "Run the complete path from the repository root; the directory is named hhy_extension_test"], ["Connection failure", "Check the service, port, user, password, database name, and local network scope declared by hhy.toml"], ["SQL parameter error", "MySQL uses ?; PostgreSQL uses $1, $2, …; identifiers cannot be value parameters"]] },
+          { type: "link", href: "/en/learn/extensions-roadmap", label: "Continue with the extension system internals", description: "Learn about manifest validation, capability declarations, process loading, the Protocol 1 handshake, and extension-author constraints." }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "language-vm-roadmap",
+    order: 19,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
     summary: { zh: "从 v1.2 到 v2.0 的五版本演进顺序、建议时间窗口、交付边界与进入条件。", en: "Five releases from v1.2 to v2.0, with recommended windows, delivery boundaries, and entry gates." },
     sections: {
@@ -1945,9 +2014,10 @@ export function getChapter(slug: string): Chapter | undefined {
   return chapters.find((chapter) => chapter.slug === slug);
 }
 
-export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "roadmap" {
+export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" {
   if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project") return "project";
-  if (chapter.slug === "extensions-roadmap" || chapter.slug === "language-vm-roadmap") return "roadmap";
+  if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension") return "extension";
+  if (chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"
     ? "reference"
     : "guide";

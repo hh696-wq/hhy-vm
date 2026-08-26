@@ -10,8 +10,9 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
   const guideChapters = chapters.filter((item) => chapterKind(item) === "guide").sort((a, b) => a.order - b.order);
   const projectChapters = chapters.filter((item) => chapterKind(item) === "project").sort((a, b) => a.order - b.order);
   const referenceChapters = chapters.filter((item) => chapterKind(item) === "reference").sort((a, b) => a.order - b.order);
+  const extensionChapters = chapters.filter((item) => chapterKind(item) === "extension").sort((a, b) => a.order - b.order);
   const roadmapChapters = chapters.filter((item) => chapterKind(item) === "roadmap").sort((a, b) => a.order - b.order);
-  const manualChapters = [...guideChapters, ...projectChapters, ...referenceChapters, ...roadmapChapters];
+  const manualChapters = [...guideChapters, ...projectChapters, ...referenceChapters, ...extensionChapters, ...roadmapChapters];
   const currentIndex = chapter ? manualChapters.findIndex((item) => item.slug === chapter.slug) : -1;
   const previous = currentIndex > 0 ? manualChapters[currentIndex - 1] : undefined;
   const next = currentIndex >= 0 && currentIndex < manualChapters.length - 1 ? manualChapters[currentIndex + 1] : undefined;
@@ -27,6 +28,8 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
           {projectChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
           <small className="docs-nav-group">{language === "zh" ? "参考" : "Reference"}</small>
           {referenceChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
+          <small className="docs-nav-group">{language === "zh" ? "扩展" : "Extensions"}</small>
+          {extensionChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
           <small className="docs-nav-group">{language === "zh" ? "路线图" : "Roadmap"}</small>
           {roadmapChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
         </nav>
