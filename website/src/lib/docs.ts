@@ -1888,11 +1888,10 @@ export const chapters: Chapter[] = [
           { type: "image", src: "/algorithm-benchmarks-run.png", alt: "HHY Go Python PHP 三种算法真实基准运行结果", caption: "真实运行截图：每组四种语言的校验值一致；截图展示 5 次运行中位数。", width: 1180, height: 760, size: "wide" },
           { type: "note", text: "这不是语言的绝对排名，只描述本机、当前版本、当前实现和这些小输入。短任务中进程启动占 Go、Python、PHP 的较大比例；HHY 耗时主要来自解释执行密集循环和函数调用。" }
         ] },
-        { title: "HHY 在系统自动化中的优势", blocks: [
-          { type: "p", text: "算法基准只衡量数值循环，无法覆盖 HHY 的核心优势。面对真实系统自动化，HHY 用统一的 Flow 直接组合文件、进程、HTTP、并发、JSON/CSV、错误处理和原子输出；同类任务在 Go、Python 或 PHP 中同样能够完成，但通常需要组合更多 API、显式控制流、并发协调或额外依赖。HHY 的价值是减少编排层之间的转换，并让资源与副作用策略成为脚本本身的一部分。" },
-          { type: "table", columns: ["自动化能力", "HHY 的统一表达", "通用语言通常需要组合"], rows: [["数据流", "Pipe + Stream + where/map/group_by", "循环、集合 API 与中间变量"], ["HTTP 可靠性", "timeout + retry + send + response_body", "客户端配置、重试循环与状态判断"], ["有界并发", "parallel(n)，默认保序并支持取消", "任务池、结果排序、错误传播与取消协调"], ["结构化输出", "parse/encode JSON/CSV + atomic save", "解析器、编码器、文件临时写入与 rename"], ["运行安全", "--limit、attempt、--dry-run", "资源监控、异常边界和副作用预演机制"]] },
+        { title: "如何解读与复跑", blocks: [
+          { type: "p", text: "结果清楚说明 HHY 当前定位：它的优势是把文件、进程、HTTP、并发与结构化数据放进同一条可靠 Flow，而不是替代 Go 执行数值热点。生产自动化可以让 HHY 负责编排，把密集计算下沉到进程扩展或专用程序。" },
           { type: "code", language: "sh", code: "sh practical-projects/algorithm-benchmarks/run.sh" },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/docs/HHY_V1.md", label: "查看 HHY 完整语言规范 ↗", description: "查看 Flow、HTTP、parallel、资源限制、错误模型、dry-run 与原子文件操作的正式语义。" }
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/practical-projects/algorithm-benchmarks/results/benchmark.csv", label: "查看完整 CSV 结果 ↗", description: "查看每个算法、语言的中位数、最小值、最大值、校验值与运行次数。" }
         ] }
       ],
       en: [
@@ -1911,11 +1910,10 @@ export const chapters: Chapter[] = [
           { type: "image", src: "/algorithm-benchmarks-run.png", alt: "Actual HHY Go Python PHP timings for three algorithms", caption: "Actual benchmark output: all four checksums match in every workload; timings are five-run medians.", width: 1180, height: 760, size: "wide" },
           { type: "note", text: "This is not an absolute language ranking. It describes one machine, these versions, implementations, and small inputs. Startup dominates much of the short Go, Python, and PHP runs; HHY primarily spends time interpreting dense loops and calls." }
         ] },
-        { title: "HHY's system-automation advantage", blocks: [
-          { type: "p", text: "An algorithm benchmark measures numeric loops, not HHY's main advantage. In real system automation, HHY uses one Flow model to compose files, processes, HTTP, concurrency, JSON/CSV, error handling, and atomic output. Go, Python, and PHP can build the same tasks, but they commonly require more APIs, explicit control flow, concurrency coordination, or additional dependencies. HHY reduces translation between orchestration layers and makes resource and side-effect policies part of the script." },
-          { type: "table", columns: ["Automation capability", "Unified HHY expression", "General-purpose languages commonly combine"], rows: [["Data flow", "Pipe + Stream + where/map/group_by", "Loops, collection APIs, and intermediate variables"], ["Reliable HTTP", "timeout + retry + send + response_body", "Client configuration, retry loops, and status branches"], ["Bounded concurrency", "parallel(n), ordered results, and cancellation", "Worker pools, result ordering, error propagation, and cancellation"], ["Structured output", "JSON/CSV parse/encode + atomic save", "Parsers, encoders, temporary files, and rename"], ["Runtime safety", "--limit, attempt, and --dry-run", "Resource monitoring, error boundaries, and effect previews"]] },
+        { title: "Interpretation and rerun", blocks: [
+          { type: "p", text: "The result clarifies HHY's current role: its strength is composing files, processes, HTTP, concurrency, and structured data in one reliable Flow—not replacing Go in numeric hot loops. Production automation can use HHY for orchestration and delegate dense computation to a process extension or specialized executable." },
           { type: "code", language: "sh", code: "sh practical-projects/algorithm-benchmarks/run.sh" },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/docs/HHY_V1.md", label: "Read the complete HHY specification ↗", description: "Review the formal semantics for Flow, HTTP, parallel, limits, errors, dry-run, and atomic file operations." }
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/practical-projects/algorithm-benchmarks/results/benchmark.csv", label: "View the complete CSV results ↗", description: "Inspect median, minimum, maximum, checksum, and run count for every language and workload." }
         ] }
       ]
     }
