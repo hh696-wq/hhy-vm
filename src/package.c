@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 #include "hhy/package.h"
 
 #include <dirent.h>
@@ -93,8 +94,10 @@ static bool make_home(const char *home) {
     char copy[PATH_MAX];
     if (snprintf(copy, sizeof(copy), "%s", home) >= (int)sizeof(copy)) return false;
     for (char *p = copy + 1; *p; p++) {
-        if (*p != '/') continue; *p = '\0';
-        if (!make_directory(copy)) return false; *p = '/';
+        if (*p != '/') continue;
+        *p = '\0';
+        if (!make_directory(copy)) return false;
+        *p = '/';
     }
     return make_directory(copy);
 }
@@ -275,7 +278,8 @@ int hhy_package_list(void) {
         if (snprintf(path, sizeof(path), "%s/%s/hhy.toml", home, entry->d_name) < (int)sizeof(path) &&
             read_manifest(path, &manifest))
             {
-                if (!first) putchar('\n'); first = false;
+                if (!first) putchar('\n');
+                first = false;
                 printf("%s %s\n", manifest.name, manifest.version);
                 printf("  %-12s %s\n", "Author", manifest.author[0]
                     ? manifest.author : "Unknown (legacy package)");
