@@ -144,6 +144,7 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 - [FlowGuard](practical-projects/flowguard/README.zh-CN.md)：面向 CI/CD 的项目质量门禁；
 - [DataFlow ETL](practical-projects/dataflow-etl/README.zh-CN.md)：CSV/JSON 数据补全与报表管道；
 - [Asset Governance](practical-projects/asset-governance/README.zh-CN.md)：安全的资产审计与整改工作流。
+- [香港电影公司](practical-projects/hong-kong-film-companies/README.zh-CN.md)：并发抓取维基百科并汇总为 CSV。
 
 ## 下载并运行
 

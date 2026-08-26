@@ -1,0 +1,45 @@
+export fn qualified_companies(pages) {
+    return pages
+        |> stream
+        |> where { page -> page.fetched }
+        |> where { page ->
+        contains(page.summary, "香港") and
+            (contains(page.summary, "電影") or contains(page.summary, "电影")) and
+            contains(page.summary, "公司")
+    }
+        |> sort_by({ order: "asc" }) { page -> page.title }
+        |> collect
+}
+
+export fn csv_rows(companies) {
+    return companies
+        |> stream
+        |> map { company ->
+        return {
+            company: company.title,
+            page_id: company.page_id,
+            wikipedia_url: company.wikipedia_url,
+            word_count: company.word_count,
+            last_updated: company.last_updated,
+            summary: company.summary
+        }
+    }
+}
+export fn build_report(project, keyword, pages, companies) {
+    let fetched = pages |> stream |> where { page -> page.fetched } |> count
+    let failed = length(pages) - fetched
+    return {
+        tool: "HHY Wikipedia Research",
+        version: "1.0.0",
+        project: project,
+        keyword: keyword,
+        ok: failed == 0 and length(companies) > 0,
+        stats: {
+            search_results: length(pages),
+            fetched_pages: fetched,
+            failed_pages: failed,
+            qualified_companies: length(companies)
+        },
+        companies: companies
+    }
+}

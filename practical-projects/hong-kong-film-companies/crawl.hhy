@@ -1,0 +1,41 @@
+#!/usr/bin/env hhy
+
+import { search_pages, fetch_pages } from "./lib/api.hhy"
+import { qualified_companies, csv_rows, build_report } from "./lib/transform.hhy"
+
+if length(args) != 3 {
+    print_error("usage: hhy run crawl.hhy <config.json> <report.json> <companies.csv>")
+    exit(3)
+}
+
+try {
+    let config = read_text(path(args[0])) |> parse_json
+    let search_results = search_pages(
+        config.search_url,
+        config.user_agent
+    )
+    let pages = fetch_pages(
+        config.api_base,
+        search_results,
+        config.parallelism,
+        config.user_agent
+    )
+    let companies = qualified_companies(pages)
+    let report = build_report(config.project, config.keyword, pages, companies)
+
+    report |> encode_json({ pretty: true }) |> save_text(path(args[1]), { atomic: true, create_parents: true })
+    companies |> csv_rows |> encode_csv({ header: true }) |> save_lines(path(args[2]), { atomic: true, create_parents: true })
+
+    print("HHY Wikipedia Research", config.keyword)
+    print("Candidates", length(search_results), "Fetched", report.stats.fetched_pages, "Companies", length(companies))
+    companies |> stream |> map { company -> join(["✓", company.title, company.wikipedia_url], "  ") } |> print
+    print("CSV", path(args[2]))
+    print("Report", path(args[1]))
+
+    if not report.ok {
+        exit(1)
+    }
+} catch err {
+    print_error(err)
+    exit(1)
+}

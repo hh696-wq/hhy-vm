@@ -1,0 +1,8 @@
+{
+  "project": "Hong Kong Film Companies",
+  "api_base": "https://zh.wikipedia.org/w/api.php",
+  "search_url": "https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=%E9%A6%99%E6%B8%AF%E9%9B%BB%E5%BD%B1%E5%85%AC%E5%8F%B8&srnamespace=0&srlimit=10&utf8=1&format=json&formatversion=2&origin=%2A",
+  "keyword": "香港電影公司",
+  "parallelism": 3,
+  "user_agent": "HHY-Wikipedia-Research/1.0 (https://hhylang.dev)"
+}

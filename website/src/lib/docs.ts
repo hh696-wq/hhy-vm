@@ -14,6 +14,7 @@ export type ChapterSlug =
   | "flowguard-project"
   | "dataflow-etl-project"
   | "asset-governance-project"
+  | "hong-kong-film-companies-project"
   | "syntax-reference"
   | "standard-library"
   | "extensions-roadmap"
@@ -1813,6 +1814,58 @@ export const chapters: Chapter[] = [
     }
   },
   {
+    slug: "hong-kong-film-companies-project",
+    order: 14,
+    title: { zh: "实战项目：香港电影公司", en: "Project: Hong Kong Film Companies" },
+    summary: { zh: "使用 MediaWiki API 并发抓取“香港電影公司”候选页面，清洗、筛选并汇总为 CSV 和 JSON 报告。", en: "Search MediaWiki for Hong Kong film-company pages, fetch details concurrently, filter the results, and export CSV plus JSON." },
+    sections: {
+      zh: [
+        { title: "用 HHY 完成真实网络数据研究", blocks: [
+          { type: "p", text: `这个项目使用 HHY ${hhyVersionTag} 调用维基百科官方 MediaWiki API。程序先按“香港電影公司”搜索 10 个候选页面，再用 parallel(3) 并发抓取 page ID、正式 URL、更新时间与限定长度的简介；随后筛选同时包含香港、电影和公司语义的条目，按标题排序并原子写入 CSV 与 JSON。` },
+          { type: "table", columns: ["阶段", "HHY 实现"], rows: [["搜索", "http.get + timeout + retry + parse_json"], ["去重", "group_by(pageid) + Map"], ["详情", "parallel(3) + attempt，单页失败不终止其他任务"], ["筛选", "Stream + where + contains + sort_by"], ["输出", "encode_csv/encode_json + atomic save"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/hong-kong-film-companies", label: "在 GitHub 查看完整源码 ↗", description: "包含 HHY 抓取程序、配置、模块、本地 MediaWiki fixture、CSV/JSON 断言和中英文说明。" }
+        ] },
+        { title: "项目结构", blocks: [
+          { type: "image", src: "/hong-kong-film-companies-tree.png", alt: "香港电影公司 HHY 维基百科抓取项目目录树", caption: "真实目录：crawl.hhy 负责编排，api.hhy 负责搜索和并发详情请求，transform.hhy 负责去重、筛选、排序与报表结构。", width: 900, height: 760, size: "medium" },
+          { type: "table", columns: ["文件", "职责"], rows: [["crawl.hhy", "读取配置、组合数据流并原子输出 CSV/JSON"], ["lib/api.hhy", "MediaWiki 搜索、HTTP 策略和 bounded parallel"], ["lib/transform.hhy", "语义过滤、稳定排序和输出字段"], ["self-test.sh", "启动本地 fixture 并验证 5→3 的确定性结果"]] }
+        ] },
+        { title: "真实维基百科运行结果", blocks: [
+          { type: "p", text: "2026-08-26 的实际运行抓取 10 个候选页面，10 个详情请求全部成功，筛出 7 个公司相关结果，包括中國星集團、國泰機構、天下一電影、東方電影（香港）、邵氏兄弟、電影工作室和香港電影公司列表。" },
+          { type: "code", language: "sh", code: "./build/hhy run --limit max_runtime=2min --limit max_parallelism=8 \\\n  practical-projects/hong-kong-film-companies/crawl.hhy \\\n  practical-projects/hong-kong-film-companies/config/wikipedia.json \\\n  practical-projects/hong-kong-film-companies/output/wikipedia-report.json \\\n  practical-projects/hong-kong-film-companies/output/wikipedia-hong-kong-film-companies.csv" },
+          { type: "image", src: "/hong-kong-film-companies-run.png", alt: "HHY 并发抓取香港电影公司维基百科数据的真实终端结果", caption: "真实联网运行：Candidates 10、Fetched 10、Companies 7，并成功写出 CSV 和 JSON 报告。", width: 1180, height: 760, size: "wide" },
+          { type: "note", text: "维基百科搜索结果和页面内容会变化，因此这是可复现的动态研究样本，不是完整公司注册名录。项目的 self-test 使用本地模拟 API，避免把外部网络变化当成代码回归。" }
+        ] },
+        { title: "并发、边界与可重复验证", blocks: [
+          { type: "p", text: "默认并发度为 3，每页简介限制为 600 字符，避免不受控响应占用 worker 通道。网络请求具有 10 秒 timeout 和两次 retry；每个详情任务由 attempt 隔离。中文搜索词在配置中的 search_url 已百分号编码，以兼容 HHY 1.1.0 当前非 ASCII query Map 编码限制。" },
+          { type: "code", language: "sh", code: "sh practical-projects/hong-kong-film-companies/self-test.sh" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/practical-projects/hong-kong-film-companies/README.zh-CN.md", label: "阅读中文运行说明 ↗", description: "查看输出字段、真实抓取命令、配置限制与确定性测试设计。" }
+        ] }
+      ],
+      en: [
+        { title: "Real network research with HHY", blocks: [
+          { type: "p", text: `This project uses HHY ${hhyVersionTag} with the official MediaWiki API. It searches for ten pages related to “香港電影公司”, fetches page IDs, canonical URLs, timestamps, and bounded introductions with parallel(3), retains entries that mention Hong Kong, film, and a company, sorts by title, and atomically writes CSV and JSON.` },
+          { type: "table", columns: ["Stage", "HHY implementation"], rows: [["Search", "http.get + timeout + retry + parse_json"], ["Deduplicate", "group_by(pageid) + Map"], ["Details", "parallel(3) + attempt so one page cannot stop peers"], ["Filter", "Stream + where + contains + sort_by"], ["Output", "encode_csv/encode_json + atomic save"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/hong-kong-film-companies", label: "View the complete source on GitHub ↗", description: "Includes the HHY crawler, configuration, modules, local MediaWiki fixture, CSV/JSON assertions, and bilingual guides." }
+        ] },
+        { title: "Project layout", blocks: [
+          { type: "image", src: "/hong-kong-film-companies-tree.png", alt: "Hong Kong film companies HHY Wikipedia research project tree", caption: "The real layout: crawl.hhy orchestrates, api.hhy handles search and concurrent details, and transform.hhy handles grouping, filtering, sorting, and report structures.", width: 900, height: 760, size: "medium" },
+          { type: "table", columns: ["File", "Responsibility"], rows: [["crawl.hhy", "Read configuration, compose the flow, and atomically write CSV/JSON"], ["lib/api.hhy", "MediaWiki search, HTTP policies, and bounded parallel work"], ["lib/transform.hhy", "Semantic filtering, stable sorting, and output fields"], ["self-test.sh", "Start a local fixture and verify the deterministic 5→3 result"]] }
+        ] },
+        { title: "Actual Wikipedia result", blocks: [
+          { type: "p", text: "On 2026-08-26, the actual run fetched all ten candidate details and retained seven company-related results: China Star Entertainment Group, Cathay Organisation, One Cool Film, Mandarin Films, Shaw Brothers, Film Workshop, and the Hong Kong film-company list." },
+          { type: "code", language: "sh", code: "./build/hhy run --limit max_runtime=2min --limit max_parallelism=8 \\\n  practical-projects/hong-kong-film-companies/crawl.hhy \\\n  practical-projects/hong-kong-film-companies/config/wikipedia.json \\\n  practical-projects/hong-kong-film-companies/output/wikipedia-report.json \\\n  practical-projects/hong-kong-film-companies/output/wikipedia-hong-kong-film-companies.csv" },
+          { type: "image", src: "/hong-kong-film-companies-run.png", alt: "Actual terminal result of HHY concurrently collecting Hong Kong film company data from Wikipedia", caption: "Actual network run: ten candidates, ten fetched pages, seven retained companies, with CSV and JSON written successfully.", width: 1180, height: 760, size: "wide" },
+          { type: "note", text: "Wikipedia search results and content change, so this is a reproducible research sample rather than an exhaustive business registry. The self-test uses a local API fixture so external network changes do not become code regressions." }
+        ] },
+        { title: "Concurrency, limits, and repeatability", blocks: [
+          { type: "p", text: "The default parallelism is three and each introduction is capped at 600 characters, bounding worker results. Requests use a ten-second timeout and two retries; attempt isolates each detail task. The Chinese keyword is percent-encoded in search_url to accommodate HHY 1.1.0's current non-ASCII query Map limitation." },
+          { type: "code", language: "sh", code: "sh practical-projects/hong-kong-film-companies/self-test.sh" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/practical-projects/hong-kong-film-companies/README.md", label: "Read the English guide ↗", description: "See output fields, the real crawl command, configuration limits, and deterministic test design." }
+        ] }
+      ]
+    }
+  },
+  {
     slug: "extensions-roadmap",
     order: 17,
     title: { zh: "扩展系统", en: "Extension System" },
@@ -2015,7 +2068,7 @@ export function getChapter(slug: string): Chapter | undefined {
 }
 
 export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" {
-  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project") return "project";
+  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project") return "project";
   if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension") return "extension";
   if (chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"

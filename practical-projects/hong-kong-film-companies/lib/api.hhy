@@ -1,0 +1,71 @@
+export fn search_pages(search_url, user_agent) {
+    let response = http.get(search_url, {
+        headers: { "User-Agent": user_agent }
+    })
+        |> timeout(10s)
+        |> retry({ count: 2, backoff: 250ms })
+        |> send
+        |> response_body
+        |> parse_json
+
+    return response.query.search
+}
+
+export fn fetch_pages(api_base, search_results, parallelism, user_agent) {
+    return search_results
+        |> stream
+        |> group_by { result -> result.pageid }
+        |> map { group -> group.values[0] }
+        |> parallel(parallelism) { result ->
+        let detail = attempt {
+            let response = http.get(api_base, {
+                query: {
+                    action: "query",
+                    prop: "extracts|info",
+                    pageids: result.pageid,
+                    inprop: "url",
+                    exintro: true,
+                    explaintext: true,
+                    exchars: 600,
+                    format: "json",
+                    formatversion: 2,
+                    origin: "*"
+                },
+                headers: { "User-Agent": user_agent }
+            })
+                |> timeout(10s)
+                |> retry({ count: 2, backoff: 250ms })
+                |> send
+                |> response_body
+                |> parse_json
+            let page = response.query.pages[0]
+            let summary = split(page.extract, "\n")[0] |> trim
+            return {
+                title: page.title,
+                page_id: page.pageid,
+                wikipedia_url: page.fullurl,
+                word_count: result.wordcount,
+                last_updated: page.touched,
+                summary: summary,
+                fetched: true,
+                error: null
+            }
+        }
+
+        if detail.ok {
+            return detail.value
+        }
+
+        return {
+            title: result.title,
+            page_id: result.pageid,
+            wikipedia_url: null,
+            word_count: result.wordcount,
+            last_updated: result.timestamp,
+            summary: null,
+            fetched: false,
+            error: detail.error.message
+        }
+    }
+        |> collect
+}
