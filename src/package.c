@@ -40,7 +40,7 @@ static bool safe_name(const char *name) {
 static bool read_manifest(const char *path, Manifest *manifest) {
     memset(manifest, 0, sizeof(*manifest)); FILE *file = fopen(path, "rb");
     if (file == NULL) return false;
-    char section[32] = "", line[2048];
+    char section[32] = "", line[2048]; bool valid = true;
     while (fgets(line, sizeof(line), file) != NULL) {
         char *start = line; while (*start == ' ' || *start == '\t') start++;
         if (*start == '#' || *start == '\n' || *start == '\0') continue;
@@ -66,7 +66,11 @@ static bool read_manifest(const char *path, Manifest *manifest) {
                 target = manifest->command, capacity = sizeof(manifest->command);
             else if (strcmp(section, "extension") == 0 && strcmp(key, "protocol") == 0)
                 target = manifest->protocol, capacity = sizeof(manifest->protocol);
-            if (target != NULL) snprintf(target, capacity, "%s", value);
+            if (target != NULL) {
+                size_t length = strlen(value);
+                if (length >= capacity) valid = false;
+                else memcpy(target, value, length + 1);
+            }
         }
         if (strcmp(section, "capabilities") == 0) {
             size_t used = strlen(manifest->capabilities), available = sizeof(manifest->capabilities) - used;
@@ -74,7 +78,7 @@ static bool read_manifest(const char *path, Manifest *manifest) {
         }
     }
     fclose(file);
-    return safe_name(manifest->name) && manifest->version[0] && manifest->requires_hhy[0] &&
+    return valid && safe_name(manifest->name) && manifest->version[0] && manifest->requires_hhy[0] &&
         strcmp(manifest->protocol, "1") == 0 && manifest->command[0] != '\0' &&
         strncmp(manifest->command, "bin/", 4) == 0 &&
         strchr(manifest->command + 4, '/') == NULL && strstr(manifest->command, "..") == NULL;

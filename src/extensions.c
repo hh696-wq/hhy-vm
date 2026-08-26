@@ -42,6 +42,13 @@ static char *copy_text(const char *text, size_t length) {
     return copy;
 }
 
+static bool copy_fixed_text(char *target, size_t capacity, const char *source) {
+    size_t length = strlen(source);
+    if (length >= capacity) return false;
+    memcpy(target, source, length + 1);
+    return true;
+}
+
 static Extension *find_extension(const char *name, size_t length) {
     for (Extension *item = extensions; item != NULL; item = item->next)
         if (strlen(item->name) == length && memcmp(item->name, name, length) == 0) return item;
@@ -53,7 +60,7 @@ static bool manifest_command(const char *path, const char *expected_name,
     FILE *file = fopen(path, "rb");
     if (file == NULL) { set_error(error, "installed extension has no hhy.toml"); return false; }
     char section[32] = ""; char package_name[128] = "", kind[32] = "", protocol[32] = "";
-    char line[1024];
+    char line[1024]; bool valid = true;
     while (fgets(line, sizeof(line), file) != NULL) {
         char *start = line; while (*start == ' ' || *start == '\t') start++;
         if (*start == '#' || *start == '\n' || *start == '\0') continue;
@@ -66,16 +73,16 @@ static bool manifest_command(const char *path, const char *expected_name,
         char key[64], value[PATH_MAX];
         if (sscanf(start, "%63[^ =] = \"%1023[^\"]\"", key, value) != 2) continue;
         if (strcmp(section, "package") == 0 && strcmp(key, "name") == 0)
-            snprintf(package_name, sizeof(package_name), "%s", value);
+            valid = copy_fixed_text(package_name, sizeof(package_name), value) && valid;
         else if (strcmp(section, "extension") == 0 && strcmp(key, "kind") == 0)
-            snprintf(kind, sizeof(kind), "%s", value);
+            valid = copy_fixed_text(kind, sizeof(kind), value) && valid;
         else if (strcmp(section, "extension") == 0 && strcmp(key, "command") == 0)
-            snprintf(command, command_size, "%s", value);
+            valid = copy_fixed_text(command, command_size, value) && valid;
         else if (strcmp(section, "extension") == 0 && strcmp(key, "protocol") == 0)
-            snprintf(protocol, sizeof(protocol), "%s", value);
+            valid = copy_fixed_text(protocol, sizeof(protocol), value) && valid;
     }
     fclose(file);
-    if (strcmp(package_name, expected_name) != 0 || strcmp(kind, "process") != 0 ||
+    if (!valid || strcmp(package_name, expected_name) != 0 || strcmp(kind, "process") != 0 ||
         strcmp(protocol, "1") != 0 || command[0] == '\0') {
         set_error(error, "extension manifest is incompatible with Protocol v1"); return false;
     }
