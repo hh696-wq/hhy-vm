@@ -10,6 +10,9 @@ export type ChapterSlug =
   | "http"
   | "parallel-watch"
   | "modules-errors"
+  | "syntax-reference"
+  | "standard-library"
+  | "extensions-roadmap"
   | "practical-recipes"
   | "cli-reference";
 
@@ -18,7 +21,10 @@ export type DocBlock =
   | { type: "note"; text: string }
   | { type: "code"; language: "hhy" | "sh" | "text"; code: string }
   | { type: "terminal"; command: string; output: string }
-  | { type: "list"; items: string[] };
+  | { type: "list"; items: string[] }
+  | { type: "table"; columns: string[]; rows: string[][] }
+  | { type: "link"; href: string; label: string; description: string }
+  | { type: "api"; entries: { name: string; signature: string; description: string }[] };
 
 export type DocSection = {
   title: string;
@@ -57,18 +63,115 @@ let users = [
 ]
 
 summarize(users) |> print`,
+  basicsValues: `let nothing = null
+let enabled = true
+let count = 42
+let ratio = 0.75
+let title = "HHY"
+let pattern = /ERROR|WARN/i
+let names = ["Ada", "Linus"]
+let user = { name: "Ada", active: true }
+let indexes = 0..3
+let size_limit = 10mib
+let timeout_limit = 5s
+let completion = 80%
+
+print(type(user))
+print(is_type(title, "String"))`,
+  basicsCollections: `let original = ["Flow", "System"]
+let extended = append(original, "Pipe")
+let shortened = remove_at(extended, 1)
+
+let config = { retries: 3, label: null }
+let updated = put(config, "timeout", 5s)
+let selected = pick(updated, ["retries", "timeout"])
+
+print(original)
+print(shortened)
+print(get(config, "missing"))
+print(require(config, "label"))
+print(selected)`,
+  basicsControl: `fn classify(score) {
+    if score >= 90 { return "excellent" }
+    else if score >= 60 { return "pass" }
+    else { return "retry" }
+}
+
+let mut total = 0
+for score in [98, 72, 55] {
+    if score < 60 { continue }
+    total = total + score
+}
+
+let mut attempts = 0
+while attempts < 3 {
+    attempts = attempts + 1
+}
+
+print(classify(98))
+print(total)`,
   flow: `[1, 2, 3, 4, 5]
     |> stream
     |> map { number -> number * 2 }
     |> where { number -> number > 5 }
     |> take(2)
     |> print`,
+  flowOperators: `[5, 2, 5, 1, 3]
+    |> stream
+    |> skip(1)
+    |> take(4)
+    |> inspect { number -> print("seen {number}") }
+    |> where { number -> number >= 3 }
+    |> map { number -> number * 10 }
+    |> distinct
+    |> collect
+    |> print`,
+  flowFlatMap: `let batches = [[1, 2], [3, 4]]
+
+batches
+    |> stream
+    |> flat_map { batch -> batch |> stream }
+    |> print`,
+  flowBarriers: `let ordered = [5, 1, 3, 2, 4]
+    |> stream
+    |> sort_by({ order: "asc" }) { number -> number }
+    |> collect
+
+let grouped = [
+    { team: "core", name: "Ada" },
+    { team: "web", name: "Linus" },
+    { team: "core", name: "Grace" }
+]
+    |> stream
+    |> group_by { person -> person.team }
+    |> collect
+
+print(ordered)
+print(grouped)`,
   files: `path("./logs")
     |> files("**/*.log")
     |> where { file -> file.size > 1mib }
     |> flat_map { file -> read_lines(file.path) }
     |> where { line -> contains(line, "ERROR") }
     |> save_lines(path("errors.txt"))`,
+  pathFields: `let source = path("./src/../src/main.c")
+let target = path_join(source.parent, "runtime.c")
+
+print(source)
+print(source.name)
+print(source.extension)
+print(source.parent)
+print(target)`,
+  fileOperations: `let input = path("notes.txt")
+let backup = path("backup/notes.txt")
+
+write_text(input, "first line\n", { overwrite: true })
+append_text(input, "second line\n")
+copy(input, backup, { overwrite: false, create_parents: true })
+
+read_lines(backup)
+    |> map { line -> upper(line) }
+    |> save_lines(path("backup/upper.txt"), { create_parents: true })`,
   json: `read_text(path("users.json"))
     |> parse_json
     |> get("users")
@@ -401,13 +504,272 @@ path(args[0])
     |> collect
     |> encode_json({ pretty: true })
     |> save_text(path(args[1]))`,
-  cli: `hhy run script.hhy
-hhy check script.hhy
-hhy fmt script.hhy
-hhy run --dry-run script.hhy
+  cli: `hhy script.hhy [args...]
+hhy run script.hhy [args...]
 hhy repl
-hhy --version`
+hhy check script.hhy...
+hhy fmt script.hhy...
+hhy fmt --check script.hhy...
+hhy ast script.hhy
+hhy tokens script.hhy
+hhy run --dry-run script.hhy
+hhy run --limit max_runtime=30s --limit max_memory=256mib script.hhy
+hhy --version
+hhy --help`,
+  syntaxLiterals: `let nothing = null
+let flags = [true, false]
+let numbers = [42, -10, 0xff, 0b1010, 1.5, 1e6]
+let name = "HHY"
+let strings = ["hello", "Hello, {name}"]
+let pattern = /ERROR|WARN/i
+let list = [1, 2, 3]
+let record = { name: "Tom", age: 20 }
+let interval = 1..10
+let units = [10mib, 5s, 80%]`,
+  syntaxOperators: `()  []  .
+not  -  +
+*  /  %
++  -
+<  <=  >  >=
+==  !=
+and
+or
+??
+|>
+=`,
+  syntaxStatements: `let name = "HHY"
+let mut count = 0
+count = count + 1
+let enabled = true
+let items = ["Flow", "Pipe"]
+
+if enabled { print("yes") } else { print("no") }
+for item in items { print(item) }
+while count < 3 { count = count + 1 }
+
+fn add(a, b) { return a + b }
+let doubled = [1, 2] |> stream |> map { number -> number * 2 } |> collect
+
+try { read_text(path("config.json")) } catch err { print_error(err) }
+let result = attempt { read_text(path("config.json")) }
+
+import { add as sum_two } from "./math.hhy"
+export fn public_api(value) { return value }`,
+  stdCore: `print(Value...) -> Null
+print_error(Value...) -> Null
+exit(Int?) -> Never
+length(String | List | Map) -> Int
+byte_length(String | BytesBuffer) -> Int
+type(Value) -> String
+is_type(Value, String) -> Bool
+to_int(Int | Float | String) -> Int
+to_float(Int | Float | String) -> Float
+get(List | Map | Record, Int | String) -> Value | Null
+require(Map, String) -> Value
+pick(Map, List<String>) -> Map
+put(Map, String, Value) -> Map
+remove_key(Map, String) -> Map
+append(List<T>, T) -> List<T>
+remove_at(List<T>, Int) -> List<T>
+now() -> DateTime
+datetime.parse(String, String, String) -> DateTime
+require_env(String) -> String
+sleep(Duration) -> Null
+cancel() -> Never
+throw(Error) -> Never`,
+  stdFlow: `stream(List<T> | Map | Range) -> Stream<T>
+range(Int, Int) -> Stream<Int>
+map(Stream<T>, Function(T -> U)) -> Stream<U>
+flat_map(Stream<T>, Function(T -> Stream<U>)) -> Stream<U>
+where(Stream<T>, Function(T -> Bool)) -> Stream<T>
+take(Stream<T>, Int) -> Stream<T>
+skip(Stream<T>, Int) -> Stream<T>
+inspect(Stream<T>, Function(T -> Value)) -> Stream<T>
+distinct(Stream<Hashable>) -> Stream<Hashable>
+sort_by(Stream<T>, Map, Function(T -> Comparable)) -> Stream<T>
+group_by(Stream<T>, Function(T -> Hashable)) -> Stream<Group<T>>
+debounce(Stream<T>, Duration) -> Stream<T>
+on_error(Stream<T>, Function(Error -> Stream<T>)) -> Stream<T>
+parallel(Stream<T>, Int, Function(T -> U)) -> Stream<U>
+collect(Stream<T>) -> List<T>
+count(Stream<T>) -> Int
+first(Stream<T>) -> T | Null
+last(Stream<T>) -> T | Null
+min(Stream<Number>) -> Number | Null
+max(Stream<Number>) -> Number | Null
+sum(Stream<Number>) -> Number
+reduce(Stream<T>, U, Function(State<T,U> -> U)) -> U
+any(Stream<T>, Function(T -> Bool)) -> Bool
+all(Stream<T>, Function(T -> Bool)) -> Bool
+for_each(Stream<T>, Function(T -> Value)) -> Null`,
+  stdText: `contains(String | List, Value) -> Bool
+upper(String) -> String
+lower(String) -> String
+trim(String) -> String
+trim_start(String) -> String
+trim_end(String) -> String
+starts_with(String, String) -> Bool
+ends_with(String, String) -> Bool
+replace(String, String, String) -> String
+split(String, String) -> List<String>
+join(List<String>, String) -> String
+regex_match(String, Regex) -> Bool
+regex_captures(String, Regex) -> Map | Null
+parse_json(String) -> JsonValue
+encode_json(JsonValue, Map?) -> String
+parse_csv(String | Stream<String>, Map?) -> Stream<Map>
+encode_csv(Stream<Map>, Map?) -> Stream<String>`,
+  stdFiles: `path(String) -> Path
+path_join(Path, String | Path) -> Path
+files(Path, String, Map?) -> Stream<File | Directory>
+read_text(Path) -> String
+read_lines(Path) -> Stream<String>
+read_bytes(Path) -> BytesBuffer
+write_text(Path, String, Map?) -> Path
+append_text(Path, String) -> Path
+write_bytes(Path, BytesBuffer, Map?) -> Path
+save_text(String | Stream<String>, Path, Map?) -> Path
+save_lines(Stream<String>, Path, Map?) -> Path
+copy(Path, Path, Map?) -> Path
+move(Path, Path, Map?) -> Path
+remove(Path) -> Path
+watch(Path, Map?) -> Stream<FileEvent>`,
+  stdProcess: `run(List<String>, Map?) -> CommandResult
+shell(String, Map?) -> CommandResult
+stdout_lines(CommandResult) -> Stream<String>
+processes() -> Stream<Process>
+stdin_lines() -> Stream<String>
+every(Duration) -> Stream<Int>`,
+  stdHttp: `http.get(String, Map?) -> HttpRequest
+http.post(String, Map?) -> HttpRequest
+http.put(String, Map?) -> HttpRequest
+http.delete(String, Map?) -> HttpRequest
+timeout(HttpRequest, Duration) -> HttpRequest
+retry(HttpRequest, Map) -> HttpRequest
+send(HttpRequest) -> HttpResponse
+response_body(HttpResponse) -> String
+response_bytes(HttpResponse) -> BytesBuffer`
 };
+
+const callableDescriptions: Record<string, Record<Language, string>> = {
+  print: { zh: "把值写到标准输出；传入 Stream 时逐项输出并消费它。", en: "Write values to stdout; a Stream is consumed and printed item by item." },
+  print_error: { zh: "把值写到标准错误；适合诊断信息。", en: "Write values to stderr for diagnostics." },
+  exit: { zh: "立即以给定状态码结束脚本，省略时使用 0，并触发资源清理。", en: "End the script with an optional status code (default 0) and unwind resources." },
+  length: { zh: "返回 String 的 code point 数或 List/Map 的元素数；Stream 应使用 count。", en: "Return String code points or List/Map elements; use count for a Stream." },
+  byte_length: { zh: "返回 String 的 UTF-8 字节数或 BytesBuffer 大小。", en: "Return the UTF-8 byte count of String or size of BytesBuffer." },
+  type: { zh: "返回值的逻辑类型名。", en: "Return a value's logical type name." },
+  is_type: { zh: "判断值是否具有指定逻辑类型，返回 Bool。", en: "Test whether a value has the named logical type." },
+  to_int: { zh: "把 Int/Float/String 显式转换为 Int，失败或溢出产生 ValueError。", en: "Explicitly convert Int/Float/String to Int; invalid or overflowing input raises ValueError." },
+  to_float: { zh: "把 Int/Float/String 显式转换为 Float，失败产生 ValueError。", en: "Explicitly convert Int/Float/String to Float; invalid input raises ValueError." },
+  get: { zh: "安全读取 List 索引、Map 键或对象字段；缺失返回 null。", en: "Safely read a List index, Map key, or record field; missing values return null." },
+  require: { zh: "读取必需 Map 键；键缺失产生 KeyError，存在且为 null 时返回 null。", en: "Read a required Map key; missing raises KeyError, while a present null stays null." },
+  pick: { zh: "返回只保留指定键的新 Map，并保留存在的 null 字段。", en: "Return a new Map containing selected keys, preserving present null fields." },
+  put: { zh: "返回新增或替换一个键的新 Map，不修改原 Map。", en: "Return a new Map with one key inserted or replaced; the original is unchanged." },
+  remove_key: { zh: "返回移除指定键的新 Map。", en: "Return a new Map without the named key." },
+  append: { zh: "返回末尾增加一个元素的新 List。", en: "Return a new List with one item appended." },
+  remove_at: { zh: "返回移除指定索引的新 List；越界产生 IndexError。", en: "Return a new List without the indexed item; out of range raises IndexError." },
+  now: { zh: "返回带时区的当前 DateTime。", en: "Return the current zoned DateTime." },
+  "datetime.parse": { zh: "按明确的格式和时区解析 DateTime，非法输入产生 ValueError。", en: "Parse DateTime using an explicit format and timezone; invalid input raises ValueError." },
+  require_env: { zh: "读取必需环境变量；不存在时产生 KeyError。", en: "Read a required environment variable; missing raises KeyError." },
+  sleep: { zh: "可取消地等待指定 Duration。", en: "Wait for a Duration while remaining cancellable." },
+  cancel: { zh: "触发当前执行的根取消令牌并开始统一清理。", en: "Trigger the execution's root cancellation token and begin cleanup." },
+  throw: { zh: "抛出 Error，并沿调用栈或 Flow 传播。", en: "Throw an Error through the call stack or Flow." },
+  stream: { zh: "把 List、Map entries 或 Range 转成惰性单次消费 Stream。", en: "Convert a List, Map entries, or Range into a lazy single-use Stream." },
+  range: { zh: "创建从 start 到 end（不含 end）的 Int Stream。", en: "Create an Int Stream from start up to but excluding end." },
+  map: { zh: "惰性地对每项调用闭包，一项输入对应一项输出，不自动展开。", en: "Lazily transform each item one-to-one without automatic flattening." },
+  flat_map: { zh: "对每项返回一个子 Stream，并惰性地把子流依次展开。", en: "Return a child Stream per item and lazily concatenate child streams." },
+  where: { zh: "惰性保留闭包返回 true 的项目；闭包必须返回 Bool。", en: "Lazily retain items whose predicate returns Bool true." },
+  take: { zh: "惰性保留前 n 项，达到数量后提前关闭上游。", en: "Lazily retain the first n items and close upstream early." },
+  skip: { zh: "惰性丢弃前 n 项，然后传递其余项目。", en: "Lazily discard the first n items and pass the remainder." },
+  inspect: { zh: "为每项执行观察闭包，再原样传递项目。", en: "Run an observation closure for each item and pass the item unchanged." },
+  distinct: { zh: "惰性去除重复的可 Hash 标量，并保存已见集合。", en: "Lazily remove duplicate hashable scalars while retaining a seen set." },
+  sort_by: { zh: "物化有限输入，按闭包 key 和 asc/desc 选项稳定排序。", en: "Materialize finite input and stably sort by closure key and asc/desc option." },
+  group_by: { zh: "物化有限输入并按 Hash key 输出 Group；Group 含 key 与 values。", en: "Materialize finite input into Groups containing key and values." },
+  debounce: { zh: "在指定 Duration 内合并快速连续事件，常用于 watch。", en: "Coalesce rapid events within a Duration, commonly for watch streams." },
+  on_error: { zh: "当 Stream 失败时调用闭包，用返回的 Stream 恢复或替换后续输出。", en: "On Stream failure, invoke a closure whose returned Stream supplies recovery output." },
+  parallel: { zh: "用最多 n 个隔离 worker 并发处理，保序、有界缓冲且 fail-fast。", en: "Process with at most n isolated workers, ordered output, bounded buffering, and fail-fast errors." },
+  collect: { zh: "消费有限 Stream 并物化为 List。", en: "Consume a finite Stream and materialize it as a List." },
+  count: { zh: "消费 Stream 并返回项目数。", en: "Consume a Stream and return its item count." },
+  first: { zh: "返回第一项或 null，并提前关闭上游。", en: "Return the first item or null and close upstream early." },
+  last: { zh: "消费 Stream 并返回最后一项或 null。", en: "Consume a Stream and return its last item or null." },
+  min: { zh: "消费数值 Stream，返回最小值或空流的 null。", en: "Consume a numeric Stream and return its minimum or null for empty input." },
+  max: { zh: "消费数值 Stream，返回最大值或空流的 null。", en: "Consume a numeric Stream and return its maximum or null for empty input." },
+  sum: { zh: "消费数值 Stream 并求和，遵守 Int 溢出规则。", en: "Consume and sum a numeric Stream, respecting Int overflow rules." },
+  reduce: { zh: "以 initial 累积 Stream；闭包接收含 acc/item/index 的 state。", en: "Fold a Stream from initial; the closure receives state with acc/item/index." },
+  any: { zh: "任一项目满足谓词即返回 true，并短路关闭上游。", en: "Return true on the first matching item and short-circuit upstream." },
+  all: { zh: "所有项目满足谓词才返回 true；首个 false 时短路。", en: "Return true only if every item matches; short-circuit on the first false." },
+  for_each: { zh: "消费 Stream 并为每项执行闭包，返回 null。", en: "Consume a Stream, execute a closure for each item, and return null." },
+  contains: { zh: "判断 String 是否含子串，或 List 是否含相等值。", en: "Test whether a String contains a substring or a List contains an equal value." },
+  upper: { zh: "返回 Unicode 大写转换后的新 String。", en: "Return a new String converted to Unicode uppercase." },
+  lower: { zh: "返回 Unicode 小写转换后的新 String。", en: "Return a new String converted to Unicode lowercase." },
+  trim: { zh: "移除 String 两端空白。", en: "Remove whitespace from both ends of a String." },
+  trim_start: { zh: "移除 String 开头空白。", en: "Remove leading whitespace from a String." },
+  trim_end: { zh: "移除 String 末尾空白。", en: "Remove trailing whitespace from a String." },
+  starts_with: { zh: "判断 String 是否以指定文本开头。", en: "Test whether a String starts with the given text." },
+  ends_with: { zh: "判断 String 是否以指定文本结尾。", en: "Test whether a String ends with the given text." },
+  replace: { zh: "返回把匹配文本替换后的新 String。", en: "Return a new String with matching text replaced." },
+  split: { zh: "按分隔文本把 String 分割成 List<String>。", en: "Split a String by delimiter text into List<String>." },
+  join: { zh: "用分隔文本连接 List<String>。", en: "Join List<String> with delimiter text." },
+  regex_match: { zh: "判断 PCRE2 Regex 是否匹配 String，受正则资源限制。", en: "Test a String against a PCRE2 Regex under regex resource limits." },
+  regex_captures: { zh: "返回完整匹配、字节位置、编号和命名捕获；不匹配返回 null。", en: "Return full match, byte positions, numbered and named captures; null when unmatched." },
+  parse_json: { zh: "严格解析 JSON String 为普通 HHY 值，错误包含行列。", en: "Strictly parse JSON String into ordinary HHY values with line/column errors." },
+  encode_json: { zh: "把可编码普通值转成 JSON；options 可启用 pretty。", en: "Encode supported ordinary values as JSON; options may enable pretty output." },
+  parse_csv: { zh: "把 String 或行 Stream 流式解析成 Stream<Map>。", en: "Stream-parse a String or line Stream into Stream<Map>." },
+  encode_csv: { zh: "把 Stream<Map> 流式编码为不含换行符的 CSV record Stream。", en: "Stream-encode Stream<Map> into CSV records without line terminators." },
+  path: { zh: "把 String 词法规范化为 Path，不访问文件系统。", en: "Lexically normalize String into Path without filesystem access." },
+  path_join: { zh: "组合 Path 与子路径并返回规范化的新 Path。", en: "Combine a Path with a child path and return a normalized Path." },
+  files: { zh: "按 glob 惰性遍历根目录，返回 File/Directory Stream。", en: "Lazily walk a root with a glob and return a File/Directory Stream." },
+  read_text: { zh: "完整读取 UTF-8 文件为 String。", en: "Read an entire UTF-8 file as String." },
+  read_lines: { zh: "逐行惰性读取 UTF-8 文件并移除行终止符。", en: "Lazily read UTF-8 lines with terminators removed." },
+  read_bytes: { zh: "完整读取二进制文件为 BytesBuffer。", en: "Read an entire binary file as BytesBuffer." },
+  write_text: { zh: "以原子替换方式写 String，支持 overwrite/create_parents。", en: "Atomically replace with String, supporting overwrite/create_parents." },
+  append_text: { zh: "把 String 追加到文件末尾。", en: "Append String to the end of a file." },
+  write_bytes: { zh: "以原子替换方式写 BytesBuffer。", en: "Atomically replace a file with BytesBuffer." },
+  save_text: { zh: "把 String 或文本 Stream 边拉取边原子保存。", en: "Atomically save a String or pull a text Stream directly to disk." },
+  save_lines: { zh: "把 String Stream 逐项写入并补 LF，最终原子替换。", en: "Write a String Stream with LF per item and atomically replace the target." },
+  copy: { zh: "复制文件，支持原子 no-replace 与创建父目录。", en: "Copy a file with atomic no-replace and parent creation options." },
+  move: { zh: "移动或重命名文件，遵守覆盖选项。", en: "Move or rename a file while respecting overwrite options." },
+  remove: { zh: "删除明确 Path，并返回该 Path。", en: "Remove an explicit Path and return it." },
+  watch: { zh: "返回无限 FileEvent Stream，支持 recursive 选项并响应取消。", en: "Return an infinite FileEvent Stream with recursive option and cancellation." },
+  run: { zh: "直接执行 argv，不经过 Shell；返回 CommandResult。", en: "Execute argv directly without a shell and return CommandResult." },
+  shell: { zh: "显式用 Shell 执行 String；仅在需要重定向、管道等 Shell 语义时使用。", en: "Explicitly execute a String through a shell for redirects, pipes, and shell syntax." },
+  stdout_lines: { zh: "把 CommandResult.stdout 转为惰性行 Stream。", en: "Expose CommandResult.stdout as a lazy line Stream." },
+  processes: { zh: "获取当前进程快照的 Stream<Process>。", en: "Return a Stream<Process> snapshot of current processes." },
+  stdin_lines: { zh: "惰性读取标准输入行，直到 EOF 或取消。", en: "Lazily read stdin lines until EOF or cancellation." },
+  every: { zh: "按指定 Duration 产生无限计时 tick Stream。", en: "Produce an infinite timer tick Stream at a Duration interval." },
+  "http.get": { zh: "构造 GET HttpRequest 计划，不发送网络请求。", en: "Build a GET HttpRequest plan without network I/O." },
+  "http.post": { zh: "构造 POST HttpRequest 计划，不发送网络请求。", en: "Build a POST HttpRequest plan without network I/O." },
+  "http.put": { zh: "构造 PUT HttpRequest 计划，不发送网络请求。", en: "Build a PUT HttpRequest plan without network I/O." },
+  "http.delete": { zh: "构造 DELETE HttpRequest 计划，不发送网络请求。", en: "Build a DELETE HttpRequest plan without network I/O." },
+  timeout: { zh: "返回设置请求超时的新 HttpRequest。", en: "Return a new HttpRequest with its timeout configured." },
+  retry: { zh: "返回配置重试次数和退避的新 HttpRequest。", en: "Return a new HttpRequest configured with retry count and backoff." },
+  send: { zh: "执行 HttpRequest 网络副作用并返回 HttpResponse。", en: "Perform the HttpRequest network effect and return HttpResponse." },
+  response_body: { zh: "验证响应状态并把有界 body 解码为 UTF-8 String。", en: "Validate response status and decode the bounded body as UTF-8 String." },
+  response_bytes: { zh: "验证响应状态并返回有界二进制 BytesBuffer。", en: "Validate response status and return the bounded binary BytesBuffer." }
+};
+
+function callableList(block: "stdCore" | "stdFlow" | "stdText" | "stdFiles" | "stdProcess" | "stdHttp", language: Language): DocBlock {
+  return {
+    type: "api",
+    entries: code[block].split("\n").map((signature) => {
+      const name = signature.slice(0, signature.indexOf("("));
+      return { name, signature, description: callableDescriptions[name][language] };
+    })
+  };
+}
+
+function callableSelection(names: string[], language: Language): DocBlock {
+  const signatures = [code.stdCore, code.stdFlow, code.stdText, code.stdFiles, code.stdProcess, code.stdHttp]
+    .flatMap((block) => block.split("\n"));
+  return {
+    type: "api",
+    entries: names.map((name) => {
+      const signature = signatures.find((item) => item.startsWith(`${name}(`));
+      if (!signature) throw new Error(`missing documented callable ${name}`);
+      return { name, signature, description: callableDescriptions[name][language] };
+    })
+  };
+}
 
 export const chapters: Chapter[] = [
   {
@@ -417,33 +779,67 @@ export const chapters: Chapter[] = [
     summary: { zh: "安装 HHY，构建解释器，并运行第一个脚本。", en: "Install HHY, build the interpreter, and run your first script." },
     sections: {
       zh: [
-        { title: "准备环境", blocks: [
-          { type: "p", text: "HHY V1.0.0 正式支持 macOS arm64、Linux arm64 和 Linux x86_64。源码构建需要 C11 编译器、make、libcurl、PCRE2 与 BDWGC。" },
-          { type: "code", language: "sh", code: "brew install curl pcre2 bdw-gc\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\n./build/hhy --version" },
-          { type: "note", text: "Linux 的依赖包名称因发行版而异，完整说明见仓库 INSTALL.md。" }
+        { title: "方式一：直接下载 Release（推荐）", blocks: [
+          { type: "p", text: "不需要修改 HHY Runtime 时，直接使用官方 V1.0.0 发行包最快。根据系统和 CPU 选择 darwin-arm64、linux-x86_64 或 linux-arm64；压缩包已包含 HHY 可执行文件、所需的非系统运行库、文档、许可证、构建信息和示例。" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases", label: "打开 HHY GitHub Releases ↗", description: "下载最新稳定版本、对应的 .sha256 文件或汇总 SHA256SUMS。" },
+          { type: "code", language: "sh", code: "tar -xzf hhy-1.0.0-PLATFORM-ARCH.tar.gz\ncd hhy-1.0.0-PLATFORM-ARCH\n./bin/hhy --version\n./bin/hhy run examples/07-language-basics.hhy" },
+          { type: "note", text: "保持 bin/ 与 lib/ 的相对位置不变，否则便携包可能找不到随包运行库。PLATFORM-ARCH 替换为 darwin-arm64、linux-x86_64 或 linux-arm64。" }
         ] },
-        { title: "安装命令", blocks: [
+        { title: "下载后校验与加入 PATH", blocks: [
+          { type: "p", text: "运行下载内容前，应使用同名 .sha256 或 SHA256SUMS 验证文件完整性。macOS 自带 shasum，Linux 通常使用 sha256sum。" },
+          { type: "code", language: "sh", code: "# macOS\nshasum -a 256 -c hhy-1.0.0-darwin-arm64.tar.gz.sha256\n\n# Linux\nsha256sum -c hhy-1.0.0-linux-x86_64.tar.gz.sha256\n\n# 当前终端加入 PATH（替换成实际绝对路径）\nexport PATH=\"/absolute/path/hhy-1.0.0-PLATFORM-ARCH/bin:$PATH\"\nhhy --version" },
+          { type: "p", text: "长期使用时，把 export PATH 行放进 shell 配置文件；或者继续通过发行目录中的 ./bin/hhy 运行，不需要系统级安装。" }
+        ] },
+        { title: "方式二：从源码构建", blocks: [
+          { type: "p", text: "需要开发 Runtime、验证最新源码或自定义安装位置时再选择源码构建。HHY V1.0.0 正式支持 macOS arm64、Linux arm64 和 Linux x86_64；需要 C11 编译器、make、libcurl、PCRE2 与 BDWGC。" },
+          { type: "code", language: "sh", code: "brew install curl pcre2 bdw-gc\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\nmake test\n./build/hhy --version" },
+          { type: "note", text: "brew 命令只适用于 macOS。Linux 的依赖包名称因发行版而异，完整说明见仓库 INSTALL.md。" }
+        ] },
+        { title: "安装源码构建结果", blocks: [
           { type: "code", language: "sh", code: "make install PREFIX=\"$(brew --prefix)\"\nhhy --version" },
-          { type: "p", text: "安装后，所有 .hhy 文件都可以通过 hhy run 执行。" }
+          { type: "p", text: "PREFIX 可以换成自定义绝对路径。确认 PREFIX/bin 已在 PATH 后，所有 .hhy 文件都可以通过 hhy run 执行。" }
         ] },
         { title: "第一个脚本", blocks: [
           { type: "code", language: "hhy", code: code.hello },
-          { type: "code", language: "sh", code: "hhy run hello.hhy" }
+          { type: "code", language: "sh", code: "hhy check hello.hhy\nhhy run hello.hhy" },
+          { type: "p", text: "let 创建绑定；List 字面量保存三个 String；|> 把左侧值注入下一个函数；map 的闭包逐项生成新 String；print 消费结果。check 先验证词法、语法、作用域、模块与已知标准库调用，不执行副作用。" }
+        ] },
+        { title: "脚本运行与开发流程", blocks: [
+          { type: "table", columns: ["任务", "命令", "用途"], rows: [["格式化", "hhy fmt script.hhy", "写入 HHY 官方格式"], ["检查格式", "hhy fmt --check script.hhy", "在 CI 中检查，不修改文件"], ["检查脚本", "hhy check script.hhy", "检查语法、作用域和已知 API"], ["运行脚本", "hhy run script.hhy", "执行脚本"], ["传递参数", "hhy run script.hhy input.csv output.json", "参数进入只读 args"], ["预览计划", "hhy run --dry-run script.hhy", "查看脱敏计划，不执行外部副作用"]] },
+          { type: "p", text: "源码使用 .hhy 后缀。查看完整命令：" },
+          { type: "code", language: "sh", code: "hhy --help" }
         ] }
       ],
       en: [
-        { title: "Prepare your environment", blocks: [
-          { type: "p", text: "HHY V1.0.0 officially supports macOS arm64, Linux arm64, and Linux x86_64. A source build requires a C11 compiler, make, libcurl, PCRE2, and BDWGC." },
-          { type: "code", language: "sh", code: "brew install curl pcre2 bdw-gc\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\n./build/hhy --version" },
-          { type: "note", text: "Package names vary across Linux distributions. See INSTALL.md for the full dependency matrix." }
+        { title: "Option 1: download a Release (recommended)", blocks: [
+          { type: "p", text: "If you are not modifying the HHY Runtime, an official V1.0.0 archive is the fastest path. Choose darwin-arm64, linux-x86_64, or linux-arm64 for your OS and CPU. Archives include the executable, required non-system runtime libraries, docs, licenses, build metadata, and examples." },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases", label: "Open HHY GitHub Releases ↗", description: "Download the latest stable archive and its matching .sha256 file or SHA256SUMS." },
+          { type: "code", language: "sh", code: "tar -xzf hhy-1.0.0-PLATFORM-ARCH.tar.gz\ncd hhy-1.0.0-PLATFORM-ARCH\n./bin/hhy --version\n./bin/hhy run examples/07-language-basics.hhy" },
+          { type: "note", text: "Keep bin/ and lib/ in their original relative positions so the portable executable can find bundled libraries. Replace PLATFORM-ARCH with darwin-arm64, linux-x86_64, or linux-arm64." }
         ] },
-        { title: "Install the command", blocks: [
+        { title: "Verify the download and add it to PATH", blocks: [
+          { type: "p", text: "Before running a download, verify it with the matching .sha256 file or SHA256SUMS. macOS includes shasum; Linux commonly provides sha256sum." },
+          { type: "code", language: "sh", code: "# macOS\nshasum -a 256 -c hhy-1.0.0-darwin-arm64.tar.gz.sha256\n\n# Linux\nsha256sum -c hhy-1.0.0-linux-x86_64.tar.gz.sha256\n\n# Add to PATH for this terminal (use the real absolute path)\nexport PATH=\"/absolute/path/hhy-1.0.0-PLATFORM-ARCH/bin:$PATH\"\nhhy --version" },
+          { type: "p", text: "For permanent access, put the export PATH line in your shell profile. You may also keep invoking ./bin/hhy from the extracted directory without a system-wide install." }
+        ] },
+        { title: "Option 2: build from source", blocks: [
+          { type: "p", text: "Build from source when developing the Runtime, validating current source, or choosing a custom installation prefix. HHY V1.0.0 supports macOS arm64, Linux arm64, and Linux x86_64 and requires a C11 compiler, make, libcurl, PCRE2, and BDWGC." },
+          { type: "code", language: "sh", code: "brew install curl pcre2 bdw-gc\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\nmake test\n./build/hhy --version" },
+          { type: "note", text: "The brew command applies only to macOS. Linux package names vary by distribution; see INSTALL.md for the full dependency matrix." }
+        ] },
+        { title: "Install the source build", blocks: [
           { type: "code", language: "sh", code: "make install PREFIX=\"$(brew --prefix)\"\nhhy --version" },
-          { type: "p", text: "After installation, execute any .hhy file with hhy run." }
+          { type: "p", text: "PREFIX may be a custom absolute path. Once PREFIX/bin is on PATH, execute any .hhy file with hhy run." }
         ] },
         { title: "Your first script", blocks: [
           { type: "code", language: "hhy", code: code.hello },
-          { type: "code", language: "sh", code: "hhy run hello.hhy" }
+          { type: "code", language: "sh", code: "hhy check hello.hhy\nhhy run hello.hhy" },
+          { type: "p", text: "let creates a binding; the List literal stores three Strings; |> injects the left value into the next call; the map closure creates one new String per item; print consumes the result. check validates lexical syntax, scope, modules, and known standard-library calls without effects." }
+        ] },
+        { title: "Running scripts and the development workflow", blocks: [
+          { type: "table", columns: ["Task", "Command", "Purpose"], rows: [["Format", "hhy fmt script.hhy", "Write canonical HHY formatting"], ["Check format", "hhy fmt --check script.hhy", "Verify in CI without changing files"], ["Check script", "hhy check script.hhy", "Validate syntax, scope, and known APIs"], ["Run", "hhy run script.hhy", "Execute the script"], ["Pass arguments", "hhy run script.hhy input.csv output.json", "Arguments enter read-only args"], ["Preview plan", "hhy run --dry-run script.hhy", "Inspect a redacted plan without external effects"]] },
+          { type: "p", text: "HHY source files use the .hhy suffix. View complete command help:" },
+          { type: "code", language: "sh", code: "hhy --help" }
         ] }
       ]
     }
@@ -455,23 +851,65 @@ export const chapters: Chapter[] = [
     summary: { zh: "变量、值、函数、条件、循环和作用域。", en: "Variables, values, functions, conditions, loops, and scope." },
     sections: {
       zh: [
-        { title: "动态值模型", blocks: [
-          { type: "p", text: "HHY 是动态类型语言，运行时值包括 Null、Bool、Int、Float、String、List、Map、Range、DateTime、Path、Duration、Bytes、Percent、Result、Stream 以及系统对象。" },
-          { type: "list", items: ["let 声明不可重新赋值的绑定。", "let mut 声明可重新赋值的绑定。", "块、函数和模块拥有词法作用域。", "集合更新返回新值，不提供原地修改 API。"] }
+        { title: "动态类型是什么意思", blocks: [
+          { type: "p", text: "HHY 的变量声明不写类型，值在运行时携带自己的逻辑类型。动态类型不等于随意转换：条件必须得到 Bool，String 不会自动变成 Number、Bool 或 Path，参数数量和不支持的运算都会产生结构化错误。用 type(value) 查看类型，用 is_type(value, name) 判断类型。" },
+          { type: "code", language: "hhy", code: code.basicsValues }
         ] },
-        { title: "函数与控制流", blocks: [
+        { title: "标量与单位类型", blocks: [
+          { type: "table", columns: ["类型", "示例", "用途"], rows: [["Null", "null", "表示没有值"], ["Bool", "true", "条件与谓词"], ["Int", "42", "整数计算"], ["Float", "3.14", "浮点计算"], ["String", "\"hello\"", "UTF-8 文本"], ["Regex", "/ERROR/i", "文本匹配"], ["Bytes", "10mib", "文件或内存大小"], ["Duration", "5s", "超时与时间间隔"], ["Percent", "80%", "比例"], ["DateTime", "now()", "带时区时间"], ["Path", "path(\"logs\")", "文件系统路径"]] },
+          { type: "p", text: "String、数字、单位和 Path 的精确边界行为属于 Reference。日常脚本只需记住：HHY 不会在 String、Number、Bool 和 Path 之间做隐式转换。" },
+          { type: "link", href: "/zh/learn/syntax-reference", label: "查看类型与语法参考 →", description: "查阅 UTF-8、数值溢出、运算符和字面量的精确定义。" }
+        ] },
+        { title: "List、Map 与 Range", blocks: [
+          { type: "p", text: "List 使用从 0 开始的索引，越界产生 IndexError。Map 的键只能是 String，保持插入顺序；map.key 与 map[\"key\"] 等价。普通缺失键返回 null，require 用于区分“键缺失”和“键存在但值是 null”。Range a..b 包含 a、不包含 b，并且不会预先分配 List。" },
+          { type: "code", language: "hhy", code: code.basicsCollections },
+          { type: "p", text: "List 和 Map 不原地修改。append、remove_at、put、remove_key、pick 都返回新集合，所以示例中的 original 和 config 保持不变。List/Map 支持深度相等；Function、Stream 和系统资源对象不支持值相等。" }
+        ] },
+        { title: "Result、Stream 与系统对象", blocks: [
+          { type: "table", columns: ["类型", "用于"], rows: [["Result", "显式保存一次操作的成功值或 Error"], ["Stream", "惰性处理文件、行、进程、响应和事件"], ["Error", "携带类别、位置和 Flow stage 的失败"], ["Function", "用户函数与闭包"], ["系统对象", "File、Process、HttpResponse 等带只读字段的专用值"]] },
+          { type: "p", text: "系统对象不是 Map。需要写入 JSON 时，先用 map 或 pick 选择普通字段。Stream 的惰性和消费规则在 Flow 章节展开。" }
+        ] },
+        { title: "变量、作用域与不可变性", blocks: [
+          { type: "code", language: "hhy", code: "let service = \"api\"\nlet mut retries = 0\nretries = retries + 1" },
+          { type: "p", text: "let 创建不可重新赋值的绑定；需要重新赋值时使用 let mut。List 和 Map 的更新函数返回新值，不修改原集合。变量遵循块级词法作用域，并且必须先声明后使用。" },
+          { type: "note", text: "闭包可以捕获外层值。捕获 let mut 的闭包不能发送到 parallel worker；并发限制在“并发与监听”章节说明。" }
+        ] },
+        { title: "条件、循环与函数", blocks: [
+          { type: "code", language: "hhy", code: code.basicsControl },
+          { type: "p", text: "支持 if / else if / else、for item in iterable、while、break 和 continue。for 可以遍历 List、Map entries、Range 或 Stream；遍历 Stream 会消费它。函数使用位置参数，参数数量在调用时检查；没有显式 return 时返回 null。" },
           { type: "code", language: "hhy", code: code.basics },
-          { type: "p", text: "函数按值接收参数并支持闭包。V1.0 不提供重载、泛型或默认参数。" }
+          { type: "p", text: "闭包写作 { item -> expression }；多条语句时必须显式写参数并用 return 返回。单参数闭包在明确的 Flow 上下文中可以使用 { it * 2 }。V1.0 不支持重载、泛型或默认参数。" }
         ] }
       ],
       en: [
-        { title: "Dynamic value model", blocks: [
-          { type: "p", text: "HHY is dynamically typed. Runtime values include Null, Bool, Int, Float, String, List, Map, Range, DateTime, Path, Duration, Bytes, Percent, Result, Stream, and system objects." },
-          { type: "list", items: ["let declares a binding that cannot be reassigned.", "let mut declares a reassignable binding.", "Blocks, functions, and modules use lexical scope.", "Collection updates return new values; there is no in-place collection API."] }
+        { title: "What dynamic typing means", blocks: [
+          { type: "p", text: "HHY declarations omit types; each value carries its logical type at runtime. Dynamic does not mean coercive: conditions require Bool, String never automatically becomes Number, Bool, or Path, and invalid arity or operations raise structured errors. Use type(value) to inspect a type and is_type(value, name) to test it." },
+          { type: "code", language: "hhy", code: code.basicsValues }
         ] },
-        { title: "Functions and control flow", blocks: [
+        { title: "Scalar and unit types", blocks: [
+          { type: "table", columns: ["Type", "Example", "Use"], rows: [["Null", "null", "Absence"], ["Bool", "true", "Conditions and predicates"], ["Int", "42", "Integer arithmetic"], ["Float", "3.14", "Floating-point arithmetic"], ["String", "\"hello\"", "UTF-8 text"], ["Regex", "/ERROR/i", "Text matching"], ["Bytes", "10mib", "File or memory size"], ["Duration", "5s", "Timeouts and intervals"], ["Percent", "80%", "Ratios"], ["DateTime", "now()", "Zoned time"], ["Path", "path(\"logs\")", "Filesystem paths"]] },
+          { type: "p", text: "Precise String, number, unit, and Path edge cases belong in Reference. For ordinary scripts, remember that HHY never implicitly converts among String, Number, Bool, and Path." },
+          { type: "link", href: "/en/learn/syntax-reference", label: "Open the type and syntax reference →", description: "Look up exact UTF-8, overflow, operator, and literal behavior." }
+        ] },
+        { title: "List, Map, and Range", blocks: [
+          { type: "p", text: "List indices start at zero and out-of-range access raises IndexError. Map keys are Strings and preserve insertion order; map.key equals map[\"key\"]. A missing key normally returns null, while require distinguishes a missing key from a present key whose value is null. Range a..b includes a and excludes b without allocating a List." },
+          { type: "code", language: "hhy", code: code.basicsCollections },
+          { type: "p", text: "Lists and Maps are not mutated in place. append, remove_at, put, remove_key, and pick return new collections, leaving original and config unchanged. Lists and Maps support deep equality; Functions, Streams, and system resources do not support value equality." }
+        ] },
+        { title: "Result, Stream, and system objects", blocks: [
+          { type: "table", columns: ["Type", "Used for"], rows: [["Result", "Explicit success values or Errors from one operation"], ["Stream", "Lazy files, lines, processes, responses, and events"], ["Error", "Failures with category, location, and Flow stage"], ["Function", "User functions and closures"], ["System object", "Dedicated values such as File, Process, and HttpResponse"]] },
+          { type: "p", text: "System objects are not Maps. Map or pick ordinary fields before JSON encoding. Flow explains Stream laziness and consumption in detail." }
+        ] },
+        { title: "Bindings, scope, and immutability", blocks: [
+          { type: "code", language: "hhy", code: "let service = \"api\"\nlet mut retries = 0\nretries = retries + 1" },
+          { type: "p", text: "let creates a binding that cannot be reassigned; use let mut when reassignment is required. List and Map update functions return new collections rather than mutating originals. Names follow block lexical scope and must be declared before use." },
+          { type: "note", text: "Closures may capture outer values. A closure that captures let mut cannot be sent to a parallel worker; Parallel and Watch covers this concurrency boundary." }
+        ] },
+        { title: "Conditions, loops, and functions", blocks: [
+          { type: "code", language: "hhy", code: code.basicsControl },
+          { type: "p", text: "HHY supports if / else if / else, for item in iterable, while, break, and continue. for iterates Lists, Map entries, Ranges, or Streams; iterating a Stream consumes it. Functions use positional arguments checked at call time and return null without an explicit return." },
           { type: "code", language: "hhy", code: code.basics },
-          { type: "p", text: "Functions receive values and support closures. V1.0 has no overloading, generics, or default parameters." }
+          { type: "p", text: "A closure is { item -> expression }; a multi-statement closure must name its parameter and use return. A one-argument closure in an unambiguous Flow context may use { it * 2 }. V1.0 has no overloading, generics, or default arguments." }
         ] }
       ]
     }
@@ -483,21 +921,61 @@ export const chapters: Chapter[] = [
     summary: { zh: "理解管道传值、惰性流和单次消费语义。", en: "Understand pipe injection, lazy streams, and single-consumption semantics." },
     sections: {
       zh: [
-        { title: "管道即语言", blocks: [
-          { type: "p", text: "表达式 lhs |> f(a) 等价于把 lhs 注入为 f 的第一个参数。标准库统一按 Source → Transform → Filter → Action 组织。" },
+        { title: "Pipe 如何传值", blocks: [
+          { type: "p", text: "Pipe 是普通函数调用的组合规则：x |> f 等价于 f(x)，x |> f(a) 等价于 f(x, a)，x |> obj.f(a) 等价于 obj.f(x, a)。它不会自动把标量变成 Stream、展开嵌套 Stream、访问 it 字段、忽略错误、字符串化值或启动 Shell。" },
           { type: "code", language: "hhy", code: code.flow }
         ] },
-        { title: "惰性执行", blocks: [
-          { type: "list", items: ["Stream 按需拉取，不预先物化全部输入。", "Stream 只能消费一次。", "take 可以安全截断有限流和无限流。", "sort、group_by、collect 等 barrier 会物化输入并受资源上限约束。"] }
+        { title: "Stream 的生命周期", blocks: [
+          { type: "p", text: "Stream 是惰性、拉取式、单次消费序列。创建管道只组合 operator；终端开始拉取时，上游才逐项产生数据。生命周期是 open → next* → close，正常结束、take 提前停止、错误和取消都会从下游向上游关闭资源。" },
+          { type: "table", columns: ["阶段", "发生的事情"], rows: [["创建", "Source 返回 Stream，但尚未读取数据"], ["组合", "map、where 等 operator 连接成 Pipeline"], ["消费", "print、collect、save 等终端开始逐项拉取"], ["关闭", "完成、提前停止、Error 或取消释放上游资源"]] },
+          { type: "note", text: "Stream 只能消费一次。不要把同一个 Stream 保存后交给两条 Pipeline；需要重复处理时重新创建 Source，或在有限输入上显式 collect。" }
+        ] },
+        { title: "逐项、过滤与观察算子", blocks: [
+          { type: "code", language: "hhy", code: code.flowOperators },
+          callableSelection(["map", "where", "take", "skip", "inspect", "distinct"], "zh")
+        ] },
+        { title: "map 与 flat_map 的区别", blocks: [
+          { type: "p", text: "map 的闭包返回什么，下游就收到什么。如果返回 Stream，结果是 Stream<Stream<T>>。flat_map 要求闭包返回 Stream，并把每个子流依次展开成一条 Stream。" },
+          { type: "code", language: "hhy", code: code.flowFlatMap }
+        ] },
+        { title: "Barrier 和终端算子到底做什么", blocks: [
+          { type: "p", text: "逐项算子只需保存当前项；Barrier 必须先看完或保存大量输入才能产生正确结果。sort_by 要保存全部输入后排序，group_by 要保存每组的全部 values，collect 把全部项组成 List，reduce/count/sum 等终端算子读取到结束才返回标量。它们都受 max_memory、集合大小和运行时间限制。" },
+          { type: "code", language: "hhy", code: code.flowBarriers },
+          callableSelection(["sort_by", "group_by", "collect", "reduce", "count", "sum", "min", "max", "first", "last", "any", "all"], "zh"),
+          { type: "note", text: "不要把 watch、every 或没有明确上限的输入直接送入 sort_by、group_by 或 collect。先用 take、时间窗口或其他业务边界把输入限制为有限流，否则 Runtime 会产生 PlanError。" }
+        ] },
+        { title: "副作用、错误与并发", blocks: [
+          { type: "p", text: "只有终端或 Action 才会真正消费 Pipeline。print、for_each、save_*、run 和 send 会执行输出、文件、进程或网络操作。普通 Error 默认终止 Pipeline；需要逐项保留失败时使用 attempt，需要替换整条失败上游时使用 on_error。" },
+          { type: "p", text: "parallel(n) 使用隔离 worker 并保持输出顺序。并发数量、可发送值和取消语义在“并发与监听”章节展开。" }
         ] }
       ],
       en: [
-        { title: "The pipe is the language", blocks: [
-          { type: "p", text: "The expression lhs |> f(a) injects lhs as the first argument to f. The standard library consistently follows Source → Transform → Filter → Action." },
+        { title: "How Pipe passes values", blocks: [
+          { type: "p", text: "Pipe is a composition rule for ordinary calls: x |> f means f(x), x |> f(a) means f(x, a), and x |> obj.f(a) means obj.f(x, a). It does not turn scalars into Streams, flatten nested Streams, access it fields, ignore errors, stringify values, or invoke a shell." },
           { type: "code", language: "hhy", code: code.flow }
         ] },
-        { title: "Lazy execution", blocks: [
-          { type: "list", items: ["Streams pull values on demand instead of materializing all input.", "A Stream can be consumed only once.", "take safely bounds finite and infinite streams.", "Barriers such as sort, group_by, and collect materialize input under resource limits."] }
+        { title: "Stream lifecycle", blocks: [
+          { type: "p", text: "A Stream is a lazy, pull-based, single-consumption sequence. Building a pipeline only composes operators; upstream produces items when a terminal starts pulling. Its lifecycle is open → next* → close, and normal completion, early take, errors, and cancellation all close resources upstream." },
+          { type: "table", columns: ["Stage", "What happens"], rows: [["Create", "A Source returns a Stream without reading data"], ["Compose", "Operators such as map and where form a Pipeline"], ["Consume", "A terminal such as print, collect, or save starts pulling"], ["Close", "Completion, early stop, Error, or cancellation releases upstream resources"]] },
+          { type: "note", text: "A Stream is consumed once. Do not save one Stream and feed two Pipelines; recreate the Source, or explicitly collect finite input." }
+        ] },
+        { title: "Item, filter, and observation operators", blocks: [
+          { type: "code", language: "hhy", code: code.flowOperators },
+          callableSelection(["map", "where", "take", "skip", "inspect", "distinct"], "en")
+        ] },
+        { title: "map versus flat_map", blocks: [
+          { type: "p", text: "map sends exactly the closure result downstream. Returning a Stream therefore creates Stream<Stream<T>>. flat_map requires a Stream result and concatenates each child stream into one Stream." },
+          { type: "code", language: "hhy", code: code.flowFlatMap }
+        ] },
+        { title: "What barriers and terminals actually do", blocks: [
+          { type: "p", text: "Item operators retain only the current item. A barrier must inspect or retain substantial input before producing a correct result: sort_by stores all input before sorting, group_by stores every group's values, collect builds a List, and terminals such as reduce/count/sum read to completion before returning a scalar. All obey memory, collection-size, and runtime limits." },
+          { type: "code", language: "hhy", code: code.flowBarriers },
+          callableSelection(["sort_by", "group_by", "collect", "reduce", "count", "sum", "min", "max", "first", "last", "any", "all"], "en"),
+          { type: "note", text: "Do not feed watch, every, or otherwise unbounded input directly into sort_by, group_by, or collect. Apply take, a time window, or another business bound first, or the Runtime raises PlanError." }
+        ] },
+        { title: "Effects, errors, and parallelism", blocks: [
+          { type: "p", text: "Only a terminal or Action consumes a Pipeline. print, for_each, save_*, run, and send perform output, filesystem, process, or network work. Ordinary Errors terminate the Pipeline; use attempt for per-item Results and on_error to replace a failed upstream Stream." },
+          { type: "p", text: "parallel(n) uses isolated workers and preserves output order. Parallel and Watch covers concurrency limits, Sendable values, and cancellation." }
         ] }
       ]
     }
@@ -509,21 +987,65 @@ export const chapters: Chapter[] = [
     summary: { zh: "遍历目录、读取文本并安全写入结果。", en: "Walk directories, read text, and write results safely." },
     sections: {
       zh: [
-        { title: "文件系统是一等公民", blocks: [
-          { type: "code", language: "hhy", code: code.files },
-          { type: "p", text: "files 返回惰性 File Stream。Path 使用词法规范化；递归遍历可以启用 symlink，并具有循环保护。save_text 与 save_lines 使用原子替换语义。" }
+        { title: "Path 不是 String", blocks: [
+          { type: "p", text: "所有文件 API 都要求 Path。path(text) 做词法规范化：折叠重复分隔符和 .，消除可以解析的 ..，但不访问文件系统也不解析符号链接。相对 Path 始终基于进程启动目录，不随被 import 的文件位置变化。" },
+          { type: "code", language: "hhy", code: code.pathFields },
+          { type: "p", text: "name、extension、parent 是 Path 的只读字段，不是 path_name()、path_extension()、path_parent() 函数。extension 包含前导点，无扩展名时为空字符串；path_join(base, child) 返回组合后的新 Path。" }
         ] },
-        { title: "常用能力", blocks: [
-          { type: "list", items: ["read_text / read_lines", "write_text / append_text / save_text / save_lines", "files / copy / move / remove", "path_join / path_name / path_extension / path_parent"] }
+        { title: "files：遍历、glob 与元数据", blocks: [
+          { type: "code", language: "hhy", code: code.files },
+          { type: "p", text: "files(root, pattern, options?) 返回惰性的 Stream<File | Directory>，不会返回遍历根本身。pattern 支持 *、?、**；默认不跟随目录符号链接，{ follow_symlinks: true } 可开启并自动跳过检测到的目录循环。" },
+          { type: "table", columns: ["字段", "含义"], rows: [["path", "完整 Path"], ["name", "文件或目录名"], ["extension", "包含前导点的扩展名"], ["size", "Bytes 大小"], ["created", "创建时间；不可可靠取得时为 null"], ["modified", "修改时间"], ["is_file / is_dir / is_symlink", "对象种类标记"]] },
+          { type: "p", text: "File 和 Directory 是系统对象，不是 Map。写入 JSON 前，先把需要的字段映射成普通 Map。" }
+        ] },
+        { title: "读取文本与二进制", blocks: [
+          callableSelection(["read_text", "read_lines", "read_bytes"], "zh"),
+          { type: "note", text: "文本 API 验证 UTF-8。图片、压缩包等任意二进制使用 read_bytes 和 write_bytes，不要放进 String。" }
+        ] },
+        { title: "写入、追加与原子保存", blocks: [
+          { type: "code", language: "hhy", code: code.fileOperations },
+          callableSelection(["write_text", "append_text", "write_bytes", "save_text", "save_lines"], "zh"),
+          { type: "p", text: "write_text、write_bytes、save_text、save_lines 的 options 支持 overwrite（默认 true）和 create_parents（默认 false）。这些 API 通过同目录临时文件加 rename 提交；overwrite: false 使用原子 no-replace，避免先检查后写入的竞态覆盖。" }
+        ] },
+        { title: "复制、移动、删除与 dry-run", blocks: [
+          callableSelection(["copy", "move", "remove"], "zh"),
+          { type: "code", language: "sh", code: "hhy run --dry-run backup.hhy\nhhy run backup.hhy" },
+          { type: "p", text: "先检查 dry-run 计划，再执行包含复制、移动或删除的脚本。" },
+          { type: "note", text: "文件读取、遍历、写入、进程和网络操作都可能被 RuntimeLimits、取消或宿主权限中止。不要依赖 GC 关闭系统资源；Runtime 会在正常完成、错误、return、exit 和 cancel 路径显式清理。" }
+        ] },
+        { title: "查阅完整 API", blocks: [
+          { type: "link", href: "/zh/learn/standard-library#fn-path", label: "路径与文件 API Reference →", description: "查阅全部签名、参数形式和函数锚点。" }
         ] }
       ],
       en: [
-        { title: "The filesystem is first-class", blocks: [
-          { type: "code", language: "hhy", code: code.files },
-          { type: "p", text: "files returns a lazy File Stream. Paths are lexically normalized; recursive walking can opt into symlinks with cycle protection. save_text and save_lines use atomic replacement semantics." }
+        { title: "Path is not String", blocks: [
+          { type: "p", text: "Every filesystem API requires Path. path(text) normalizes lexically: it collapses repeated separators and ., and resolves removable .. segments without accessing the filesystem or resolving symlinks. A relative Path is always based on the process startup directory, not the importing file." },
+          { type: "code", language: "hhy", code: code.pathFields },
+          { type: "p", text: "name, extension, and parent are read-only Path fields—not path_name(), path_extension(), or path_parent() functions. extension includes the leading dot and is empty when absent; path_join(base, child) returns a new combined Path." }
         ] },
-        { title: "Core capabilities", blocks: [
-          { type: "list", items: ["read_text / read_lines", "write_text / append_text / save_text / save_lines", "files / copy / move / remove", "path_join / path_name / path_extension / path_parent"] }
+        { title: "files: traversal, globs, and metadata", blocks: [
+          { type: "code", language: "hhy", code: code.files },
+          { type: "p", text: "files(root, pattern, options?) returns a lazy Stream<File | Directory> and excludes the traversal root itself. Patterns support *, ?, and **. Directory symlinks are not followed by default; { follow_symlinks: true } opts in with cycle detection." },
+          { type: "table", columns: ["Field", "Meaning"], rows: [["path", "Full Path"], ["name", "File or directory name"], ["extension", "Extension including its leading dot"], ["size", "Size as Bytes"], ["created", "Creation time, or null when unavailable"], ["modified", "Modification time"], ["is_file / is_dir / is_symlink", "Object-kind flags"]] },
+          { type: "p", text: "File and Directory are system objects, not Maps. Map required fields into an ordinary Map before JSON encoding." }
+        ] },
+        { title: "Reading text and binary data", blocks: [
+          callableSelection(["read_text", "read_lines", "read_bytes"], "en"),
+          { type: "note", text: "Text APIs validate UTF-8. Use read_bytes and write_bytes for images, archives, and arbitrary binary data rather than storing it in String." }
+        ] },
+        { title: "Writing, appending, and atomic saves", blocks: [
+          { type: "code", language: "hhy", code: code.fileOperations },
+          callableSelection(["write_text", "append_text", "write_bytes", "save_text", "save_lines"], "en"),
+          { type: "p", text: "write_text, write_bytes, save_text, and save_lines accept overwrite (default true) and create_parents (default false). They commit through a same-directory temporary file plus rename; overwrite: false uses atomic no-replace to prevent check-then-write races." }
+        ] },
+        { title: "Copy, move, remove, and dry-run", blocks: [
+          callableSelection(["copy", "move", "remove"], "en"),
+          { type: "code", language: "sh", code: "hhy run --dry-run backup.hhy\nhhy run backup.hhy" },
+          { type: "p", text: "Review the dry-run plan before executing a script that copies, moves, or removes files." },
+          { type: "note", text: "Filesystem reads, traversal, writes, processes, and networking may stop because of RuntimeLimits, cancellation, or host permissions. The Runtime explicitly cleans resources on completion, errors, return, exit, and cancel; it does not rely on GC finalizers." }
+        ] },
+        { title: "Look up the complete API", blocks: [
+          { type: "link", href: "/en/learn/standard-library#fn-path", label: "Paths and files API Reference →", description: "Look up every signature, parameter form, and stable function anchor." }
         ] }
       ]
     }
@@ -535,22 +1057,48 @@ export const chapters: Chapter[] = [
     summary: { zh: "处理 UTF-8 文本、正则表达式和结构化数据。", en: "Process UTF-8 text, regular expressions, and structured data." },
     sections: {
       zh: [
-        { title: "JSON 数据流", blocks: [
-          { type: "code", language: "hhy", code: code.json },
-          { type: "p", text: "JSON 解析严格拒绝重复 key、非法 Unicode surrogate 和非有限数值。Map 编码保持确定行为。" }
+        { title: "String 与 UTF-8", blocks: [
+          { type: "p", text: "String 是不可变 UTF-8 字节序列。length 统计 Unicode code point，byte_length 统计编码后的字节；索引返回一个 code point 对应的单字符 String。文本函数返回新值，不修改原 String。" },
+          { type: "code", language: "hhy", code: "let line = \"  ERROR: timeout  \"\n\nline\n    |> trim\n    |> replace(\"ERROR\", \"WARN\")\n    |> lower\n    |> print" },
+          callableSelection(["trim", "split", "join", "replace", "contains", "starts_with", "ends_with", "lower", "upper"], "zh")
         ] },
-        { title: "文本与 CSV", blocks: [
-          { type: "list", items: ["contains、starts_with、ends_with、trim、split、join、replace、lower、upper", "PCRE2 正则字面量与命名捕获", "流式 CSV record，支持 header、delimiter 与 quote 选项", "String 始终验证 UTF-8，并支持嵌入 U+0000"] }
-        ] }
+        { title: "Regex", blocks: [
+          { type: "p", text: "Regex 字面量写作 /pattern/flags，支持 i（忽略大小写）、m（多行）、s（点匹配换行）和 u。regex_match 只返回是否匹配；regex_captures 返回完整匹配、字节位置、groups 编号捕获与 named 命名捕获，不匹配时返回 null。" },
+          { type: "note", text: "V1.0 使用 PCRE2 8-bit，并限制 pattern、subject、match、depth、heap 和捕获组数量；超限产生 ResourceLimitError，避免恶意正则耗尽运行时。" }
+        ] },
+        { title: "JSON 的类型映射与错误", blocks: [
+          { type: "code", language: "hhy", code: code.json },
+          { type: "table", columns: ["JSON", "HHY"], rows: [["object", "Map"], ["array", "List"], ["string", "String"], ["integer", "Int"], ["decimal", "Float"], ["true / false", "Bool"], ["null", "Null"]] },
+          { type: "p", text: "parse_json 的错误包含行列。encode_json 可以使用 { pretty: true } 输出可读格式。Function、Stream 和系统对象不能直接编码；先选择普通字段。" }
+        ] },
+        { title: "CSV 是流式 record", blocks: [
+          { type: "p", text: "parse_csv 接受完整 String 或 Stream<String>，返回 Stream<Map>；encode_csv 接受 Stream<Map>，返回不带行终止符的 Stream<String>。两者不需要加载完整文件。" },
+          { type: "code", language: "hhy", code: "read_lines(path(\"employees.csv\"))\n    |> parse_csv({ header: true })\n    |> where { row -> row.active == \"true\" }\n    |> encode_csv({ header: true })\n    |> save_lines(path(\"active-employees.csv\"))" },
+          { type: "p", text: "header 控制首行字段名，delimiter 和 quote 必须是单字符。CSV 不做 schema 推断；数字和 Bool 需要显式转换。encode_csv 不附加换行符，与 save_lines 配合写出。" }
+        ] },
+        { title: "查阅完整 API", blocks: [{ type: "link", href: "/zh/learn/standard-library#fn-contains", label: "文本与结构化数据 API Reference →", description: "查阅文本、Regex、JSON 和 CSV 的完整函数签名。" }] }
       ],
       en: [
-        { title: "JSON pipelines", blocks: [
-          { type: "code", language: "hhy", code: code.json },
-          { type: "p", text: "The strict JSON parser rejects duplicate keys, invalid Unicode surrogates, and non-finite numbers. Map encoding remains deterministic." }
+        { title: "String and UTF-8", blocks: [
+          { type: "p", text: "String is an immutable UTF-8 byte sequence. length counts Unicode code points, byte_length counts encoded bytes, and indexing returns a one-code-point String. Text functions return new values and never mutate the original." },
+          { type: "code", language: "hhy", code: "let line = \"  ERROR: timeout  \"\n\nline\n    |> trim\n    |> replace(\"ERROR\", \"WARN\")\n    |> lower\n    |> print" },
+          callableSelection(["trim", "split", "join", "replace", "contains", "starts_with", "ends_with", "lower", "upper"], "en")
         ] },
-        { title: "Text and CSV", blocks: [
-          { type: "list", items: ["contains, starts_with, ends_with, trim, split, join, replace, lower, and upper", "PCRE2 regex literals and named captures", "Streaming CSV records with header, delimiter, and quote options", "Strings always validate UTF-8 and may contain embedded U+0000"] }
-        ] }
+        { title: "Regex", blocks: [
+          { type: "p", text: "A Regex literal is /pattern/flags with i (case-insensitive), m (multiline), s (dot matches newline), and u. regex_match returns Bool; regex_captures returns the full match, byte positions, numbered groups, and named captures, or null when unmatched." },
+          { type: "note", text: "V1.0 uses PCRE2 8-bit with pattern, subject, match, depth, heap, and capture limits. Exceeding them raises ResourceLimitError." }
+        ] },
+        { title: "JSON type mapping and errors", blocks: [
+          { type: "code", language: "hhy", code: code.json },
+          { type: "table", columns: ["JSON", "HHY"], rows: [["object", "Map"], ["array", "List"], ["string", "String"], ["integer", "Int"], ["decimal", "Float"], ["true / false", "Bool"], ["null", "Null"]] },
+          { type: "p", text: "parse_json reports line and column on failure. encode_json accepts { pretty: true } for readable output. Function, Stream, and system objects require mapping to ordinary fields first." }
+        ] },
+        { title: "CSV is a record stream", blocks: [
+          { type: "p", text: "parse_csv accepts a complete String or Stream<String> and returns Stream<Map>; encode_csv accepts Stream<Map> and returns Stream<String> records without terminators. Neither requires a whole-file buffer." },
+          { type: "code", language: "hhy", code: "read_lines(path(\"employees.csv\"))\n    |> parse_csv({ header: true })\n    |> where { row -> row.active == \"true\" }\n    |> encode_csv({ header: true })\n    |> save_lines(path(\"active-employees.csv\"))" },
+          { type: "p", text: "header controls field names; delimiter and quote must be single characters. CSV performs no schema inference, so numbers and Bools require explicit conversion. encode_csv omits terminators and composes with save_lines." }
+        ] },
+        { title: "Look up the complete API", blocks: [{ type: "link", href: "/en/learn/standard-library#fn-contains", label: "Text and structured data API Reference →", description: "Look up complete signatures for text, Regex, JSON, and CSV functions." }] }
       ]
     }
   },
@@ -561,22 +1109,48 @@ export const chapters: Chapter[] = [
     summary: { zh: "运行命令、消费输出并检查系统状态。", en: "Run commands, consume output, and inspect system state." },
     sections: {
       zh: [
-        { title: "安全运行命令", blocks: [
+        { title: "run 与 shell 的安全边界", blocks: [
           { type: "code", language: "hhy", code: code.process },
-          { type: "p", text: "run 默认直接传递 argv，不经过 Shell。options 支持 cwd、env、stdin、timeout 与 max_output；stdout_lines 将输出转成惰性行流。" }
+          { type: "p", text: "run(argv, options?) 直接把 List<String> 交给操作系统，不经过 Shell，因此空格、通配符、$、重定向和管道不会被二次解释。只有确实需要 Shell 语法时才使用 shell(command, options?)；Checker 会对 shell 给出安全提示。" },
+          { type: "table", columns: ["选项", "用途"], rows: [["cwd", "子进程工作目录 Path"], ["env", "只覆盖子进程环境"], ["stdin", "传给命令的标准输入文本"], ["timeout", "命令最长运行时间"], ["max_output", "stdout 与 stderr 捕获上限"]] },
+          { type: "note", text: "包含用户输入时优先使用 run。shell 会解释重定向、管道和变量展开，只在明确需要 Shell 语义时使用。" }
         ] },
-        { title: "系统数据", blocks: [
-          { type: "list", items: ["processes：进程快照流", "system：操作系统、架构、CPU 与内存元数据", "env：环境变量只读视图", "shell：显式选择 Shell 语义，不与 run 混用"] }
-        ] }
+        { title: "CommandResult", blocks: [
+          { type: "p", text: "run 与 shell 默认等待结束并返回 CommandResult，而不是把非零退出码自动当作 HHY Error。脚本应读取 exit_code 决定业务成功。" },
+          { type: "table", columns: ["字段", "内容"], rows: [["exit_code", "子进程退出码"], ["stdout", "标准输出 String"], ["stderr", "标准错误 String"], ["duration", "命令运行 Duration"]] },
+          { type: "p", text: "非零 exit_code 不会自动变成 HHY Error。脚本需要根据命令约定判断成功。stdout_lines(result) 可把已捕获输出作为行 Stream 继续处理。" }
+        ] },
+        { title: "进程快照与字段", blocks: [
+          { type: "p", text: "processes() 返回当前时刻的 Stream<Process> 快照。Process 不是 Map，提供 pid、name、cpu、memory、status、command 只读字段；转 JSON 前必须显式映射成普通 Map。" },
+          { type: "note", text: "排序示例使用 sort_by({ order: \"desc\" })；order 只能是 asc 或 desc，默认 asc。排序是稳定 barrier，会物化有限快照。" }
+        ] },
+        { title: "args、env、system 与 stdin", blocks: [
+          { type: "table", columns: ["值", "内容"], rows: [["args", "不含脚本路径的 List<String>"], ["env", "只读环境变量视图"], ["system", "OS、架构、主机、CPU、内存和目录信息"], ["stdin_lines()", "标准输入行 Stream"]] },
+          { type: "code", language: "hhy", code: "if length(args) != 1 {\n    print_error(\"usage: script.hhy <input>\")\n    exit(3)\n}\n\nlet input = path(args[0])" }
+        ] },
+        { title: "查阅完整 API", blocks: [{ type: "link", href: "/zh/learn/standard-library#fn-run", label: "进程与系统 API Reference →", description: "查阅 run、shell、processes、stdin_lines 和 every 的完整签名。" }] }
       ],
       en: [
-        { title: "Run commands safely", blocks: [
+        { title: "The safety boundary between run and shell", blocks: [
           { type: "code", language: "hhy", code: code.process },
-          { type: "p", text: "run passes argv directly and does not invoke a shell. Options include cwd, env, stdin, timeout, and max_output; stdout_lines exposes output as a lazy line stream." }
+          { type: "p", text: "run(argv, options?) passes List<String> directly to the OS without a shell, so spaces, globs, $, redirects, and pipes are not reinterpreted. Use shell(command, options?) only when shell syntax is intentional; the Checker emits a safety hint." },
+          { type: "table", columns: ["Option", "Purpose"], rows: [["cwd", "Child working-directory Path"], ["env", "Overrides only the child environment"], ["stdin", "Text supplied on standard input"], ["timeout", "Maximum command duration"], ["max_output", "stdout and stderr capture limit"]] },
+          { type: "note", text: "Prefer run when values include user input. shell interprets redirects, pipes, and expansion and should be reserved for intentional shell syntax." }
         ] },
-        { title: "System data", blocks: [
-          { type: "list", items: ["processes: a stream of process snapshots", "system: OS, architecture, CPU, and memory metadata", "env: a read-only view of environment variables", "shell: explicit shell semantics, separate from run"] }
-        ] }
+        { title: "CommandResult", blocks: [
+          { type: "p", text: "run and shell wait by default and return CommandResult. A nonzero child exit code is not automatically an HHY Error; inspect exit_code for business success." },
+          { type: "table", columns: ["Field", "Contents"], rows: [["exit_code", "Child exit status"], ["stdout", "Standard-output String"], ["stderr", "Standard-error String"], ["duration", "Command Duration"]] },
+          { type: "p", text: "A nonzero exit_code does not automatically become an HHY Error; interpret it according to the command. stdout_lines(result) exposes captured output as a line Stream." }
+        ] },
+        { title: "Process snapshots and fields", blocks: [
+          { type: "p", text: "processes() returns a current Stream<Process> snapshot. Process is not a Map and exposes read-only pid, name, cpu, memory, status, and command fields. Explicitly map ordinary fields before JSON encoding." },
+          { type: "note", text: "sort_by({ order: \"desc\" }) accepts only asc or desc (default asc). It is a stable barrier that materializes the finite snapshot." }
+        ] },
+        { title: "args, env, system, and stdin", blocks: [
+          { type: "table", columns: ["Value", "Contents"], rows: [["args", "List<String> excluding the script path"], ["env", "Read-only environment view"], ["system", "OS, architecture, host, CPU, memory, and directories"], ["stdin_lines()", "Standard-input line Stream"]] },
+          { type: "code", language: "hhy", code: "if length(args) != 1 {\n    print_error(\"usage: script.hhy <input>\")\n    exit(3)\n}\n\nlet input = path(args[0])" }
+        ] },
+        { title: "Look up the complete API", blocks: [{ type: "link", href: "/en/learn/standard-library#fn-run", label: "Processes and system API Reference →", description: "Look up complete signatures for run, shell, processes, stdin_lines, and every." }] }
       ]
     }
   },
@@ -587,22 +1161,42 @@ export const chapters: Chapter[] = [
     summary: { zh: "构建请求，配置超时与重试，并处理响应。", en: "Build requests, configure timeout and retry, and process responses." },
     sections: {
       zh: [
-        { title: "请求管道", blocks: [
+        { title: "Request → Policy → Send → Response", blocks: [
           { type: "code", language: "hhy", code: code.http },
-          { type: "p", text: "http.get/post/put/delete 创建不可变 RequestPlan；timeout 与 retry 修改计划；send 才执行网络副作用。response_body 会验证状态码并返回文本。" }
+          { type: "p", text: "http.get/post/put/delete(url, options?) 只创建不可变 HttpRequest，不访问网络。timeout(request, duration) 与 retry(request, options) 返回修改策略后的新 Request；send(request) 才产生 network effect 并返回 HttpResponse。这样 dry-run 能完整展示而不执行请求。" }
         ] },
-        { title: "V1.0 边界", blocks: [
-          { type: "list", items: ["支持 query、header、body、proxy 与 redirect 选项", "支持文本和二进制响应", "响应体默认上限 16 MiB", "dry-run 只输出脱敏计划，不发送请求"] }
-        ] }
+        { title: "请求选项与安全默认值", blocks: [
+          { type: "table", columns: ["选项", "用途"], rows: [["query", "URL 查询参数"], ["headers", "请求 header"], ["body", "请求内容"], ["proxy", "代理地址"], ["redirect", "重定向策略"]] },
+          { type: "p", text: "TLS 验证默认开启。Authorization 和 Cookie 等敏感 header 会在计划、日志和 Error 中脱敏。响应体受 max_http_body 限制。" }
+        ] },
+        { title: "超时、重试与幂等性", blocks: [
+          { type: "p", text: "retry({ count, backoff }) 默认只重试连接错误、timeout、429 和部分 5xx。GET、PUT、DELETE 可以按策略重试；POST 默认不自动重试，避免重复创建或扣款。timeout 和 Ctrl+C 都会取消 libcurl 操作并清理响应资源。" },
+          { type: "note", text: "重试不是让失败消失。为每个请求设置 timeout，谨慎评估 POST 幂等性，并让最终错误保留 URL（脱敏）、方法、尝试次数和 Flow stage。" }
+        ] },
+        { title: "HttpResponse 与响应 body", blocks: [
+          { type: "p", text: "send 返回 HttpResponse。使用 response_body 读取 UTF-8 文本，使用 response_bytes 读取图片、压缩包等二进制。两者都会验证响应状态；非成功状态产生 HttpStatusError。" },
+          { type: "code", language: "hhy", code: "http.get(\"https://api.example.com/status\")\n    |> timeout(3s)\n    |> send\n    |> response_body\n    |> parse_json\n    |> print" }
+        ] },
+        { title: "查阅完整 API", blocks: [{ type: "link", href: "/zh/learn/standard-library#fn-http-get", label: "HTTP API Reference →", description: "查阅请求构造、timeout、retry、send 和响应读取函数。" }] }
       ],
       en: [
-        { title: "Request pipeline", blocks: [
+        { title: "Request → Policy → Send → Response", blocks: [
           { type: "code", language: "hhy", code: code.http },
-          { type: "p", text: "http.get/post/put/delete create immutable RequestPlans; timeout and retry transform the plan; send performs the network effect. response_body validates status and returns text." }
+          { type: "p", text: "http.get/post/put/delete(url, options?) only build immutable HttpRequests without network access. timeout(request, duration) and retry(request, options) return new policy-adjusted Requests; send(request) performs the network effect and returns HttpResponse. Dry-run can therefore inspect the full plan without execution." }
         ] },
-        { title: "V1.0 boundaries", blocks: [
-          { type: "list", items: ["Query, header, body, proxy, and redirect options", "Text and binary responses", "16 MiB default response-body limit", "Dry-run prints a redacted plan without sending the request"] }
-        ] }
+        { title: "Request options and safe defaults", blocks: [
+          { type: "table", columns: ["Option", "Purpose"], rows: [["query", "URL query parameters"], ["headers", "Request headers"], ["body", "Request content"], ["proxy", "Proxy address"], ["redirect", "Redirect policy"]] },
+          { type: "p", text: "TLS verification is enabled by default. Sensitive Authorization and Cookie headers are redacted in plans, logs, and Errors. Response bodies obey max_http_body." }
+        ] },
+        { title: "Timeout, retries, and idempotency", blocks: [
+          { type: "p", text: "retry({ count, backoff }) defaults to connection errors, timeouts, 429, and selected 5xx statuses. GET, PUT, and DELETE may retry by policy; POST does not retry automatically to avoid duplicate creation or charges. Timeout and Ctrl+C cancel libcurl work and release response resources." },
+          { type: "note", text: "Retries do not erase failure. Give every request a timeout, evaluate POST idempotency, and preserve method, redacted URL, attempts, and Flow stage in the final Error." }
+        ] },
+        { title: "HttpResponse and response bodies", blocks: [
+          { type: "p", text: "send returns HttpResponse. Use response_body for UTF-8 text and response_bytes for images, archives, and other binary data. Both validate response status; non-success raises HttpStatusError." },
+          { type: "code", language: "hhy", code: "http.get(\"https://api.example.com/status\")\n    |> timeout(3s)\n    |> send\n    |> response_body\n    |> parse_json\n    |> print" }
+        ] },
+        { title: "Look up the complete API", blocks: [{ type: "link", href: "/en/learn/standard-library#fn-http-get", label: "HTTP API Reference →", description: "Look up request builders, timeout, retry, send, and response readers." }] }
       ]
     }
   },
@@ -613,23 +1207,51 @@ export const chapters: Chapter[] = [
     summary: { zh: "有界并发处理、取消和文件事件流。", en: "Bounded parallel work, cancellation, and filesystem event streams." },
     sections: {
       zh: [
-        { title: "有界 parallel", blocks: [
+        { title: "parallel 是有界并发 map", blocks: [
           { type: "code", language: "hhy", code: code.parallel },
-          { type: "p", text: "parallel(n) 最多运行 n 个隔离 worker，按输入顺序输出；一个任务失败会取消剩余任务。跨 worker 的值必须满足 Sendable 检查。" }
+          { type: "table", columns: ["行为", "保证"], rows: [["并发上限", "最多运行 n 个 worker，并受 RuntimeLimits 约束"], ["输出顺序", "与输入顺序一致"], ["背压", "输入队列和结果缓冲都有界"], ["错误", "首个未处理 Error 取消剩余任务"], ["返回值", "等同并发 map，不自动展开子 Stream"]] },
+          { type: "p", text: "如果闭包返回 Stream，在 parallel 后显式使用 flat_map。dry-run 不创建 worker，但仍会按顺序检查闭包中的 Effect。" }
         ] },
-        { title: "监听文件变化", blocks: [
+        { title: "Sendable 与隔离", blocks: [
+          { type: "p", text: "worker 收到输入和闭包捕获值的冻结快照，不共享可变对象。Null、Bool、数字、String、单位、Path，以及字段均可发送的普通 List/Map/系统快照可复制过去。" },
+          { type: "note", text: "捕获 let mut Cell、Stream、打开的 File handle、请求 body stream 或其他进程内资源会产生 CheckError。HHY V1.0 不公开线程、锁或 async/await。" }
+        ] },
+        { title: "watch 与 FileEvent", blocks: [
           { type: "code", language: "hhy", code: code.watch },
-          { type: "p", text: "watch 返回无限 FileEvent Stream。通过 debounce、where 和 take 等 Flow 算子组合自动化任务，并统一响应 Ctrl+C。" }
+          { type: "p", text: "watch(path, { recursive? }) 返回无限 Stream<FileEvent>。FileEvent 有 kind、path、old_path、timestamp 只读字段；kind 是 created、modified、removed 或 renamed，old_path 仅 renamed 时存在。" },
+          { type: "table", columns: ["字段", "内容"], rows: [["kind", "created、modified、removed 或 renamed"], ["path", "事件目标 Path"], ["old_path", "renamed 的原 Path，其余事件为 null"], ["timestamp", "事件 DateTime"]] },
+          { type: "p", text: "watch 是无限 Stream。使用 Ctrl+C、timeout 或 cancel 结束监听；递归监听受 max_open_files 限制。底层文件系统可能合并短时间内的重复事件。" }
+        ] },
+        { title: "debounce 与 every", blocks: [
+          { type: "p", text: "debounce(window) 使用 leading-edge：某个值或同一 kind + path 的 FileEvent 第一项立即输出，窗口内重复项被合并，并从最后一次重复重新计时；不同事件 key 互不阻塞。" },
+          { type: "p", text: "every(duration) 返回无限 tick Stream。若下游还在处理，上游遵守背压，不重叠执行同一个 tick。定时和监听流进入 collect/sort/group 前必须先有 take 或业务窗口。" }
+        ] },
+        { title: "取消与清理", blocks: [
+          { type: "p", text: "Ctrl+C、timeout、cancel() 和未处理错误触发同一个根 CancellationToken。watcher、sleep、HTTP、子进程与 worker 定期检查它；取消后关闭队列和句柄、终止子进程，并让 Stream close 从下游传播到上游。" }
         ] }
       ],
       en: [
-        { title: "Bounded parallelism", blocks: [
+        { title: "parallel is a bounded concurrent map", blocks: [
           { type: "code", language: "hhy", code: code.parallel },
-          { type: "p", text: "parallel(n) runs at most n isolated workers and emits results in input order. One failure cancels the remaining tasks. Values crossing worker boundaries must pass Sendable validation." }
+          { type: "table", columns: ["Behavior", "Guarantee"], rows: [["Concurrency", "At most n workers, subject to RuntimeLimits"], ["Output order", "Matches input order"], ["Backpressure", "Input and result buffers are bounded"], ["Errors", "The first unhandled Error cancels remaining work"], ["Return", "Concurrent map; child Streams are not flattened"]] },
+          { type: "p", text: "If a closure returns Stream, apply flat_map after parallel. Dry-run creates no workers but still checks closure Effects in order." }
         ] },
-        { title: "Watch filesystem changes", blocks: [
+        { title: "Sendable values and isolation", blocks: [
+          { type: "p", text: "Workers receive frozen snapshots of input and captured values, never shared mutable objects. Null, Bool, numbers, String, units, Path, and ordinary Lists/Maps/system snapshots whose fields are sendable can be copied." },
+          { type: "note", text: "Capturing a let mut Cell, Stream, open File handle, request body stream, or other process-local resource raises CheckError. V1.0 exposes no threads, locks, or async/await." }
+        ] },
+        { title: "watch and FileEvent", blocks: [
           { type: "code", language: "hhy", code: code.watch },
-          { type: "p", text: "watch returns an infinite FileEvent Stream. Compose automation with debounce, where, take, and other Flow operators; Ctrl+C uses the same cancellation path." }
+          { type: "p", text: "watch(path, { recursive? }) returns an infinite Stream<FileEvent>. FileEvent exposes read-only kind, path, old_path, and timestamp; kind is created, modified, removed, or renamed, and old_path exists only for renamed." },
+          { type: "table", columns: ["Field", "Contents"], rows: [["kind", "created, modified, removed, or renamed"], ["path", "Target Path"], ["old_path", "Original Path for renamed; otherwise null"], ["timestamp", "Event DateTime"]] },
+          { type: "p", text: "watch is an infinite Stream. End it with Ctrl+C, timeout, or cancel. Recursive watch obeys max_open_files, and filesystems may merge rapid duplicate events." }
+        ] },
+        { title: "debounce and every", blocks: [
+          { type: "p", text: "debounce(window) is leading-edge: the first scalar or kind + path FileEvent emits immediately; duplicates inside the window are coalesced and reset the window. Different event keys do not block each other." },
+          { type: "p", text: "every(duration) returns an infinite tick Stream. If downstream is busy, backpressure prevents overlapping the same tick. Apply take or a business window before collect/sort/group." }
+        ] },
+        { title: "Cancellation and cleanup", blocks: [
+          { type: "p", text: "Ctrl+C, timeout, cancel(), and unhandled errors trigger one root CancellationToken. Watchers, sleep, HTTP, child processes, and workers poll it; cancellation closes queues and handles, terminates children, and propagates Stream close upstream." }
         ] }
       ]
     }
@@ -641,23 +1263,161 @@ export const chapters: Chapter[] = [
     summary: { zh: "组织代码，传播结构化错误并可靠清理资源。", en: "Organize code, propagate structured errors, and unwind resources reliably." },
     sections: {
       zh: [
-        { title: "Pure HHY 模块", blocks: [
+        { title: "导入形式与路径解析", blocks: [
           { type: "code", language: "hhy", code: code.module },
-          { type: "p", text: "V1.0 支持相对 import、具名导入、别名、export、模块缓存和循环检测。不支持远程 import 或第三方包安装。" }
+          { type: "table", columns: ["写法", "用途"], rows: [["import \"./lib/report.hhy\" as report", "导入本地模块命名空间"], ["import { parse } from \"./lib/data.hhy\"", "具名导入"], ["import { validate as check } from \"./lib/data.hhy\"", "具名导入并设置别名"], ["import http", "导入标准库模块"]] },
+          { type: "p", text: "相对路径基于当前源码文件目录。标准库使用裸名称；本地文件显式使用 ./、../ 或绝对 Path。" }
         ] },
-        { title: "结构化错误", blocks: [
+        { title: "export、作用域与执行", blocks: [
+          { type: "code", language: "hhy", code: "export let version = \"1.0\"\n\nexport fn normalize_name(name) {\n    return name |> trim |> lower\n}\n\nfn internal_helper() {\n    return null\n}" },
+          { type: "p", text: "只有 export 名称对外可见。模块拥有独立顶层作用域，并在首次 import 时执行一次、随后缓存。循环依赖在执行前产生 CheckError。V1.0 只支持标准库和本地模块。" }
+        ] },
+        { title: "Error 的字段与类别", blocks: [
+          { type: "p", text: "所有失败都使用 Error，而不是靠 null 或打印文本表达。Error 提供 kind、code、message、source、stage、cause、stack、context 字段；敏感 header、凭据和完整文件内容不会默认进入 context。" },
+          { type: "p", text: "内置类别包括 SyntaxError、CheckError、TypeError、ValueError、IndexError、KeyError、EncodingError、IoError、ProcessError、HttpError、HttpStatusError、TimeoutError、CancelledError、ResourceLimitError 和 PlanError。" }
+        ] },
+        { title: "try/catch 与重新抛出", blocks: [
           { type: "code", language: "hhy", code: code.errors },
-          { type: "p", text: "try/catch 处理即时错误，on_error 可恢复惰性 Flow 错误。所有失败沿统一 Error stage 传播，并在退出作用域时释放资源。" }
+          { type: "p", text: "catch 捕获 try 块传播出的第一个错误。catch 正常结束后脚本继续；无法处理时用 throw(err) 保留错误链重新抛出。未处理错误让脚本以非零状态退出。" }
+        ] },
+        { title: "Flow 错误与单项 Result", blocks: [
+          { type: "code", language: "hhy", code: "path(\"./configs\")\n    |> files(\"**/*.json\")\n    |> map { file -> attempt { read_text(file.path) } }\n    |> where { result -> result.ok }\n    |> map { result -> result.value }\n    |> print" },
+          { type: "p", text: "Stream 中未处理的 Error 默认终止整条 Pipeline。attempt 把单次操作转换为 Result，适合批处理中显式保留成功项和失败项。on_error 用于替换整条失败的上游 Stream，不会自动跳过错误项。" }
+        ] },
+        { title: "资源清理保证", blocks: [
+          { type: "p", text: "Error、return、exit、timeout、Ctrl+C 和 cancel 都走统一 unwind。Stream close 幂等；原子保存失败会删除临时文件并保留旧文件；子进程、HTTP response、watcher 和 worker 都会响应取消。" }
         ] }
       ],
       en: [
-        { title: "Pure HHY modules", blocks: [
+        { title: "Import forms and path resolution", blocks: [
           { type: "code", language: "hhy", code: code.module },
-          { type: "p", text: "V1.0 supports relative imports, named imports, aliases, exports, module caching, and cycle detection. Remote imports and third-party package installation are not included." }
+          { type: "table", columns: ["Form", "Use"], rows: [["import \"./lib/report.hhy\" as report", "Import a local module namespace"], ["import { parse } from \"./lib/data.hhy\"", "Named import"], ["import { validate as check } from \"./lib/data.hhy\"", "Named import with alias"], ["import http", "Import a standard-library module"]] },
+          { type: "p", text: "Relative paths resolve from the current source file. Standard modules use bare names; local files explicitly use ./, ../, or an absolute Path." }
         ] },
-        { title: "Structured errors", blocks: [
+        { title: "Exports, scope, and execution", blocks: [
+          { type: "code", language: "hhy", code: "export let version = \"1.0\"\n\nexport fn normalize_name(name) {\n    return name |> trim |> lower\n}\n\nfn internal_helper() {\n    return null\n}" },
+          { type: "p", text: "Only exported names are visible to importers. A module owns its top-level scope, executes once on first import, and is then cached. Import cycles raise CheckError before execution. V1.0 supports standard and local modules only." }
+        ] },
+        { title: "Error fields and categories", blocks: [
+          { type: "p", text: "Every failure uses Error rather than null or printed text. Error exposes kind, code, message, source, stage, cause, stack, and context. Sensitive headers, credentials, and full file contents are excluded from context by default." },
+          { type: "p", text: "Built-in categories include SyntaxError, CheckError, TypeError, ValueError, IndexError, KeyError, EncodingError, IoError, ProcessError, HttpError, HttpStatusError, TimeoutError, CancelledError, ResourceLimitError, and PlanError." }
+        ] },
+        { title: "try/catch and rethrowing", blocks: [
           { type: "code", language: "hhy", code: code.errors },
-          { type: "p", text: "try/catch handles eager errors; on_error can recover lazy Flow errors. Every failure travels through one Error stage and resources unwind when scope exits." }
+          { type: "p", text: "catch receives the first Error propagated from try. Execution continues after a normally completed catch; use throw(err) to preserve the error chain when it cannot be handled. An unhandled Error exits nonzero." }
+        ] },
+        { title: "Flow errors and per-item Result", blocks: [
+          { type: "code", language: "hhy", code: "path(\"./configs\")\n    |> files(\"**/*.json\")\n    |> map { file -> attempt { read_text(file.path) } }\n    |> where { result -> result.ok }\n    |> map { result -> result.value }\n    |> print" },
+          { type: "p", text: "An unhandled Error in a Stream terminates the Pipeline. attempt converts one operation to Result for batches that explicitly retain successes and failures. on_error replaces an entirely failed upstream Stream and never silently skips an item." }
+        ] },
+        { title: "Resource cleanup guarantees", blocks: [
+          { type: "p", text: "Error, return, exit, timeout, Ctrl+C, and cancel share one unwind path. Stream close is idempotent; failed atomic saves delete temporary files and preserve the old file; child processes, HTTP responses, watchers, and workers respond to cancellation." }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "syntax-reference",
+    order: 11,
+    title: { zh: "语法完整参考", en: "Complete Syntax Reference" },
+    summary: { zh: "V1.0 的词法、字面量、运算符、语句、闭包和模块语法。", en: "V1.0 lexical rules, literals, operators, statements, closures, and module syntax." },
+    sections: {
+      zh: [
+        { title: "源文件与词法", blocks: [
+          { type: "table", columns: ["项目", "规则"], rows: [["文件", ".hhy、UTF-8、LF 或 CRLF"], ["标识符", "大小写敏感；ASCII 字母、数字和下划线，不能以数字开头"], ["语句结束", "换行或可选分号"], ["续行", "未闭合括号或行首/行尾的 |>"], ["注释", "# 单行注释；首行允许 shebang"], ["/", "表达式起点为 Regex，已有左操作数后为除法"]] }
+        ] },
+        { title: "字面量与原生单位", blocks: [
+          { type: "code", language: "hhy", code: code.syntaxLiterals },
+          { type: "p", text: "Range 包含起点、不包含终点。Bytes 支持 b/kb/mb/gb/kib/mib/gib；Duration 支持 ns/us/ms/s/min/h；紧贴数字的 % 是 Percent。String 支持插值以及 \\, \", \\n, \\r, \\t, \\b, \\f, \\0 转义。" }
+        ] },
+        { title: "运算符优先级（高到低）", blocks: [
+          { type: "code", language: "text", code: code.syntaxOperators },
+          { type: "p", text: "and、or 与 ?? 短路执行；= 只允许给 let mut 绑定赋值；|> 左结合。条件必须是 Bool，不存在把 0、空字符串或 null 自动当作 false 的规则。" }
+        ] },
+        { title: "声明、控制流、函数与模块", blocks: [
+          { type: "code", language: "hhy", code: code.syntaxStatements },
+          { type: "table", columns: ["结构", "形式"], rows: [["调用", "name(args)"], ["Pipe", "x |> f(a) 等价于 f(x, a)"], ["闭包", "{ param -> expression }"], ["Map", "{ key: value }"], ["控制流", "if、for、while、break、continue、return"], ["模块", "import、as、export"]] }
+        ] },
+        { title: "核心值类型", blocks: [
+          { type: "code", language: "text", code: "Null Bool Int Float String Regex BytesBuffer\nList Map Range Function Error Result Stream\nBytes Duration Percent DateTime Path\nFile Directory FileEvent Process CommandResult\nHttpRequest HttpResponse" },
+          { type: "note", text: "HHY 是动态类型语言，但不会进行危险的 String/Number 或 String/Bool 隐式转换。Int 是有符号 64 位整数，Float 是 IEEE 754 double。" }
+        ] }
+      ],
+      en: [
+        { title: "Source files and lexical rules", blocks: [
+          { type: "table", columns: ["Item", "Rule"], rows: [["File", ".hhy, UTF-8, LF or CRLF"], ["Identifier", "Case-sensitive ASCII letters, digits, and underscores; cannot start with a digit"], ["Statement end", "Newline or optional semicolon"], ["Continuation", "Open delimiters or leading/trailing |>"], ["Comment", "# line comment; first line may be a shebang"], ["/", "Regex at expression start, division after a left operand"]] }
+        ] },
+        { title: "Literals and native units", blocks: [
+          { type: "code", language: "hhy", code: code.syntaxLiterals },
+          { type: "p", text: "Ranges include the start and exclude the end. Bytes support b/kb/mb/gb/kib/mib/gib; Duration supports ns/us/ms/s/min/h; % attached to a number creates Percent. Strings support interpolation and \\, \", \\n, \\r, \\t, \\b, \\f, and \\0 escapes." }
+        ] },
+        { title: "Operator precedence (highest to lowest)", blocks: [
+          { type: "code", language: "text", code: code.syntaxOperators },
+          { type: "p", text: "and, or, and ?? short-circuit; = may assign only to a let mut binding; |> is left-associative. Conditions require Bool—0, empty strings, and null are not implicitly false." }
+        ] },
+        { title: "Declarations, control flow, functions, and modules", blocks: [
+          { type: "code", language: "hhy", code: code.syntaxStatements },
+          { type: "table", columns: ["Construct", "Form"], rows: [["Call", "name(args)"], ["Pipe", "x |> f(a) equals f(x, a)"], ["Closure", "{ param -> expression }"], ["Map", "{ key: value }"], ["Control flow", "if, for, while, break, continue, return"], ["Module", "import, as, export"]] }
+        ] },
+        { title: "Core value types", blocks: [
+          { type: "code", language: "text", code: "Null Bool Int Float String Regex BytesBuffer\nList Map Range Function Error Result Stream\nBytes Duration Percent DateTime Path\nFile Directory FileEvent Process CommandResult\nHttpRequest HttpResponse" },
+          { type: "note", text: "HHY is dynamically typed but does not perform dangerous String/Number or String/Bool coercions. Int is signed 64-bit and Float is IEEE 754 double." }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "standard-library",
+    order: 12,
+    title: { zh: "标准库函数索引", en: "Standard Library Function Index" },
+    summary: { zh: "运行时 Registry 中全部 94 个 V1.0 callable 的签名与用途。", en: "Signatures and purposes for all 94 V1.0 callables in the runtime Registry." },
+    sections: {
+      zh: [
+        { title: "如何阅读签名", blocks: [
+          { type: "p", text: "本页以 V1.0 Runtime 的 Callable Contract Registry 为权威来源，共 94 项。T/U 表示泛型占位值，? 表示可选参数或可空结果，Map? 表示可选 options Map。所有函数都可普通调用；在管道中，左侧值会注入为第一个参数。" },
+          { type: "note", text: "这是完整 callable 清单，不含 args、env、system 等只读特殊值，也不把 File.path、HttpResponse.status 等只读字段误列为函数。" }
+        ] },
+        { title: "核心值、集合、环境与控制（22）", blocks: [callableList("stdCore", "zh")] },
+        { title: "Flow 与 Stream（25）", blocks: [
+          { type: "p", text: "map/where/take 等转换保持惰性；collect、count、reduce 等终端操作消费 Stream；sort_by 与 group_by 会在资源上限内物化输入。parallel 使用有界隔离 worker 并保持输出顺序。" },
+          callableList("stdFlow", "zh")
+        ] },
+        { title: "文本、Regex、JSON 与 CSV（17）", blocks: [callableList("stdText", "zh")] },
+        { title: "路径、文件与监听（15）", blocks: [
+          { type: "p", text: "read_* 是读取操作；write_* 直接写入；save_* 使用临时文件加原子替换。文件系统 action 会被 dry-run 拦截。" },
+          callableList("stdFiles", "zh")
+        ] },
+        { title: "进程、标准输入与定时（6）", blocks: [
+          { type: "p", text: "run 直接传递 argv，不经过 Shell；只有 shell 明确采用 Shell 解析。进程启动会受 timeout、输出和进程数限制。" },
+          callableList("stdProcess", "zh")
+        ] },
+        { title: "HTTP（9）", blocks: [
+          { type: "p", text: "http.* 只构造不可变请求计划，timeout/retry 修改计划，只有 send 产生网络副作用。response_body 返回 UTF-8 文本，二进制响应使用 response_bytes。" },
+          callableList("stdHttp", "zh")
+        ] }
+      ],
+      en: [
+        { title: "Reading the signatures", blocks: [
+          { type: "p", text: "This page is sourced from the V1.0 Runtime Callable Contract Registry and contains all 94 entries. T/U are generic placeholders, ? marks an optional argument or nullable result, and Map? is an optional options Map. Every function supports ordinary calls; a pipe injects its left value as the first argument." },
+          { type: "note", text: "This is the complete callable list. It excludes read-only special values such as args, env, and system, and does not mislabel read-only fields such as File.path or HttpResponse.status as functions." }
+        ] },
+        { title: "Core values, collections, environment, and control (22)", blocks: [callableList("stdCore", "en")] },
+        { title: "Flow and Stream (25)", blocks: [
+          { type: "p", text: "Transformations such as map, where, and take stay lazy; terminals such as collect, count, and reduce consume the Stream. sort_by and group_by materialize input within resource limits. parallel uses bounded isolated workers and preserves output order." },
+          callableList("stdFlow", "en")
+        ] },
+        { title: "Text, Regex, JSON, and CSV (17)", blocks: [callableList("stdText", "en")] },
+        { title: "Paths, files, and watch (15)", blocks: [
+          { type: "p", text: "read_* functions read data, write_* functions write directly, and save_* functions use a temporary file plus atomic replacement. Dry-run intercepts filesystem actions." },
+          callableList("stdFiles", "en")
+        ] },
+        { title: "Processes, standard input, and timers (6)", blocks: [
+          { type: "p", text: "run passes argv directly without a shell; only shell explicitly uses shell parsing. Process launches obey timeout, output, and process-count limits." },
+          callableList("stdProcess", "en")
+        ] },
+        { title: "HTTP (9)", blocks: [
+          { type: "p", text: "http.* only builds immutable request plans, timeout/retry transform a plan, and only send performs a network effect. response_body returns UTF-8 text; use response_bytes for binary data." },
+          callableList("stdHttp", "en")
         ] }
       ]
     }
@@ -830,26 +1590,118 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "cli-reference",
-    order: 11,
+    order: 13,
     title: { zh: "CLI 参考", en: "CLI Reference" },
     summary: { zh: "运行、检查、格式化、REPL 与 dry-run。", en: "Run, check, format, use the REPL, and inspect dry-run plans." },
     sections: {
       zh: [
-        { title: "命令", blocks: [
+        { title: "完整命令", blocks: [
           { type: "code", language: "sh", code: code.cli },
-          { type: "list", items: ["run：执行脚本并传递 args", "check：Parser 与 Checker 静态检查", "fmt：规范化源码格式", "ast / tokens：检查编译器中间结构", "dry-run：拦截文件写入、进程启动和网络发送并输出脱敏计划"] }
+          { type: "table", columns: ["命令", "用途"], rows: [["hhy run", "运行脚本并传递 args"], ["hhy repl", "启动交互环境"], ["hhy check", "检查语法和核心语义"], ["hhy fmt", "写入官方格式"], ["hhy fmt --check", "只检查格式"], ["hhy ast", "输出 AST"], ["hhy tokens", "输出 Lexer Token"], ["hhy run --dry-run", "预览脱敏执行计划"]] },
+          { type: "p", text: "hhy script.hhy 是 hhy run script.hhy 的简写。脚本参数可能以 - 开头时，在 Runtime 选项后使用 -- 分隔。" }
+        ] },
+        { title: "Runtime 资源限制", blocks: [
+          { type: "p", text: "run 的 --limit NAME=VALUE 可以重复出现。大小必须带 b/kb/mb/gb/kib/mib/gib，时间必须带 ns/us/ms/s/min/h，计数值不带单位。" },
+          { type: "code", language: "sh", code: "hhy run --limit max_runtime=30s --limit max_memory=256mib script.hhy" },
+          { type: "table", columns: ["限制", "默认值"], rows: [["max_memory", "512mib"], ["max_open_files", "256"], ["max_processes", "16"], ["max_parallelism", "16"], ["max_http_body", "16mib"], ["max_regex_steps", "1000000"], ["max_recursion", "256"], ["max_runtime", "0（CLI 默认不设总时限）"]] }
         ] },
         { title: "稳定退出码", blocks: [
-          { type: "p", text: "V1.0 规范化退出码 0–5，分别覆盖成功、运行时失败、语法/检查失败、用法错误、资源限制与内部错误。自动化脚本应按退出码而不是错误文本进行分支。" }
+          { type: "code", language: "text", code: "0  成功\n1  未处理的运行时错误\n2  语法或静态检查错误\n3  CLI 用法错误\n4  文件 I/O、进程或网络错误\n5  超时或取消" },
+          { type: "p", text: "自动化脚本应按稳定退出码而不是错误文本进行分支。" }
         ] }
       ],
       en: [
-        { title: "Commands", blocks: [
+        { title: "Complete command set", blocks: [
           { type: "code", language: "sh", code: code.cli },
-          { type: "list", items: ["run: execute a script and pass args", "check: static Parser and Checker validation", "fmt: normalize source formatting", "ast / tokens: inspect compiler structures", "dry-run: intercept file writes, process launches, and network sends, then print a redacted plan"] }
+          { type: "table", columns: ["Command", "Purpose"], rows: [["hhy run", "Run a script and pass args"], ["hhy repl", "Start the interactive environment"], ["hhy check", "Check syntax and core semantics"], ["hhy fmt", "Write canonical formatting"], ["hhy fmt --check", "Check formatting only"], ["hhy ast", "Print the AST"], ["hhy tokens", "Print Lexer tokens"], ["hhy run --dry-run", "Preview a redacted execution plan"]] },
+          { type: "p", text: "hhy script.hhy is shorthand for hhy run script.hhy. Use -- after Runtime options when script arguments may begin with a dash." }
+        ] },
+        { title: "Runtime resource limits", blocks: [
+          { type: "p", text: "The run command accepts repeatable --limit NAME=VALUE options. Sizes require b/kb/mb/gb/kib/mib/gib, durations require ns/us/ms/s/min/h, and counts have no unit." },
+          { type: "code", language: "sh", code: "hhy run --limit max_runtime=30s --limit max_memory=256mib script.hhy" },
+          { type: "table", columns: ["Limit", "Default"], rows: [["max_memory", "512mib"], ["max_open_files", "256"], ["max_processes", "16"], ["max_parallelism", "16"], ["max_http_body", "16mib"], ["max_regex_steps", "1000000"], ["max_recursion", "256"], ["max_runtime", "0 (no total CLI limit)"]] }
         ] },
         { title: "Stable exit codes", blocks: [
-          { type: "p", text: "V1.0 defines exit codes 0–5 for success, runtime failure, syntax/check failure, usage error, resource limit, and internal error. Automation should branch on exit codes rather than error text." }
+          { type: "code", language: "text", code: "0  success\n1  unhandled runtime error\n2  syntax or static-check error\n3  invalid CLI usage\n4  file I/O, process, or network error\n5  timeout or cancellation" },
+          { type: "p", text: "Automation should branch on stable exit codes rather than error text." }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "extensions-roadmap",
+    order: 14,
+    title: { zh: "扩展系统路线图", en: "Extension System Roadmap" },
+    summary: { zh: "了解扩展安装、加载、进程协议与 Redis 扩展示例的后续设计；这些能力尚未在 v1.0 实现。", en: "Preview the planned extension installation, loading, process protocol, and a Redis extension example; none of these capabilities is implemented in v1.0." },
+    sections: {
+      zh: [
+        { title: "先看状态：v1.0 尚不支持扩展", blocks: [
+          { type: "note", text: "路线图，不是 v1.0 使用说明：当前版本没有 hhy install、依赖清单解析、第三方扩展加载、扩展进程协议或公开 Native ABI。下面的命令、清单字段和 Redis API 均不可在 v1.0 运行，最终设计也可能调整。" },
+          { type: "table", columns: ["能力", "v1.0 状态", "计划"], rows: [["扩展模块名与核心 contract", "已预留内部边界", "v1.0"], ["本地扩展安装与加载", "未实现", "v1.1"], ["官方 office 扩展", "未实现", "v1.2"], ["公开 Native ABI", "未承诺", "Runtime 稳定后按需评估"]] },
+          { type: "p", text: "v1.0 已允许带点的模块名，例如 import office.excel；未安装的模块会得到 ModuleNotFoundError。这只是为未来扩展保留语法空间，不代表模块已经存在。" }
+        ] },
+        { title: "版本路线", blocks: [
+          { type: "code", language: "text", code: "v1.0   Core contract 与命名空间预留\nv1.1   Process Extension Protocol + 本地包安装\nv1.2   官方 office 扩展验证协议\n以后    Runtime 稳定后再评估公开 Native ABI" },
+          { type: "p", text: "核心继续负责 Pipe、Value、Stream、Error、取消、副作用与资源生命周期；扩展只注册新的 callable、类型或数据流，不得改变 HHY 语法或另建一套 Stream 语义。" }
+        ] },
+        { title: "计划中的安装、查看与移除", blocks: [
+          { type: "note", text: "以下是 v1.1 计划命令，目前执行会失败。v1.1 首期只计划支持本地路径，不包含远程仓库下载。" },
+          { type: "code", language: "text", code: "# 计划中的命令；v1.0 不可执行\nhhy install ./hhy-redis\nhhy list\nhhy remove redis" },
+          { type: "table", columns: ["步骤", "计划行为"], rows: [["install", "读取本地 hhy.toml，校验版本、可执行文件与完整性哈希，展示权限后安装"], ["load", "脚本 import 时启动隔离扩展进程，握手并注册 callable"], ["list", "列出本地已安装包、版本、协议和权限"], ["remove", "移除包记录并清理不再使用的扩展资源"]] }
+        ] },
+        { title: "计划中的 hhy.toml", blocks: [
+          { type: "note", text: "这是 v1.1 清单草案，不是已冻结格式。字段名与约束在实现前可能变化。" },
+          { type: "code", language: "text", code: "[package]\nname = \"redis\"\nversion = \"0.1.0\"\nrequires_hhy = \">=1.1,<2.0\"\n\n[extension]\nkind = \"process\"\ncommand = \"bin/hhy-redis\"\nprotocol = \"1\"\n\n[capabilities]\nread = []\nwrite = []\nnetwork = [\"redis.example.com:6379\"]\nprocess = false" },
+          { type: "p", text: "包名提供唯一顶级命名空间；hhy.* 与 std.* 由语言保留。安装器只授予清单声明且经用户确认的最小能力，扩展升级新增权限时必须重新确认。" }
+        ] },
+        { title: "扩展如何被加载", blocks: [
+          { type: "p", text: "v1.1 计划优先采用进程扩展：Runtime 启动独立可执行文件，完成协议握手，接收其函数、类型、算子与 action 注册信息，再把它们接入同一 Callable Contract Registry。进程崩溃会转换为 HHY Error，不应拖垮解释器。" },
+          { type: "table", columns: ["协议阶段", "职责"], rows: [["handshake", "协商 extension_id、protocol_version 与兼容性"], ["register", "登记名称、输入输出、effect、lazy、cancel 与 threading 元数据"], ["call / call_result", "按 request_id 调用并返回值或结构化错误"], ["stream_*", "通过 item、credit/window 和 close 提供分块 Stream 与背压"], ["cancel / shutdown", "传播取消并幂等释放进程、Stream 和句柄"]] },
+          { type: "note", text: "扩展返回的 Opaque handle 只代表扩展内部资源，不能 JSON 序列化或随意进入 Parallel worker；Runtime 必须显式发送 handle_release。" }
+        ] },
+        { title: "Redis 扩展设计示例", blocks: [
+          { type: "note", text: "示意，不是承诺 API：仓库目前没有 Redis 扩展。redis.connect、redis.get、redis.set 与 redis.scan 仅用于说明第三方扩展将如何融入语言。" },
+          { type: "code", language: "text", code: "# 未来可能的目录；v1.0 不会加载它\nhhy-redis/\n├── hhy.toml\n└── bin/hhy-redis\n\n# 未来可能的 HHY 调用；当前不可执行\nimport redis\n\nlet client = redis.connect({ url: require_env(\"REDIS_URL\") })\nclient |> redis.set(\"health\", \"ok\")\nlet value = client |> redis.get(\"health\")\nclient |> redis.scan(\"session:*\") |> take(100) |> collect()" },
+          { type: "table", columns: ["示意 callable", "Contract 设想"], rows: [["redis.connect", "有 network 副作用；返回不可序列化的 RedisClient handle"], ["redis.get", "接收 client 与 key；返回 String、Bytes 或 Null"], ["redis.set", "有 network 副作用；需要进入 dry-run/权限审计"], ["redis.scan", "返回惰性 Stream；必须支持背压、取消和提前关闭"]] }
+        ] },
+        { title: "扩展作者需要实现什么", blocks: [
+          { type: "table", columns: ["部分", "要求"], rows: [["可执行进程", "从标准协议通道握手、注册并处理调用"], ["Contract", "为每个 callable 声明输入输出、副作用、惰性、取消和线程模型"], ["值转换", "使用协议可序列化值；外部连接使用受控 Opaque handle"], ["Stream", "遵守拉取、credit 背压、取消、错误和 close 生命周期"], ["安全", "最小环境变量；秘密通过明确的 secret provider；不得绕过 capability"], ["测试", "覆盖握手失败、超时、取消、崩溃、资源清理和版本不兼容"]] },
+          { type: "p", text: "公开 Native ABI 不属于 v1.1 的前置条件。只有进程协议无法满足且性能数据证明必要时，才会考虑基于不透明句柄和函数表的稳定 ABI。" }
+        ] }
+      ],
+      en: [
+        { title: "Status first: v1.0 has no extension support", blocks: [
+          { type: "note", text: "Roadmap, not v1.0 usage documentation: the current release has no hhy install command, dependency-manifest parser, third-party extension loader, extension process protocol, or public Native ABI. The commands, manifest fields, and Redis API below do not run on v1.0 and may change before implementation." },
+          { type: "table", columns: ["Capability", "v1.0 status", "Target"], rows: [["Extension module names and core contracts", "Internal boundaries reserved", "v1.0"], ["Local extension installation and loading", "Not implemented", "v1.1"], ["Official office extension", "Not implemented", "v1.2"], ["Public Native ABI", "Not committed", "Evaluate after Runtime stabilization"]] },
+          { type: "p", text: "v1.0 accepts qualified module names such as import office.excel; an absent module produces ModuleNotFoundError. This only reserves syntax for future extensions and does not mean that the module exists." }
+        ] },
+        { title: "Release path", blocks: [
+          { type: "code", language: "text", code: "v1.0   Core contracts and namespace reservation\nv1.1   Process Extension Protocol + local package installation\nv1.2   Official office extension validates the protocol\nlater  Evaluate a public Native ABI after Runtime stabilization" },
+          { type: "p", text: "Core remains responsible for Pipe, Value, Stream, Error, cancellation, effects, and resource lifecycles. Extensions only register new callables, types, or data streams; they cannot change HHY syntax or create a separate Stream model." }
+        ] },
+        { title: "Planned install, list, and remove commands", blocks: [
+          { type: "note", text: "These are planned v1.1 commands and fail today. The first v1.1 milestone plans to accept local paths only, with no remote registry downloads." },
+          { type: "code", language: "text", code: "# Planned commands; not executable in v1.0\nhhy install ./hhy-redis\nhhy list\nhhy remove redis" },
+          { type: "table", columns: ["Step", "Planned behavior"], rows: [["install", "Read local hhy.toml, verify versions, executable and integrity hash, then display capabilities before installation"], ["load", "On import, start an isolated extension process, handshake, and register callables"], ["list", "Show locally installed packages, versions, protocols, and capabilities"], ["remove", "Remove the package record and clean up extension resources no longer in use"]] }
+        ] },
+        { title: "Planned hhy.toml manifest", blocks: [
+          { type: "note", text: "This is a v1.1 manifest draft, not a frozen format. Field names and constraints may change before implementation." },
+          { type: "code", language: "text", code: "[package]\nname = \"redis\"\nversion = \"0.1.0\"\nrequires_hhy = \">=1.1,<2.0\"\n\n[extension]\nkind = \"process\"\ncommand = \"bin/hhy-redis\"\nprotocol = \"1\"\n\n[capabilities]\nread = []\nwrite = []\nnetwork = [\"redis.example.com:6379\"]\nprocess = false" },
+          { type: "p", text: "The package name supplies a unique top-level namespace; hhy.* and std.* are reserved. The installer grants only declared, user-approved minimum capabilities, and an upgrade that adds capabilities requires confirmation again." }
+        ] },
+        { title: "How an extension will load", blocks: [
+          { type: "p", text: "v1.1 plans a process-first model: Runtime starts a separate executable, completes a protocol handshake, receives function, type, operator, and action registrations, then connects them to the same Callable Contract Registry. A process crash becomes an HHY Error instead of taking down the interpreter." },
+          { type: "table", columns: ["Protocol stage", "Responsibility"], rows: [["handshake", "Negotiate extension_id, protocol_version, and compatibility"], ["register", "Declare names, inputs, outputs, effect, lazy, cancel, and threading metadata"], ["call / call_result", "Invoke by request_id and return a value or structured error"], ["stream_*", "Provide chunked Streams with items, credit/window backpressure, and close"], ["cancel / shutdown", "Propagate cancellation and idempotently release processes, Streams, and handles"]] },
+          { type: "note", text: "An Opaque handle represents a resource inside the extension. It cannot be JSON-serialized or freely sent to a Parallel worker, and Runtime must explicitly send handle_release." }
+        ] },
+        { title: "Redis extension design example", blocks: [
+          { type: "note", text: "Illustrative, not a committed API: the repository has no Redis extension today. redis.connect, redis.get, redis.set, and redis.scan only demonstrate how a third-party extension could fit the language." },
+          { type: "code", language: "text", code: "# Possible future layout; v1.0 will not load it\nhhy-redis/\n├── hhy.toml\n└── bin/hhy-redis\n\n# Possible future HHY calls; not executable today\nimport redis\n\nlet client = redis.connect({ url: require_env(\"REDIS_URL\") })\nclient |> redis.set(\"health\", \"ok\")\nlet value = client |> redis.get(\"health\")\nclient |> redis.scan(\"session:*\") |> take(100) |> collect()" },
+          { type: "table", columns: ["Illustrative callable", "Possible contract"], rows: [["redis.connect", "Has a network effect; returns a non-serializable RedisClient handle"], ["redis.get", "Accepts client and key; returns String, Bytes, or Null"], ["redis.set", "Has a network effect and must participate in dry-run and capability auditing"], ["redis.scan", "Returns a lazy Stream and must support backpressure, cancellation, and early close"]] }
+        ] },
+        { title: "What an extension author must implement", blocks: [
+          { type: "table", columns: ["Part", "Requirement"], rows: [["Executable process", "Handshake, register, and serve calls over the standard protocol channel"], ["Contracts", "Declare input, output, effect, laziness, cancellation, and threading for every callable"], ["Value conversion", "Use protocol-serializable values and controlled Opaque handles for external connections"], ["Streams", "Honor pull behavior, credit backpressure, cancellation, errors, and close lifecycle"], ["Security", "Use a minimal environment, explicit secret providers, and never bypass capabilities"], ["Tests", "Cover handshake failure, timeout, cancellation, crashes, cleanup, and incompatible versions"]] },
+          { type: "p", text: "A public Native ABI is not a prerequisite for v1.1. It will only be considered, using opaque handles and function tables, if the process protocol is insufficient and performance measurements demonstrate a need." }
         ] }
       ]
     }
@@ -858,4 +1710,26 @@ export const chapters: Chapter[] = [
 
 export function getChapter(slug: string): Chapter | undefined {
   return chapters.find((chapter) => chapter.slug === slug);
+}
+
+export function chapterKind(chapter: Chapter): "guide" | "reference" | "roadmap" {
+  if (chapter.slug === "extensions-roadmap") return "roadmap";
+  return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"
+    ? "reference"
+    : "guide";
+}
+
+for (const chapter of chapters) {
+  const zhSections = chapter.sections.zh;
+  const enSections = chapter.sections.en;
+  if (zhSections.length !== enSections.length) {
+    throw new Error(`bilingual section count differs in ${chapter.slug}`);
+  }
+  for (let index = 0; index < zhSections.length; index += 1) {
+    const zhShape = zhSections[index].blocks.map((block) => block.type).join(",");
+    const enShape = enSections[index].blocks.map((block) => block.type).join(",");
+    if (zhShape !== enShape) {
+      throw new Error(`bilingual block structure differs in ${chapter.slug} section ${index + 1}`);
+    }
+  }
 }
