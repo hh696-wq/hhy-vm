@@ -1,4 +1,5 @@
 import type { Language } from "./i18n";
+import { hhyVersion, hhyVersionLabel, hhyVersionTag } from "./release";
 
 export type ChapterSlug =
   | "quick-start"
@@ -16,18 +17,22 @@ export type ChapterSlug =
   | "syntax-reference"
   | "standard-library"
   | "extensions-roadmap"
+  | "language-vm-roadmap"
   | "practical-recipes"
   | "cli-reference";
 
 export type DocBlock =
   | { type: "p"; text: string }
   | { type: "note"; text: string }
-  | { type: "code"; language: "hhy" | "sh" | "text"; code: string }
+  | { type: "code"; language: "hhy" | "sh" | "text"; code: string; filename?: string }
   | { type: "terminal"; command: string; output: string }
+  | { type: "terminal-card"; title: string; command: string; output: string; caption: string }
   | { type: "list"; items: string[] }
   | { type: "table"; columns: string[]; rows: string[][] }
   | { type: "link"; href: string; label: string; description: string }
   | { type: "image"; src: string; alt: string; caption: string; width: number; height: number; size: "medium" | "wide" }
+  | { type: "extension-flow" }
+  | { type: "evolution-roadmap" }
   | { type: "api"; entries: { name: string; signature: string; description: string }[] };
 
 export type DocSection = {
@@ -784,18 +789,18 @@ export const chapters: Chapter[] = [
     sections: {
       zh: [
         { title: "方式一：直接下载 Release（推荐）", blocks: [
-          { type: "p", text: "不需要修改 HHY Runtime 时，直接使用官方 V1.0.0 发行包最快。根据系统和 CPU 选择 darwin-arm64、linux-x86_64 或 linux-arm64；压缩包已包含 HHY 可执行文件、所需的非系统运行库、文档、许可证、构建信息和示例。" },
+          { type: "p", text: `不需要修改 HHY Runtime 时，直接使用官方 ${hhyVersionLabel} 发行包最快。根据系统和 CPU 选择 darwin-arm64、linux-x86_64 或 linux-arm64；压缩包已包含 HHY 可执行文件、官方示例与数据库扩展、所需的非系统运行库、文档、许可证和构建信息。` },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases", label: "打开 HHY GitHub Releases ↗", description: "下载最新稳定版本、对应的 .sha256 文件或汇总 SHA256SUMS。" },
-          { type: "code", language: "sh", code: "tar -xzf hhy-1.0.0-PLATFORM-ARCH.tar.gz\ncd hhy-1.0.0-PLATFORM-ARCH\n./bin/hhy --version\n./bin/hhy run examples/07-language-basics.hhy" },
+          { type: "code", language: "sh", code: `tar -xzf hhy-${hhyVersion}-PLATFORM-ARCH.tar.gz\ncd hhy-${hhyVersion}-PLATFORM-ARCH\n./bin/hhy --version\n./bin/hhy run examples/07-language-basics.hhy` },
           { type: "note", text: "保持 bin/ 与 lib/ 的相对位置不变，否则便携包可能找不到随包运行库。PLATFORM-ARCH 替换为 darwin-arm64、linux-x86_64 或 linux-arm64。" }
         ] },
         { title: "下载后校验与加入 PATH", blocks: [
           { type: "p", text: "运行下载内容前，应使用同名 .sha256 或 SHA256SUMS 验证文件完整性。macOS 自带 shasum，Linux 通常使用 sha256sum。" },
-          { type: "code", language: "sh", code: "# macOS\nshasum -a 256 -c hhy-1.0.0-darwin-arm64.tar.gz.sha256\n\n# Linux\nsha256sum -c hhy-1.0.0-linux-x86_64.tar.gz.sha256\n\n# 当前终端加入 PATH（替换成实际绝对路径）\nexport PATH=\"/absolute/path/hhy-1.0.0-PLATFORM-ARCH/bin:$PATH\"\nhhy --version" },
+          { type: "code", language: "sh", code: `# macOS\nshasum -a 256 -c hhy-${hhyVersion}-darwin-arm64.tar.gz.sha256\n\n# Linux\nsha256sum -c hhy-${hhyVersion}-linux-x86_64.tar.gz.sha256\n\n# 当前终端加入 PATH（替换成实际绝对路径）\nexport PATH=\"/absolute/path/hhy-${hhyVersion}-PLATFORM-ARCH/bin:$PATH\"\nhhy --version` },
           { type: "p", text: "长期使用时，把 export PATH 行放进 shell 配置文件；或者继续通过发行目录中的 ./bin/hhy 运行，不需要系统级安装。" }
         ] },
         { title: "方式二：从源码构建", blocks: [
-          { type: "p", text: "需要开发 Runtime、验证最新源码或自定义安装位置时再选择源码构建。HHY V1.0.0 正式支持 macOS arm64、Linux arm64 和 Linux x86_64；需要 C11 编译器、make、libcurl、PCRE2 与 BDWGC。" },
+          { type: "p", text: `需要开发 Runtime、验证最新源码或自定义安装位置时再选择源码构建。HHY ${hhyVersionLabel} 正式支持 macOS arm64、Linux arm64 和 Linux x86_64；需要 C11 编译器、make、libcurl、PCRE2 与 BDWGC。数据库扩展还需要对应的 PostgreSQL libpq 或 MySQL client 开发库。` },
           { type: "code", language: "sh", code: "brew install curl pcre2 bdw-gc\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\nmake test\n./build/hhy --version" },
           { type: "note", text: "brew 命令只适用于 macOS。Linux 的依赖包名称因发行版而异，完整说明见仓库 INSTALL.md。" }
         ] },
@@ -804,7 +809,7 @@ export const chapters: Chapter[] = [
           { type: "p", text: "PREFIX 可以换成自定义绝对路径。确认 PREFIX/bin 已在 PATH 后，所有 .hhy 文件都可以通过 hhy run 执行。" }
         ] },
         { title: "第一个脚本", blocks: [
-          { type: "code", language: "hhy", code: code.hello },
+          { type: "code", language: "hhy", code: code.hello, filename: "hello.hhy" },
           { type: "code", language: "sh", code: "hhy check hello.hhy\nhhy run hello.hhy" },
           { type: "p", text: "let 创建绑定；List 字面量保存三个 String；|> 把左侧值注入下一个函数；map 的闭包逐项生成新 String；print 消费结果。check 先验证词法、语法、作用域、模块与已知标准库调用，不执行副作用。" }
         ] },
@@ -816,18 +821,18 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Option 1: download a Release (recommended)", blocks: [
-          { type: "p", text: "If you are not modifying the HHY Runtime, an official V1.0.0 archive is the fastest path. Choose darwin-arm64, linux-x86_64, or linux-arm64 for your OS and CPU. Archives include the executable, required non-system runtime libraries, docs, licenses, build metadata, and examples." },
+          { type: "p", text: `If you are not modifying the HHY Runtime, an official ${hhyVersionLabel} archive is the fastest path. Choose darwin-arm64, linux-x86_64, or linux-arm64 for your OS and CPU. Archives include the executable, official sample and database extensions, required non-system runtime libraries, docs, licenses, and build metadata.` },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases", label: "Open HHY GitHub Releases ↗", description: "Download the latest stable archive and its matching .sha256 file or SHA256SUMS." },
-          { type: "code", language: "sh", code: "tar -xzf hhy-1.0.0-PLATFORM-ARCH.tar.gz\ncd hhy-1.0.0-PLATFORM-ARCH\n./bin/hhy --version\n./bin/hhy run examples/07-language-basics.hhy" },
+          { type: "code", language: "sh", code: `tar -xzf hhy-${hhyVersion}-PLATFORM-ARCH.tar.gz\ncd hhy-${hhyVersion}-PLATFORM-ARCH\n./bin/hhy --version\n./bin/hhy run examples/07-language-basics.hhy` },
           { type: "note", text: "Keep bin/ and lib/ in their original relative positions so the portable executable can find bundled libraries. Replace PLATFORM-ARCH with darwin-arm64, linux-x86_64, or linux-arm64." }
         ] },
         { title: "Verify the download and add it to PATH", blocks: [
           { type: "p", text: "Before running a download, verify it with the matching .sha256 file or SHA256SUMS. macOS includes shasum; Linux commonly provides sha256sum." },
-          { type: "code", language: "sh", code: "# macOS\nshasum -a 256 -c hhy-1.0.0-darwin-arm64.tar.gz.sha256\n\n# Linux\nsha256sum -c hhy-1.0.0-linux-x86_64.tar.gz.sha256\n\n# Add to PATH for this terminal (use the real absolute path)\nexport PATH=\"/absolute/path/hhy-1.0.0-PLATFORM-ARCH/bin:$PATH\"\nhhy --version" },
+          { type: "code", language: "sh", code: `# macOS\nshasum -a 256 -c hhy-${hhyVersion}-darwin-arm64.tar.gz.sha256\n\n# Linux\nsha256sum -c hhy-${hhyVersion}-linux-x86_64.tar.gz.sha256\n\n# Add to PATH for this terminal (use the real absolute path)\nexport PATH=\"/absolute/path/hhy-${hhyVersion}-PLATFORM-ARCH/bin:$PATH\"\nhhy --version` },
           { type: "p", text: "For permanent access, put the export PATH line in your shell profile. You may also keep invoking ./bin/hhy from the extracted directory without a system-wide install." }
         ] },
         { title: "Option 2: build from source", blocks: [
-          { type: "p", text: "Build from source when developing the Runtime, validating current source, or choosing a custom installation prefix. HHY V1.0.0 supports macOS arm64, Linux arm64, and Linux x86_64 and requires a C11 compiler, make, libcurl, PCRE2, and BDWGC." },
+          { type: "p", text: `Build from source when developing the Runtime, validating current source, or choosing a custom installation prefix. HHY ${hhyVersionLabel} supports macOS arm64, Linux arm64, and Linux x86_64 and requires a C11 compiler, make, libcurl, PCRE2, and BDWGC. The database extension additionally needs the corresponding PostgreSQL libpq or MySQL client development library.` },
           { type: "code", language: "sh", code: "brew install curl pcre2 bdw-gc\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\nmake test\n./build/hhy --version" },
           { type: "note", text: "The brew command applies only to macOS. Linux package names vary by distribution; see INSTALL.md for the full dependency matrix." }
         ] },
@@ -836,7 +841,7 @@ export const chapters: Chapter[] = [
           { type: "p", text: "PREFIX may be a custom absolute path. Once PREFIX/bin is on PATH, execute any .hhy file with hhy run." }
         ] },
         { title: "Your first script", blocks: [
-          { type: "code", language: "hhy", code: code.hello },
+          { type: "code", language: "hhy", code: code.hello, filename: "hello.hhy" },
           { type: "code", language: "sh", code: "hhy check hello.hhy\nhhy run hello.hhy" },
           { type: "p", text: "let creates a binding; the List literal stores three Strings; |> injects the left value into the next call; the map closure creates one new String per item; print consumes the result. check validates lexical syntax, scope, modules, and known standard-library calls without effects." }
         ] },
@@ -882,7 +887,7 @@ export const chapters: Chapter[] = [
           { type: "code", language: "hhy", code: code.basicsControl },
           { type: "p", text: "支持 if / else if / else、for item in iterable、while、break 和 continue。for 可以遍历 List、Map entries、Range 或 Stream；遍历 Stream 会消费它。函数使用位置参数，参数数量在调用时检查；没有显式 return 时返回 null。" },
           { type: "code", language: "hhy", code: code.basics },
-          { type: "p", text: "闭包写作 { item -> expression }；多条语句时必须显式写参数并用 return 返回。单参数闭包在明确的 Flow 上下文中可以使用 { it * 2 }。V1.0 不支持重载、泛型或默认参数。" }
+          { type: "p", text: `闭包写作 { item -> expression }；多条语句时必须显式写参数并用 return 返回。单参数闭包在明确的 Flow 上下文中可以使用 { it * 2 }。${hhyVersionLabel} 不支持重载、泛型或默认参数。` }
         ] }
       ],
       en: [
@@ -913,7 +918,7 @@ export const chapters: Chapter[] = [
           { type: "code", language: "hhy", code: code.basicsControl },
           { type: "p", text: "HHY supports if / else if / else, for item in iterable, while, break, and continue. for iterates Lists, Map entries, Ranges, or Streams; iterating a Stream consumes it. Functions use positional arguments checked at call time and return null without an explicit return." },
           { type: "code", language: "hhy", code: code.basics },
-          { type: "p", text: "A closure is { item -> expression }; a multi-statement closure must name its parameter and use return. A one-argument closure in an unambiguous Flow context may use { it * 2 }. V1.0 has no overloading, generics, or default arguments." }
+          { type: "p", text: `A closure is { item -> expression }; a multi-statement closure must name its parameter and use return. A one-argument closure in an unambiguous Flow context may use { it * 2 }. ${hhyVersionLabel} has no overloading, generics, or default arguments.` }
         ] }
       ]
     }
@@ -1068,7 +1073,7 @@ export const chapters: Chapter[] = [
         ] },
         { title: "Regex", blocks: [
           { type: "p", text: "Regex 字面量写作 /pattern/flags，支持 i（忽略大小写）、m（多行）、s（点匹配换行）和 u。regex_match 只返回是否匹配；regex_captures 返回完整匹配、字节位置、groups 编号捕获与 named 命名捕获，不匹配时返回 null。" },
-          { type: "note", text: "V1.0 使用 PCRE2 8-bit，并限制 pattern、subject、match、depth、heap 和捕获组数量；超限产生 ResourceLimitError，避免恶意正则耗尽运行时。" }
+          { type: "note", text: `${hhyVersionLabel} 使用 PCRE2 8-bit，并限制 pattern、subject、match、depth、heap 和捕获组数量；超限产生 ResourceLimitError，避免恶意正则耗尽运行时。` }
         ] },
         { title: "JSON 的类型映射与错误", blocks: [
           { type: "code", language: "hhy", code: code.json },
@@ -1090,7 +1095,7 @@ export const chapters: Chapter[] = [
         ] },
         { title: "Regex", blocks: [
           { type: "p", text: "A Regex literal is /pattern/flags with i (case-insensitive), m (multiline), s (dot matches newline), and u. regex_match returns Bool; regex_captures returns the full match, byte positions, numbered groups, and named captures, or null when unmatched." },
-          { type: "note", text: "V1.0 uses PCRE2 8-bit with pattern, subject, match, depth, heap, and capture limits. Exceeding them raises ResourceLimitError." }
+          { type: "note", text: `${hhyVersionLabel} uses PCRE2 8-bit with pattern, subject, match, depth, heap, and capture limits. Exceeding them raises ResourceLimitError.` }
         ] },
         { title: "JSON type mapping and errors", blocks: [
           { type: "code", language: "hhy", code: code.json },
@@ -1218,7 +1223,7 @@ export const chapters: Chapter[] = [
         ] },
         { title: "Sendable 与隔离", blocks: [
           { type: "p", text: "worker 收到输入和闭包捕获值的冻结快照，不共享可变对象。Null、Bool、数字、String、单位、Path，以及字段均可发送的普通 List/Map/系统快照可复制过去。" },
-          { type: "note", text: "捕获 let mut Cell、Stream、打开的 File handle、请求 body stream 或其他进程内资源会产生 CheckError。HHY V1.0 不公开线程、锁或 async/await。" }
+          { type: "note", text: `捕获 let mut Cell、Stream、打开的 File handle、请求 body stream 或其他进程内资源会产生 CheckError。HHY ${hhyVersionLabel} 不公开线程、锁或 async/await。` }
         ] },
         { title: "watch 与 FileEvent", blocks: [
           { type: "code", language: "hhy", code: code.watch },
@@ -1242,7 +1247,7 @@ export const chapters: Chapter[] = [
         ] },
         { title: "Sendable values and isolation", blocks: [
           { type: "p", text: "Workers receive frozen snapshots of input and captured values, never shared mutable objects. Null, Bool, numbers, String, units, Path, and ordinary Lists/Maps/system snapshots whose fields are sendable can be copied." },
-          { type: "note", text: "Capturing a let mut Cell, Stream, open File handle, request body stream, or other process-local resource raises CheckError. V1.0 exposes no threads, locks, or async/await." }
+          { type: "note", text: `Capturing a let mut Cell, Stream, open File handle, request body stream, or other process-local resource raises CheckError. ${hhyVersionLabel} exposes no threads, locks, or async/await.` }
         ] },
         { title: "watch and FileEvent", blocks: [
           { type: "code", language: "hhy", code: code.watch },
@@ -1274,7 +1279,7 @@ export const chapters: Chapter[] = [
         ] },
         { title: "export、作用域与执行", blocks: [
           { type: "code", language: "hhy", code: "export let version = \"1.0\"\n\nexport fn normalize_name(name) {\n    return name |> trim |> lower\n}\n\nfn internal_helper() {\n    return null\n}" },
-          { type: "p", text: "只有 export 名称对外可见。模块拥有独立顶层作用域，并在首次 import 时执行一次、随后缓存。循环依赖在执行前产生 CheckError。V1.0 只支持标准库和本地模块。" }
+          { type: "p", text: `只有 export 名称对外可见。模块拥有独立顶层作用域，并在首次 import 时执行一次、随后缓存。循环依赖在执行前产生 CheckError。${hhyVersionLabel} 支持标准库、本地模块，以及通过本地包安装的进程扩展模块。` }
         ] },
         { title: "Error 的字段与类别", blocks: [
           { type: "p", text: "所有失败都使用 Error，而不是靠 null 或打印文本表达。Error 提供 kind、code、message、source、stage、cause、stack、context 字段；敏感 header、凭据和完整文件内容不会默认进入 context。" },
@@ -1300,7 +1305,7 @@ export const chapters: Chapter[] = [
         ] },
         { title: "Exports, scope, and execution", blocks: [
           { type: "code", language: "hhy", code: "export let version = \"1.0\"\n\nexport fn normalize_name(name) {\n    return name |> trim |> lower\n}\n\nfn internal_helper() {\n    return null\n}" },
-          { type: "p", text: "Only exported names are visible to importers. A module owns its top-level scope, executes once on first import, and is then cached. Import cycles raise CheckError before execution. V1.0 supports standard and local modules only." }
+          { type: "p", text: `Only exported names are visible to importers. A module owns its top-level scope, executes once on first import, and is then cached. Import cycles raise CheckError before execution. ${hhyVersionLabel} supports standard and local modules plus process-extension modules installed from local packages.` }
         ] },
         { title: "Error fields and categories", blocks: [
           { type: "p", text: "Every failure uses Error rather than null or printed text. Error exposes kind, code, message, source, stage, cause, stack, and context. Sensitive headers, credentials, and full file contents are excluded from context by default." },
@@ -1324,7 +1329,7 @@ export const chapters: Chapter[] = [
     slug: "syntax-reference",
     order: 14,
     title: { zh: "语法完整参考", en: "Complete Syntax Reference" },
-    summary: { zh: "V1.0 的词法、字面量、运算符、语句、闭包和模块语法。", en: "V1.0 lexical rules, literals, operators, statements, closures, and module syntax." },
+    summary: { zh: `${hhyVersionLabel} 的词法、字面量、运算符、语句、闭包和模块语法。`, en: `${hhyVersionLabel} lexical rules, literals, operators, statements, closures, and module syntax.` },
     sections: {
       zh: [
         { title: "源文件与词法", blocks: [
@@ -1374,11 +1379,11 @@ export const chapters: Chapter[] = [
     slug: "standard-library",
     order: 15,
     title: { zh: "标准库函数索引", en: "Standard Library Function Index" },
-    summary: { zh: "运行时 Registry 中全部 94 个 V1.0 callable 的签名与用途。", en: "Signatures and purposes for all 94 V1.0 callables in the runtime Registry." },
+    summary: { zh: `运行时 Registry 中全部 94 个 ${hhyVersionLabel} 核心 callable 的签名与用途。`, en: `Signatures and purposes for all 94 ${hhyVersionLabel} core callables in the runtime Registry.` },
     sections: {
       zh: [
         { title: "如何阅读签名", blocks: [
-          { type: "p", text: "本页以 V1.0 Runtime 的 Callable Contract Registry 为权威来源，共 94 项。T/U 表示泛型占位值，? 表示可选参数或可空结果，Map? 表示可选 options Map。所有函数都可普通调用；在管道中，左侧值会注入为第一个参数。" },
+          { type: "p", text: `本页以 ${hhyVersionLabel} Runtime 的 Callable Contract Registry 为权威来源，共 94 个核心 callable；扩展动态注册的 callable 在各扩展文档中说明。T/U 表示泛型占位值，? 表示可选参数或可空结果，Map? 表示可选 options Map。所有函数都可普通调用；在管道中，左侧值会注入为第一个参数。` },
           { type: "note", text: "这是完整 callable 清单，不含 args、env、system 等只读特殊值，也不把 File.path、HttpResponse.status 等只读字段误列为函数。" }
         ] },
         { title: "核心值、集合、环境与控制（22）", blocks: [callableList("stdCore", "zh")] },
@@ -1402,7 +1407,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Reading the signatures", blocks: [
-          { type: "p", text: "This page is sourced from the V1.0 Runtime Callable Contract Registry and contains all 94 entries. T/U are generic placeholders, ? marks an optional argument or nullable result, and Map? is an optional options Map. Every function supports ordinary calls; a pipe injects its left value as the first argument." },
+          { type: "p", text: `This page is sourced from the ${hhyVersionLabel} Runtime Callable Contract Registry and contains all 94 core callables; dynamically registered callables are documented by their extensions. T/U are generic placeholders, ? marks an optional argument or nullable result, and Map? is an optional options Map. Every function supports ordinary calls; a pipe injects its left value as the first argument.` },
           { type: "note", text: "This is the complete callable list. It excludes read-only special values such as args, env, and system, and does not mislabel read-only fields such as File.path or HttpResponse.status as functions." }
         ] },
         { title: "Core values, collections, environment, and control (22)", blocks: [callableList("stdCore", "en")] },
@@ -1435,158 +1440,158 @@ export const chapters: Chapter[] = [
       zh: [
         { title: "00 · Hello HHY 与 Flow 入门", blocks: [
           { type: "p", text: "最小可运行案例：把 List 转成 Stream，依次完成映射和过滤，最后输出结果。对应 examples/00-hello.hhy。" },
-          { type: "code", language: "hhy", code: code.hello },
+          { type: "code", language: "hhy", code: code.hello, filename: "00-hello.hhy" },
           { type: "terminal", command: "hhy run examples/00-hello.hhy", output: "HHY: Flow\nHHY: Pipe\nHHY: System\n\n✓ exit 0 · Flow 管道执行完成" }
         ] },
         { title: "并发提取日志告警", blocks: [
           { type: "p", text: "递归扫描大日志文件，使用 4 个 worker 提取 ERROR/WARN 行，并将来源文件写入结果。适合服务器日志归档、故障排查和定时任务。" },
-          { type: "code", language: "hhy", code: code.practicalLogs },
+          { type: "code", language: "hhy", code: code.practicalLogs, filename: "log-errors.hhy" },
           { type: "code", language: "sh", code: "hhy run log-errors.hhy ./logs ./output/errors.txt" },
           { type: "terminal", command: "hhy run log-errors.hhy ./logs ./output/errors.txt && head -3 ./output/errors.txt", output: "logs/api.log: 2026-08-25T09:18:42Z ERROR database timeout after 3000ms\nlogs/worker.log: 2026-08-25T09:18:44Z WARN retrying job #1842\nlogs/api.log: 2026-08-25T09:18:47Z ERROR upstream returned 502\n\n✓ exit 0 · 3 条告警已写入 output/errors.txt" }
         ] },
         { title: "从 API 同步活跃用户", blocks: [
           { type: "p", text: "请求用户接口，经过超时、重试、JSON 解析和字段裁剪后，只把活跃用户原子写入本地文件。对应 examples/02-active-users.hhy。" },
-          { type: "code", language: "hhy", code: code.practicalActiveUsers },
+          { type: "code", language: "hhy", code: code.practicalActiveUsers, filename: "active-users.hhy" },
           { type: "code", language: "sh", code: "hhy run active-users.hhy https://api.example.com/users active-users.json" },
           { type: "terminal", command: "hhy run active-users.hhy http://127.0.0.1:9000/users active-users.json && cat active-users.json", output: "[\n  { \"id\": 101, \"name\": \"Ada\", \"email\": \"ada@example.com\" },\n  { \"id\": 108, \"name\": \"Linus\", \"email\": \"linus@example.com\" }\n]\n\n✓ exit 0 · 2 位活跃用户已写入 active-users.json" }
         ] },
         { title: "进程 CPU / 内存监控", blocks: [
           { type: "p", text: "每 5 秒读取一次进程快照，找出 CPU 超过 70% 或内存超过 1 GiB 的进程，并按内存倒序输出前 10 个。对应 examples/03-process-monitor.hhy。" },
-          { type: "code", language: "hhy", code: code.practicalProcesses },
+          { type: "code", language: "hhy", code: code.practicalProcesses, filename: "03-process-monitor.hhy" },
           { type: "terminal", command: "hhy run examples/03-process-monitor.hhy", output: "[{ pid: 8421, name: \"node\", cpu: 82.4%, memory: 1.42 GiB },\n { pid: 9107, name: \"hhy\",  cpu: 74.1%, memory: 86.3 MiB }]\n\nnext sample in 5s… · Ctrl+C 安全退出" }
         ] },
         { title: "批量服务健康检查", blocks: [
           { type: "p", text: "并发探测多个服务，统一设置超时与重试；单个接口失败时记录错误，不中断整批巡检。可接入发布检查或 CI。" },
-          { type: "code", language: "hhy", code: code.practicalHealth },
+          { type: "code", language: "hhy", code: code.practicalHealth, filename: "health-check.hhy" },
           { type: "terminal", command: "hhy run health-check.hhy", output: "[\n  { \"name\": \"users\",   \"ok\": true,  \"status\": \"healthy\", \"error\": null },\n  { \"name\": \"orders\",  \"ok\": true,  \"status\": \"healthy\", \"error\": null },\n  { \"name\": \"billing\", \"ok\": false, \"status\": \"unreachable\", \"error\": \"request timed out\" }\n]\n\n✓ exit 0 · 3 个服务并发完成，单点失败未中断批次" }
         ] },
         { title: "业务进阶 01 · 发布质量门禁", blocks: [
           { type: "p", text: "在发布前并行执行测试、Lint 和生产构建，生成机器可读报告；任一检查失败就用稳定退出码阻止发布。适合 CI/CD、灰度发布和交付验收。" },
-          { type: "code", language: "hhy", code: code.businessReleaseGate },
+          { type: "code", language: "hhy", code: code.businessReleaseGate, filename: "release-gate.hhy" },
           { type: "terminal", command: "hhy run release-gate.hhy", output: "unit-tests       PASS  4.28s\nlint             PASS  1.14s\nproduction-build PASS  6.72s\nrelease-gate.json written\n\n✓ exit 0 · release gate passed" }
         ] },
         { title: "业务进阶 02 · 源码敏感信息审计", blocks: [
           { type: "p", text: "并发扫描配置与源码，定位疑似 API Key、密码和私钥内容，汇总成可供安全团队复核的报告。适合提交前检查和合规巡检。" },
-          { type: "code", language: "hhy", code: code.businessSecretAudit },
+          { type: "code", language: "hhy", code: code.businessSecretAudit, filename: "secret-audit.hhy" },
           { type: "terminal", command: "hhy run secret-audit.hhy ./services secret-findings.txt", output: "services/billing/.env: PAYMENT_API_KEY=***\nservices/auth/config.yml: PASSWORD: ***\n\n✓ exit 0 · 2 条疑似敏感信息待复核" },
           { type: "note", text: "示例输出已脱敏。实际落地时应限制报告权限，并在流水线中避免打印秘密原文。" }
         ] },
         { title: "业务进阶 03 · 订单与支付自动对账", blocks: [
           { type: "p", text: "把订单 CSV 与支付 CSV 合并为一条数据流，按 order_id 分组，找出缺少记录或金额不一致的异常订单。适合每日财务对账。" },
-          { type: "code", language: "hhy", code: code.businessReconcile },
+          { type: "code", language: "hhy", code: code.businessReconcile, filename: "reconcile.hhy" },
           { type: "terminal", command: "hhy run reconcile.hhy orders.csv payments.csv exceptions.json", output: "orders: 12,480 · payments: 12,472\nmatched: 12,461\nexceptions: 19 → exceptions.json\n\n✓ exit 0 · 对账报告已原子写入" }
         ] },
         { title: "业务进阶 04 · SaaS 多租户用量快照", blocks: [
           { type: "p", text: "有界并发拉取各租户用量，统一处理超时和重试；单租户失败被隔离并记录，不影响整份快照生成。适合计费、容量分析和客户成功报表。" },
-          { type: "code", language: "hhy", code: code.businessTenantSnapshot },
+          { type: "code", language: "hhy", code: code.businessTenantSnapshot, filename: "tenant-snapshot.hhy" },
           { type: "terminal", command: "hhy run tenant-snapshot.hhy", output: "acme  ✓ requests=184203 storage_gb=82.4\nnova  ✓ requests=99102  storage_gb=41.8\norbit ✗ request timed out\n\n✓ exit 0 · tenant-usage-snapshot.json 包含成功数据与失败原因" }
         ] },
         { title: "业务进阶 05 · 大体积素材治理", blocks: [
           { type: "p", text: "遍历图片与视频素材，筛选超过 5 MiB 的文件并按体积倒序生成 JSON 清单，帮助内容团队定位需要压缩或迁移的资产。" },
-          { type: "code", language: "hhy", code: code.businessAssetAudit },
+          { type: "code", language: "hhy", code: code.businessAssetAudit, filename: "asset-audit.hhy" },
           { type: "terminal", command: "hhy run asset-audit.hhy ./public asset-report.json", output: "scanned 1,842 assets\nlarge assets: 27\nlargest: public/video/launch.mp4 · 184.2 MiB\n\n✓ exit 0 · asset-report.json 已生成" }
         ] },
         { title: "监听源码并自动构建", blocks: [
           { type: "p", text: "监听 C 代码变化，通过 debounce 合并短时间内的连续保存，再执行 make。构建失败只打印错误，监听任务继续运行。" },
-          { type: "code", language: "hhy", code: code.practicalWatch },
+          { type: "code", language: "hhy", code: code.practicalWatch, filename: "watch-build.hhy" },
           { type: "code", language: "sh", code: "hhy run watch-build.hhy ./src" },
           { type: "terminal", command: "hhy run watch-build.hhy ./src", output: "watching ./src recursively…\nchanged: src/runtime/flow.c\ncc -std=c11 -O2 -c src/runtime/flow.c\ncc build/*.o -lcurl -lpcre2-8 -lgc -o build/hhy\nBuild complete: build/hhy\n\n✓ watcher remains active · waiting for the next change" }
         ] },
         { title: "从 CSV 生成部门汇总报表", blocks: [
           { type: "p", text: "读取员工 CSV，筛选在职人员，按部门统计人数和薪资总额，最后原子写入格式化 JSON。输入列为 name、department、active、salary。" },
-          { type: "code", language: "hhy", code: code.practicalCsv },
+          { type: "code", language: "hhy", code: code.practicalCsv, filename: "csv-report.hhy" },
           { type: "code", language: "sh", code: "hhy run csv-report.hhy employees.csv department-report.json" },
           { type: "terminal", command: "hhy run csv-report.hhy employees.csv department-report.json && cat department-report.json", output: "[\n  { \"department\": \"Engineering\", \"employees\": 12, \"total_salary\": 2160000 },\n  { \"department\": \"Product\", \"employees\": 5, \"total_salary\": 810000 }\n]\n\n✓ exit 0 · department-report.json 已原子写入" }
         ] },
         { title: "大文件备份（支持 dry-run）", blocks: [
           { type: "p", text: "找出超过 100 MiB 的文件并复制到备份目录。先用 dry-run 检查动作计划，确认无误后再真实执行。" },
-          { type: "code", language: "hhy", code: code.practicalBackup },
+          { type: "code", language: "hhy", code: code.practicalBackup, filename: "backup-large.hhy" },
           { type: "code", language: "sh", code: "hhy run --dry-run backup-large.hhy ./downloads ./backup\nhhy run backup-large.hhy ./downloads ./backup" },
           { type: "terminal", command: "hhy run --dry-run backup-large.hhy ./downloads ./backup", output: "copy downloads/archive.tar -> backup/archive.tar\ncopy downloads/database.dump -> backup/database.dump\n[dry-run] copy downloads/archive.tar → backup/archive.tar\n[dry-run] copy downloads/database.dump → backup/database.dump\n\n✓ exit 0 · 仅生成计划，没有写入文件" },
           { type: "note", text: "备份脚本默认不覆盖同名文件，并自动创建目标目录；正式执行前仍建议先运行 dry-run。" }
         ] },
         { title: "07 · 语言基础综合练习", blocks: [
           { type: "p", text: "用一个小型汇总任务串起变量、List、Map、函数、条件、循环、作用域和错误处理。对应 examples/07-language-basics.hhy。" },
-          { type: "code", language: "hhy", code: code.basics },
+          { type: "code", language: "hhy", code: code.basics, filename: "07-language-basics.hhy" },
           { type: "terminal", command: "hhy run examples/07-language-basics.hhy", output: "{\n  \"count\": 2,\n  \"total\": 40,\n  \"average\": 20\n}\n\n✓ exit 0 · 汇总结果已生成" }
         ] }
       ],
       en: [
         { title: "00 · Hello HHY and Flow", blocks: [
           { type: "p", text: "The smallest runnable example: turn a List into a Stream, map and filter values, then print the result. Corresponds to examples/00-hello.hhy." },
-          { type: "code", language: "hhy", code: code.hello },
+          { type: "code", language: "hhy", code: code.hello, filename: "00-hello.hhy" },
           { type: "terminal", command: "hhy run examples/00-hello.hhy", output: "HHY: Flow\nHHY: Pipe\nHHY: System\n\n✓ exit 0 · Flow pipeline completed" }
         ] },
         { title: "Extract log alerts concurrently", blocks: [
           { type: "p", text: "Recursively scan large log files with four workers, extract ERROR/WARN lines, and retain each source path. Useful for incident response and scheduled log jobs." },
-          { type: "code", language: "hhy", code: code.practicalLogs },
+          { type: "code", language: "hhy", code: code.practicalLogs, filename: "log-errors.hhy" },
           { type: "code", language: "sh", code: "hhy run log-errors.hhy ./logs ./output/errors.txt" },
           { type: "terminal", command: "hhy run log-errors.hhy ./logs ./output/errors.txt && head -3 ./output/errors.txt", output: "logs/api.log: 2026-08-25T09:18:42Z ERROR database timeout after 3000ms\nlogs/worker.log: 2026-08-25T09:18:44Z WARN retrying job #1842\nlogs/api.log: 2026-08-25T09:18:47Z ERROR upstream returned 502\n\n✓ exit 0 · 3 alerts written to output/errors.txt" }
         ] },
         { title: "Sync active users from an API", blocks: [
           { type: "p", text: "Fetch users with timeout and retry, parse JSON, select fields, and atomically save only active users. Corresponds to examples/02-active-users.hhy." },
-          { type: "code", language: "hhy", code: code.practicalActiveUsers },
+          { type: "code", language: "hhy", code: code.practicalActiveUsers, filename: "active-users.hhy" },
           { type: "code", language: "sh", code: "hhy run active-users.hhy https://api.example.com/users active-users.json" },
           { type: "terminal", command: "hhy run active-users.hhy http://127.0.0.1:9000/users active-users.json && cat active-users.json", output: "[\n  { \"id\": 101, \"name\": \"Ada\", \"email\": \"ada@example.com\" },\n  { \"id\": 108, \"name\": \"Linus\", \"email\": \"linus@example.com\" }\n]\n\n✓ exit 0 · 2 active users written to active-users.json" }
         ] },
         { title: "Monitor process CPU and memory", blocks: [
           { type: "p", text: "Sample processes every five seconds, keep CPU-heavy or memory-heavy entries, and print the top ten by memory. Corresponds to examples/03-process-monitor.hhy." },
-          { type: "code", language: "hhy", code: code.practicalProcesses },
+          { type: "code", language: "hhy", code: code.practicalProcesses, filename: "03-process-monitor.hhy" },
           { type: "terminal", command: "hhy run examples/03-process-monitor.hhy", output: "[{ pid: 8421, name: \"node\", cpu: 82.4%, memory: 1.42 GiB },\n { pid: 9107, name: \"hhy\",  cpu: 74.1%, memory: 86.3 MiB }]\n\nnext sample in 5s… · Ctrl+C exits safely" }
         ] },
         { title: "Check service health in batches", blocks: [
           { type: "p", text: "Probe multiple services concurrently with consistent timeouts and retries. A failed endpoint is recorded without terminating the whole batch." },
-          { type: "code", language: "hhy", code: code.practicalHealth },
+          { type: "code", language: "hhy", code: code.practicalHealth, filename: "health-check.hhy" },
           { type: "terminal", command: "hhy run health-check.hhy", output: "[\n  { \"name\": \"users\",   \"ok\": true,  \"status\": \"healthy\", \"error\": null },\n  { \"name\": \"orders\",  \"ok\": true,  \"status\": \"healthy\", \"error\": null },\n  { \"name\": \"billing\", \"ok\": false, \"status\": \"unreachable\", \"error\": \"request timed out\" }\n]\n\n✓ exit 0 · all 3 checks completed despite one endpoint failure" }
         ] },
         { title: "Business 01 · Release quality gate", blocks: [
           { type: "p", text: "Run tests, lint, and production builds in parallel, save a machine-readable report, and block a release with a stable exit code when any check fails." },
-          { type: "code", language: "hhy", code: code.businessReleaseGate },
+          { type: "code", language: "hhy", code: code.businessReleaseGate, filename: "release-gate.hhy" },
           { type: "terminal", command: "hhy run release-gate.hhy", output: "unit-tests       PASS  4.28s\nlint             PASS  1.14s\nproduction-build PASS  6.72s\nrelease-gate.json written\n\n✓ exit 0 · release gate passed" }
         ] },
         { title: "Business 02 · Source secret audit", blocks: [
           { type: "p", text: "Scan configuration and source files concurrently for suspected API keys, passwords, and private keys, then produce a security review report." },
-          { type: "code", language: "hhy", code: code.businessSecretAudit },
+          { type: "code", language: "hhy", code: code.businessSecretAudit, filename: "secret-audit.hhy" },
           { type: "terminal", command: "hhy run secret-audit.hhy ./services secret-findings.txt", output: "services/billing/.env: PAYMENT_API_KEY=***\nservices/auth/config.yml: PASSWORD: ***\n\n✓ exit 0 · 2 suspected secrets require review" },
           { type: "note", text: "The example output is redacted. Restrict report access and avoid printing raw secrets in production pipelines." }
         ] },
         { title: "Business 03 · Order and payment reconciliation", blocks: [
           { type: "p", text: "Merge order and payment CSV files into one flow, group records by order_id, and report missing records or mismatched amounts." },
-          { type: "code", language: "hhy", code: code.businessReconcile },
+          { type: "code", language: "hhy", code: code.businessReconcile, filename: "reconcile.hhy" },
           { type: "terminal", command: "hhy run reconcile.hhy orders.csv payments.csv exceptions.json", output: "orders: 12,480 · payments: 12,472\nmatched: 12,461\nexceptions: 19 → exceptions.json\n\n✓ exit 0 · reconciliation report written atomically" }
         ] },
         { title: "Business 04 · Multi-tenant usage snapshot", blocks: [
           { type: "p", text: "Fetch tenant usage with bounded concurrency, consistent retries, and failure isolation. Useful for billing, capacity analysis, and customer success reports." },
-          { type: "code", language: "hhy", code: code.businessTenantSnapshot },
+          { type: "code", language: "hhy", code: code.businessTenantSnapshot, filename: "tenant-snapshot.hhy" },
           { type: "terminal", command: "hhy run tenant-snapshot.hhy", output: "acme  ✓ requests=184203 storage_gb=82.4\nnova  ✓ requests=99102  storage_gb=41.8\norbit ✗ request timed out\n\n✓ exit 0 · snapshot contains both data and failure reasons" }
         ] },
         { title: "Business 05 · Oversized asset governance", blocks: [
           { type: "p", text: "Find large image and video assets, sort them by size, and produce a JSON inventory for compression or storage migration work." },
-          { type: "code", language: "hhy", code: code.businessAssetAudit },
+          { type: "code", language: "hhy", code: code.businessAssetAudit, filename: "asset-audit.hhy" },
           { type: "terminal", command: "hhy run asset-audit.hhy ./public asset-report.json", output: "scanned 1,842 assets\nlarge assets: 27\nlargest: public/video/launch.mp4 · 184.2 MiB\n\n✓ exit 0 · asset-report.json generated" }
         ] },
         { title: "Watch sources and rebuild", blocks: [
           { type: "p", text: "Watch C sources, debounce rapid saves, and run make. Build failures are reported while the watcher stays alive." },
-          { type: "code", language: "hhy", code: code.practicalWatch },
+          { type: "code", language: "hhy", code: code.practicalWatch, filename: "watch-build.hhy" },
           { type: "code", language: "sh", code: "hhy run watch-build.hhy ./src" },
           { type: "terminal", command: "hhy run watch-build.hhy ./src", output: "watching ./src recursively…\nchanged: src/runtime/flow.c\ncc -std=c11 -O2 -c src/runtime/flow.c\ncc build/*.o -lcurl -lpcre2-8 -lgc -o build/hhy\nBuild complete: build/hhy\n\n✓ watcher remains active · waiting for the next change" }
         ] },
         { title: "Build a department report from CSV", blocks: [
           { type: "p", text: "Read employee CSV records, keep active employees, aggregate headcount and salary by department, and atomically save formatted JSON." },
-          { type: "code", language: "hhy", code: code.practicalCsv },
+          { type: "code", language: "hhy", code: code.practicalCsv, filename: "csv-report.hhy" },
           { type: "code", language: "sh", code: "hhy run csv-report.hhy employees.csv department-report.json" },
           { type: "terminal", command: "hhy run csv-report.hhy employees.csv department-report.json && cat department-report.json", output: "[\n  { \"department\": \"Engineering\", \"employees\": 12, \"total_salary\": 2160000 },\n  { \"department\": \"Product\", \"employees\": 5, \"total_salary\": 810000 }\n]\n\n✓ exit 0 · department-report.json written atomically" }
         ] },
         { title: "Back up large files with dry-run", blocks: [
           { type: "p", text: "Find files over 100 MiB and copy them into a backup directory. Inspect the plan with dry-run before performing real writes." },
-          { type: "code", language: "hhy", code: code.practicalBackup },
+          { type: "code", language: "hhy", code: code.practicalBackup, filename: "backup-large.hhy" },
           { type: "code", language: "sh", code: "hhy run --dry-run backup-large.hhy ./downloads ./backup\nhhy run backup-large.hhy ./downloads ./backup" },
           { type: "terminal", command: "hhy run --dry-run backup-large.hhy ./downloads ./backup", output: "copy downloads/archive.tar -> backup/archive.tar\ncopy downloads/database.dump -> backup/database.dump\n[dry-run] copy downloads/archive.tar → backup/archive.tar\n[dry-run] copy downloads/database.dump → backup/database.dump\n\n✓ exit 0 · plan generated without writing files" },
           { type: "note", text: "The recipe refuses to overwrite files and creates parent directories, but you should still inspect the dry-run plan first." }
         ] },
         { title: "07 · Language basics in one task", blocks: [
           { type: "p", text: "A small aggregation task combining variables, Lists, Maps, functions, conditions, loops, scopes, and error handling. Corresponds to examples/07-language-basics.hhy." },
-          { type: "code", language: "hhy", code: code.basics },
+          { type: "code", language: "hhy", code: code.basics, filename: "07-language-basics.hhy" },
           { type: "terminal", command: "hhy run examples/07-language-basics.hhy", output: "{\n  \"count\": 2,\n  \"total\": 40,\n  \"average\": 20\n}\n\n✓ exit 0 · summary generated" }
         ] }
       ]
@@ -1599,6 +1604,11 @@ export const chapters: Chapter[] = [
     summary: { zh: "运行、检查、格式化、REPL 与 dry-run。", en: "Run, check, format, use the REPL, and inspect dry-run plans." },
     sections: {
       zh: [
+        { title: "版本与发布信息", blocks: [
+          { type: "p", text: "使用 --version 确认当前二进制版本、项目作者、开源许可证和官方联系方式。源码构建使用 ./build/hhy；发行包或安装到 PATH 后可直接使用 hhy。" },
+          { type: "terminal-card", title: "HHY · 版本信息", command: "./build/hhy --version", output: `hhy ${hhyVersion}\n© 2026 HHY Language contributors\nAuthor: houhuiyang\nLicense: Apache License 2.0\nhttps://hhylang.dev/\nhuiyang.hou@qq.com`, caption: `HHY ${hhyVersion} 的真实命令输出；版本、作者、许可证、官网和联系邮箱由 CLI 直接提供。` },
+          { type: "note", text: "如果从正式发行包运行，请在解压目录执行 ./bin/hhy --version；如果已经 make install 或加入 PATH，则执行 hhy --version。" }
+        ] },
         { title: "完整命令", blocks: [
           { type: "code", language: "sh", code: code.cli },
           { type: "table", columns: ["命令", "用途"], rows: [["hhy run", "运行脚本并传递 args"], ["hhy repl", "启动交互环境"], ["hhy check", "检查语法和核心语义"], ["hhy fmt", "写入官方格式"], ["hhy fmt --check", "只检查格式"], ["hhy ast", "输出 AST"], ["hhy tokens", "输出 Lexer Token"], ["hhy run --dry-run", "预览脱敏执行计划"]] },
@@ -1615,6 +1625,11 @@ export const chapters: Chapter[] = [
         ] }
       ],
       en: [
+        { title: "Version and release identity", blocks: [
+          { type: "p", text: "Use --version to confirm the binary version, project author, open-source license, and official contact details. Source builds use ./build/hhy; release archives or PATH installations can invoke hhy directly." },
+          { type: "terminal-card", title: "HHY · Version information", command: "./build/hhy --version", output: `hhy ${hhyVersion}\n© 2026 HHY Language contributors\nAuthor: houhuiyang\nLicense: Apache License 2.0\nhttps://hhylang.dev/\nhuiyang.hou@qq.com`, caption: `Actual HHY ${hhyVersion} command output. The CLI reports the version, author, license, website, and contact address directly.` },
+          { type: "note", text: "From an official archive, run ./bin/hhy --version in the extracted directory. After make install or adding HHY to PATH, run hhy --version." }
+        ] },
         { title: "Complete command set", blocks: [
           { type: "code", language: "sh", code: code.cli },
           { type: "table", columns: ["Command", "Purpose"], rows: [["hhy run", "Run a script and pass args"], ["hhy repl", "Start the interactive environment"], ["hhy check", "Check syntax and core semantics"], ["hhy fmt", "Write canonical formatting"], ["hhy fmt --check", "Check formatting only"], ["hhy ast", "Print the AST"], ["hhy tokens", "Print Lexer tokens"], ["hhy run --dry-run", "Preview a redacted execution plan"]] },
@@ -1640,7 +1655,7 @@ export const chapters: Chapter[] = [
     sections: {
       zh: [
         { title: "完整的数据同步管道", blocks: [
-          { type: "p", text: "DataFlow ETL 是完全由 HHY v1.0 编写并通过端到端自测的数据同步应用。它读取客户 CSV 和事件 JSON 目录，规范化姓名与邮箱，过滤停用和低消费客户，并发请求本地画像 API，按部门 group_by 汇总，最后原子写入 JSON 报告和 CSV 明细。" },
+          { type: "p", text: `DataFlow ETL 是完全由 HHY ${hhyVersionTag} 运行并通过端到端自测的数据同步应用。它读取客户 CSV 和事件 JSON 目录，规范化姓名与邮箱，过滤停用和低消费客户，并发请求本地画像 API，按部门 group_by 汇总，最后原子写入 JSON 报告和 CSV 明细。` },
           { type: "table", columns: ["阶段", "实现"], rows: [["采集", "read_lines + parse_csv；files + parse_json"], ["清洗", "trim、lower、to_int 与结构化 Map"], ["补全", "parallel(4) + http.get + timeout + retry"], ["汇总", "where、sort_by、group_by、sum"], ["输出", "encode_json/save_text 与 encode_csv/save_lines"]] },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/dataflow-etl", label: "在 GitHub 查看 DataFlow ETL 完整源码 ↗", description: "包含 HHY 模块、CSV/JSON 测试数据、画像 API、报告断言和一键自测。" }
         ] },
@@ -1660,7 +1675,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "A complete synchronization pipeline", blocks: [
-          { type: "p", text: "DataFlow ETL is written entirely in HHY v1.0 and verified end to end. It reads customer CSV and an event JSON directory, normalizes names and email addresses, filters inactive and low-spend customers, calls a profile API concurrently, aggregates departments with group_by, and atomically writes JSON and CSV outputs." },
+          { type: "p", text: `DataFlow ETL runs entirely on HHY ${hhyVersionTag} and is verified end to end. It reads customer CSV and an event JSON directory, normalizes names and email addresses, filters inactive and low-spend customers, calls a profile API concurrently, aggregates departments with group_by, and atomically writes JSON and CSV outputs.` },
           { type: "table", columns: ["Stage", "Implementation"], rows: [["Ingest", "read_lines + parse_csv; files + parse_json"], ["Clean", "trim, lower, to_int, and structured Maps"], ["Enrich", "parallel(4) + http.get + timeout + retry"], ["Aggregate", "where, sort_by, group_by, and sum"], ["Output", "encode_json/save_text and encode_csv/save_lines"]] },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/dataflow-etl", label: "View the complete DataFlow ETL source on GitHub ↗", description: "Includes HHY modules, CSV/JSON fixtures, profile API, report assertions, and one-command self-test." }
         ] },
@@ -1732,11 +1747,11 @@ export const chapters: Chapter[] = [
     slug: "flowguard-project",
     order: 11,
     title: { zh: "实战项目：FlowGuard", en: "Project: FlowGuard" },
-    summary: { zh: "用 HHY v1.0 构建完整的代码仓库体检与质量门禁应用，包含真实数据、并发检查、JSON 报告和端到端测试。", en: "Build a complete repository health and quality-gate application with HHY v1.0, including real fixtures, concurrent checks, JSON reports, and end-to-end tests." },
+    summary: { zh: `用 HHY ${hhyVersionTag} 构建完整的代码仓库体检与质量门禁应用，包含真实数据、并发检查、JSON 报告和端到端测试。`, en: `Build a complete repository health and quality-gate application with HHY ${hhyVersionTag}, including real fixtures, concurrent checks, JSON reports, and end-to-end tests.` },
     sections: {
       zh: [
         { title: "这不是语法 Demo", blocks: [
-          { type: "p", text: "FlowGuard 是一个完全使用 HHY v1.0 编写的可运行应用。它接收项目目录与 JSON 配置，检查必需文件、扫描文件和疑似凭据、并发执行质量命令与 HTTP 健康检查，最终原子写入结构化报告，并用稳定退出码决定质量门禁是否通过。" },
+          { type: "p", text: `FlowGuard 是一个使用 HHY ${hhyVersionTag} 运行并通过自测的完整应用。它接收项目目录与 JSON 配置，检查必需文件、扫描文件和疑似凭据、并发执行质量命令与 HTTP 健康检查，最终原子写入结构化报告，并用稳定退出码决定质量门禁是否通过。` },
           { type: "table", columns: ["应用能力", "使用的 HHY 能力"], rows: [["项目结构检查", "Path、read_text、attempt、List"], ["文件与安全扫描", "files、Stream、Regex、Bytes"], ["质量命令", "run、parallel、Duration、CommandResult"], ["服务健康检查", "http.get、timeout、retry、parallel"], ["报告与门禁", "Map、encode_json、原子 save_text、exit"]] },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/flowguard", label: "在 GitHub 查看 FlowGuard 完整源码 ↗", description: "包含 HHY 入口、六个业务模块、配置、测试项目、HTTP 服务和报告断言。" }
         ] },
@@ -1766,7 +1781,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "More than a syntax demo", blocks: [
-          { type: "p", text: "FlowGuard is a runnable application written entirely in HHY v1.0. It accepts a project directory and JSON configuration, checks required files, scans files and possible credentials, runs quality commands and HTTP health checks concurrently, atomically writes a structured report, and uses a stable exit code to enforce the quality gate." },
+          { type: "p", text: `FlowGuard is a complete application run and self-tested with HHY ${hhyVersionTag}. It accepts a project directory and JSON configuration, checks required files, scans files and possible credentials, runs quality commands and HTTP health checks concurrently, atomically writes a structured report, and uses a stable exit code to enforce the quality gate.` },
           { type: "table", columns: ["Application capability", "HHY capabilities used"], rows: [["Project structure", "Path, read_text, attempt, and List"], ["File and security scan", "files, Stream, Regex, and Bytes"], ["Quality commands", "run, parallel, Duration, and CommandResult"], ["Service health", "http.get, timeout, retry, and parallel"], ["Report and gate", "Map, encode_json, atomic save_text, and exit"]] },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/flowguard", label: "View the complete FlowGuard source on GitHub ↗", description: "Includes the HHY entry point, six business modules, configurations, fixtures, HTTP server, and report assertions." }
         ] },
@@ -1799,77 +1814,127 @@ export const chapters: Chapter[] = [
   {
     slug: "extensions-roadmap",
     order: 17,
-    title: { zh: "扩展系统路线图", en: "Extension System Roadmap" },
-    summary: { zh: "了解扩展安装、加载、进程协议与 Redis 扩展示例的后续设计；这些能力尚未在 v1.0 实现。", en: "Preview the planned extension installation, loading, process protocol, and a Redis extension example; none of these capabilities is implemented in v1.0." },
+    title: { zh: "扩展系统与数据库扩展", en: "Extension System and Database Extension" },
+    summary: { zh: "面向扩展开发者的 v1.1.0 实现说明：本地包、进程协议、加载链路和官方 C 数据库扩展。", en: "The v1.1.0 implementation guide for extension developers: local packages, the process protocol, load lifecycle, and the official C database extension." },
     sections: {
       zh: [
-        { title: "先看状态：v1.0 尚不支持扩展", blocks: [
-          { type: "note", text: "路线图，不是 v1.0 使用说明：当前版本没有 hhy install、依赖清单解析、第三方扩展加载、扩展进程协议或公开 Native ABI。下面的命令、清单字段和 Redis API 均不可在 v1.0 运行，最终设计也可能调整。" },
-          { type: "table", columns: ["能力", "v1.0 状态", "计划"], rows: [["扩展模块名与核心 contract", "已预留内部边界", "v1.0"], ["本地扩展安装与加载", "未实现", "v1.1"], ["官方 office 扩展", "未实现", "v1.2"], ["公开 Native ABI", "未承诺", "Runtime 稳定后按需评估"]] },
-          { type: "p", text: "v1.0 已允许带点的模块名，例如 import office.excel；未安装的模块会得到 ModuleNotFoundError。这只是为未来扩展保留语法空间，不代表模块已经存在。" }
+        { title: "v1.1.0 已实现的边界", blocks: [
+          { type: "note", text: `${hhyVersionTag} 已实现本地 install/list/remove、manifest 与 SHA-256 校验、隔离进程握手、动态 callable 注册、同步调用、结构化错误和 shutdown。脚本可以直接 import 已安装的扩展包，例如 import database。` },
+          { type: "table", columns: ["能力", "v1.1.0 状态", "边界"], rows: [["本地扩展包", "已实现", "仅本地路径；不从远程仓库下载"], ["进程协议", "已实现", "handshake、register、call、call_result、error、shutdown"], ["值传输", "已实现", "Null、Bool、数字、String、List、Map 的 JSON 协议映射"], ["Stream / handle / cancel", "未实现", "属于后续协议扩展"], ["公开 Native ABI", "未承诺", "只有进程协议无法满足且有性能证据时再评估"]] },
+          { type: "p", text: "包名就是顶级命名空间。database 包只能注册 database.*；hhy.*、std.*、核心 callable 和其他包名不能被覆盖。导入未安装的包会得到 ModuleNotFoundError。" }
         ] },
-        { title: "版本路线", blocks: [
-          { type: "code", language: "text", code: "v1.0   Core contract 与命名空间预留\nv1.1   Process Extension Protocol + 本地包安装\nv1.2   官方 office 扩展验证协议\n以后    Runtime 稳定后再评估公开 Native ABI" },
-          { type: "p", text: "核心继续负责 Pipe、Value、Stream、Error、取消、副作用与资源生命周期；扩展只注册新的 callable、类型或数据流，不得改变 HHY 语法或另建一套 Stream 语义。" }
+        { title: "安装、查看与移除", blocks: [
+          { type: "code", language: "sh", code: "make -C extensions/database\n./build/hhy install ./extensions/database\n./build/hhy list\n./build/hhy remove database" },
+          { type: "table", columns: ["步骤", "实际行为"], rows: [["install", "读取 hhy.toml；校验包名、作者、requires_hhy、协议、命令和完整性；展示 capability 后由用户确认安装"], ["import / load", "重新校验已安装文件的 SHA-256，启动扩展进程，握手并注册 callable"], ["list", "显示已安装包的名称、版本、作者、协议和声明的 capability"], ["remove", "删除本地包记录和安装目录；之后 import 会失败"]] },
+          { type: "note", text: "capability 是安装时可审查的权限声明。v1.1.0 尚未承诺通用的操作系统级进程沙箱；第三方扩展仍应按原生可执行文件对待，只安装可信来源。" }
         ] },
-        { title: "计划中的安装、查看与移除", blocks: [
-          { type: "note", text: "以下是 v1.1 计划命令，目前执行会失败。v1.1 首期只计划支持本地路径，不包含远程仓库下载。" },
-          { type: "code", language: "text", code: "# 计划中的命令；v1.0 不可执行\nhhy install ./hhy-redis\nhhy list\nhhy remove redis" },
-          { type: "table", columns: ["步骤", "计划行为"], rows: [["install", "读取本地 hhy.toml，校验版本、可执行文件与完整性哈希，展示权限后安装"], ["load", "脚本 import 时启动隔离扩展进程，握手并注册 callable"], ["list", "列出本地已安装包、版本、协议和权限"], ["remove", "移除包记录并清理不再使用的扩展资源"]] }
+        { title: "真实的 database/hhy.toml", blocks: [
+          { type: "p", text: "下面就是仓库中官方 database 0.2.0 扩展使用的清单，不是虚构草案。command 相对包根目录解析；network 同时声明 PostgreSQL 与 MySQL 的本机默认端口。" },
+          { type: "code", language: "text", code: "[package]\nname = \"database\"\nversion = \"0.2.0\"\nauthor = \"HHY Official\"\nrequires_hhy = \">=1.1,<2.0\"\n\n[extension]\nkind = \"process\"\ncommand = \"bin/hhy-database\"\nprotocol = \"1\"\n\n[capabilities]\nread = []\nwrite = []\nnetwork = [\"127.0.0.1:5432\", \"127.0.0.1:3306\"]\nprocess = false" },
+          { type: "table", columns: ["字段", "开发者约束"], rows: [["package.name", "唯一顶级命名空间；此处为 database"], ["package.author", "安装与 list 时展示，明确官方或第三方来源"], ["requires_hhy", "安装器检查 Runtime 版本范围"], ["extension.command", "必须是包内可执行文件，不能逃出包目录"], ["extension.protocol", "v1.1.0 只接受协议 1"], ["capabilities", "声明需要审查的文件、网络和子进程访问范围"]] }
         ] },
-        { title: "计划中的 hhy.toml", blocks: [
-          { type: "note", text: "这是 v1.1 清单草案，不是已冻结格式。字段名与约束在实现前可能变化。" },
-          { type: "code", language: "text", code: "[package]\nname = \"redis\"\nversion = \"0.1.0\"\nrequires_hhy = \">=1.1,<2.0\"\n\n[extension]\nkind = \"process\"\ncommand = \"bin/hhy-redis\"\nprotocol = \"1\"\n\n[capabilities]\nread = []\nwrite = []\nnetwork = [\"redis.example.com:6379\"]\nprocess = false" },
-          { type: "p", text: "包名提供唯一顶级命名空间；hhy.* 与 std.* 由语言保留。安装器只授予清单声明且经用户确认的最小能力，扩展升级新增权限时必须重新确认。" }
+        { title: "扩展如何加载", blocks: [
+          { type: "extension-flow" },
+          { type: "table", columns: ["阶段", "Runtime 与扩展的职责"], rows: [["resolve", "Runtime 根据 import database 定位已安装包，解析清单并校验命令与完整性"], ["spawn", "Runtime 以 --protocol 1 启动独立进程，并建立 stdin/stdout 协议管道"], ["handshake", "双方确认 extension_id=database 与 protocol_version=1.0"], ["register", "database 发送一次注册消息；Runtime 验证命名空间和 contract 后写入 callable registry"], ["call", "Runtime 把可序列化参数发送给扩展；request_id 关联 call 与 call_result"], ["shutdown", "Runtime 发送 shutdown 并回收协议流和子进程"]] },
+          { type: "note", text: "v1.1.0 是同步、逐次调用协议，不提供 Stream、Opaque handle 或协议级 cancel。文档不应把后续设计写成当前已支持能力。" }
         ] },
-        { title: "扩展如何被加载", blocks: [
-          { type: "p", text: "v1.1 计划优先采用进程扩展：Runtime 启动独立可执行文件，完成协议握手，接收其函数、类型、算子与 action 注册信息，再把它们接入同一 Callable Contract Registry。进程崩溃会转换为 HHY Error，不应拖垮解释器。" },
-          { type: "table", columns: ["协议阶段", "职责"], rows: [["handshake", "协商 extension_id、protocol_version 与兼容性"], ["register", "登记名称、输入输出、effect、lazy、cancel 与 threading 元数据"], ["call / call_result", "按 request_id 调用并返回值或结构化错误"], ["stream_*", "通过 item、credit/window 和 close 提供分块 Stream 与背压"], ["cancel / shutdown", "传播取消并幂等释放进程、Stream 和句柄"]] },
-          { type: "note", text: "扩展返回的 Opaque handle 只代表扩展内部资源，不能 JSON 序列化或随意进入 Parallel worker；Runtime 必须显式发送 handle_release。" }
-        ] },
-        { title: "Redis 扩展设计示例", blocks: [
-          { type: "note", text: "示意，不是承诺 API：仓库目前没有 Redis 扩展。redis.connect、redis.get、redis.set 与 redis.scan 仅用于说明第三方扩展将如何融入语言。" },
-          { type: "code", language: "text", code: "# 未来可能的目录；v1.0 不会加载它\nhhy-redis/\n├── hhy.toml\n└── bin/hhy-redis\n\n# 未来可能的 HHY 调用；当前不可执行\nimport redis\n\nlet client = redis.connect({ url: require_env(\"REDIS_URL\") })\nclient |> redis.set(\"health\", \"ok\")\nlet value = client |> redis.get(\"health\")\nclient |> redis.scan(\"session:*\") |> take(100) |> collect()" },
-          { type: "table", columns: ["示意 callable", "Contract 设想"], rows: [["redis.connect", "有 network 副作用；返回不可序列化的 RedisClient handle"], ["redis.get", "接收 client 与 key；返回 String、Bytes 或 Null"], ["redis.set", "有 network 副作用；需要进入 dry-run/权限审计"], ["redis.scan", "返回惰性 Stream；必须支持背压、取消和提前关闭"]] }
+        { title: "官方 database 扩展示例", blocks: [
+          { type: "p", text: "database 是仓库中真实存在的 C11 进程扩展，支持 PostgreSQL 与 MySQL。它使用数据库原生参数 API，不把参数拼接进 SQL；查询值以 String 或 Null 返回，避免数据库精度在协议转换中丢失。" },
+          { type: "code", language: "hhy", filename: "database-example.hhy", code: "import database\n\nlet url = require_env(\"DATABASE_URL\")\n\ndatabase.ping(url) |> print\n\ndatabase.query(\n    url,\n    \"SELECT id, name FROM users WHERE active = ?\",\n    [true],\n    100\n) |> get(\"rows\") |> print\n\ndatabase.execute(\n    url,\n    \"UPDATE users SET active = ? WHERE id = ?\",\n    [false, 42]\n) |> print" },
+          { type: "table", columns: ["已注册 callable", "参数与返回"], rows: [["database.ping(url)", "验证连接；返回 Map"], ["database.query(url, sql, params, max_rows?)", "执行有界参数化查询；返回 columns、rows 等结果 Map"], ["database.execute(url, sql, params)", "执行参数化写入；返回受影响行数等 Map"], ["database.transaction(url, statements)", "在一个连接中原子执行 1–100 条 INSERT/UPDATE/DELETE；失败时整体回滚"]] },
+          { type: "note", text: "MySQL 占位符使用 ?；PostgreSQL 使用 $1、$2……。第一版 transaction 明确排除 DDL 和返回结果集的查询。连接 URL 应从 require_env 或受保护的本地配置读取，不要写入源码或提交仓库。" }
         ] },
         { title: "扩展作者需要实现什么", blocks: [
-          { type: "table", columns: ["部分", "要求"], rows: [["可执行进程", "从标准协议通道握手、注册并处理调用"], ["Contract", "为每个 callable 声明输入输出、副作用、惰性、取消和线程模型"], ["值转换", "使用协议可序列化值；外部连接使用受控 Opaque handle"], ["Stream", "遵守拉取、credit 背压、取消、错误和 close 生命周期"], ["安全", "最小环境变量；秘密通过明确的 secret provider；不得绕过 capability"], ["测试", "覆盖握手失败、超时、取消、崩溃、资源清理和版本不兼容"]] },
-          { type: "p", text: "公开 Native ABI 不属于 v1.1 的前置条件。只有进程协议无法满足且性能数据证明必要时，才会考虑基于不透明句柄和函数表的稳定 ABI。" }
+          { type: "table", columns: ["部分", "v1.1.0 要求"], rows: [["包", "提供 hhy.toml、包内可执行命令和安装器可验证的 SHA-256 完整性信息"], ["启动", "只接受 --protocol 1；协议消息只写 stdout，日志写 stderr"], ["handshake", "验证 extension_id 与 protocol_version，并返回匹配身份"], ["register", "恰好发送一次初始注册；名称必须位于包命名空间且 contract 完整"], ["call", "按 request_id 返回 call_result 或结构化 error，不泄露凭据、SQL 参数或敏感诊断"], ["shutdown", "幂等释放连接、内存和其他扩展资源"], ["测试", "至少覆盖协议身份不匹配、非法参数、扩展退出、数据库失败和资源清理"]] },
+          { type: "p", text: "扩展进程不会继承完整宿主环境；Runtime 只通过协议传递脚本显式提供的参数。开发者应让错误可定位但不包含密码、连接 URL、SQL 参数或数据库敏感诊断。" }
         ] }
       ],
       en: [
-        { title: "Status first: v1.0 has no extension support", blocks: [
-          { type: "note", text: "Roadmap, not v1.0 usage documentation: the current release has no hhy install command, dependency-manifest parser, third-party extension loader, extension process protocol, or public Native ABI. The commands, manifest fields, and Redis API below do not run on v1.0 and may change before implementation." },
-          { type: "table", columns: ["Capability", "v1.0 status", "Target"], rows: [["Extension module names and core contracts", "Internal boundaries reserved", "v1.0"], ["Local extension installation and loading", "Not implemented", "v1.1"], ["Official office extension", "Not implemented", "v1.2"], ["Public Native ABI", "Not committed", "Evaluate after Runtime stabilization"]] },
-          { type: "p", text: "v1.0 accepts qualified module names such as import office.excel; an absent module produces ModuleNotFoundError. This only reserves syntax for future extensions and does not mean that the module exists." }
+        { title: "The implemented v1.1.0 boundary", blocks: [
+          { type: "note", text: `${hhyVersionTag} implements local install/list/remove, manifest and SHA-256 validation, isolated-process handshakes, dynamic callable registration, synchronous calls, structured errors, and shutdown. Scripts can directly import an installed package, for example import database.` },
+          { type: "table", columns: ["Capability", "v1.1.0 status", "Boundary"], rows: [["Local extension packages", "Implemented", "Local paths only; no remote registry download"], ["Process protocol", "Implemented", "handshake, register, call, call_result, error, shutdown"], ["Value transport", "Implemented", "JSON protocol mapping for Null, Bool, numbers, String, List, and Map"], ["Stream / handle / cancel", "Not implemented", "Reserved for a future protocol extension"], ["Public Native ABI", "Not committed", "Evaluate only if measurements show the process model is insufficient"]] },
+          { type: "p", text: "The package name is its top-level namespace. The database package may register only database.*; hhy.*, std.*, core callables, and other package names cannot be replaced. Importing a package that is not installed raises ModuleNotFoundError." }
         ] },
-        { title: "Release path", blocks: [
-          { type: "code", language: "text", code: "v1.0   Core contracts and namespace reservation\nv1.1   Process Extension Protocol + local package installation\nv1.2   Official office extension validates the protocol\nlater  Evaluate a public Native ABI after Runtime stabilization" },
-          { type: "p", text: "Core remains responsible for Pipe, Value, Stream, Error, cancellation, effects, and resource lifecycles. Extensions only register new callables, types, or data streams; they cannot change HHY syntax or create a separate Stream model." }
+        { title: "Install, list, and remove", blocks: [
+          { type: "code", language: "sh", code: "make -C extensions/database\n./build/hhy install ./extensions/database\n./build/hhy list\n./build/hhy remove database" },
+          { type: "table", columns: ["Step", "Actual behavior"], rows: [["install", "Read hhy.toml; validate package name, author, requires_hhy, protocol, command, and integrity; display capabilities and ask the user to confirm"], ["import / load", "Recheck installed SHA-256 data, start the extension process, handshake, and register callables"], ["list", "Display each installed package's name, version, author, protocol, and declared capabilities"], ["remove", "Delete the local package record and installation directory; subsequent imports fail"]] },
+          { type: "note", text: "Capabilities are reviewable declarations shown during installation. v1.1.0 does not promise a general operating-system process sandbox; treat a third-party extension as a native executable and install only trusted packages." }
         ] },
-        { title: "Planned install, list, and remove commands", blocks: [
-          { type: "note", text: "These are planned v1.1 commands and fail today. The first v1.1 milestone plans to accept local paths only, with no remote registry downloads." },
-          { type: "code", language: "text", code: "# Planned commands; not executable in v1.0\nhhy install ./hhy-redis\nhhy list\nhhy remove redis" },
-          { type: "table", columns: ["Step", "Planned behavior"], rows: [["install", "Read local hhy.toml, verify versions, executable and integrity hash, then display capabilities before installation"], ["load", "On import, start an isolated extension process, handshake, and register callables"], ["list", "Show locally installed packages, versions, protocols, and capabilities"], ["remove", "Remove the package record and clean up extension resources no longer in use"]] }
+        { title: "The real database/hhy.toml", blocks: [
+          { type: "p", text: "This is the manifest used by the official database 0.2.0 package in the repository, not a hypothetical draft. command resolves from the package root; network declares the local default ports for PostgreSQL and MySQL." },
+          { type: "code", language: "text", code: "[package]\nname = \"database\"\nversion = \"0.2.0\"\nauthor = \"HHY Official\"\nrequires_hhy = \">=1.1,<2.0\"\n\n[extension]\nkind = \"process\"\ncommand = \"bin/hhy-database\"\nprotocol = \"1\"\n\n[capabilities]\nread = []\nwrite = []\nnetwork = [\"127.0.0.1:5432\", \"127.0.0.1:3306\"]\nprocess = false" },
+          { type: "table", columns: ["Field", "Developer constraint"], rows: [["package.name", "Unique top-level namespace; database here"], ["package.author", "Shown during install and list to identify official or third-party provenance"], ["requires_hhy", "Runtime version range checked by the installer"], ["extension.command", "Must be an executable inside the package and cannot escape its root"], ["extension.protocol", "v1.1.0 accepts protocol 1"], ["capabilities", "Declares file, network, and subprocess access for review"]] }
         ] },
-        { title: "Planned hhy.toml manifest", blocks: [
-          { type: "note", text: "This is a v1.1 manifest draft, not a frozen format. Field names and constraints may change before implementation." },
-          { type: "code", language: "text", code: "[package]\nname = \"redis\"\nversion = \"0.1.0\"\nrequires_hhy = \">=1.1,<2.0\"\n\n[extension]\nkind = \"process\"\ncommand = \"bin/hhy-redis\"\nprotocol = \"1\"\n\n[capabilities]\nread = []\nwrite = []\nnetwork = [\"redis.example.com:6379\"]\nprocess = false" },
-          { type: "p", text: "The package name supplies a unique top-level namespace; hhy.* and std.* are reserved. The installer grants only declared, user-approved minimum capabilities, and an upgrade that adds capabilities requires confirmation again." }
+        { title: "How an extension loads", blocks: [
+          { type: "extension-flow" },
+          { type: "table", columns: ["Stage", "Runtime and extension responsibility"], rows: [["resolve", "Runtime resolves import database to an installed package, parses its manifest, and validates command integrity"], ["spawn", "Runtime starts a separate process with --protocol 1 and opens stdin/stdout protocol pipes"], ["handshake", "Both sides confirm extension_id=database and protocol_version=1.0"], ["register", "database sends one registration message; Runtime validates the namespace and contracts before updating its callable registry"], ["call", "Runtime sends serializable arguments; request_id correlates each call and call_result"], ["shutdown", "Runtime sends shutdown and reaps protocol streams and the child process"]] },
+          { type: "note", text: "v1.1.0 is a synchronous, one-call-at-a-time protocol. Stream transport, opaque handles, and protocol-level cancellation are not supported and must not be documented as current behavior." }
         ] },
-        { title: "How an extension will load", blocks: [
-          { type: "p", text: "v1.1 plans a process-first model: Runtime starts a separate executable, completes a protocol handshake, receives function, type, operator, and action registrations, then connects them to the same Callable Contract Registry. A process crash becomes an HHY Error instead of taking down the interpreter." },
-          { type: "table", columns: ["Protocol stage", "Responsibility"], rows: [["handshake", "Negotiate extension_id, protocol_version, and compatibility"], ["register", "Declare names, inputs, outputs, effect, lazy, cancel, and threading metadata"], ["call / call_result", "Invoke by request_id and return a value or structured error"], ["stream_*", "Provide chunked Streams with items, credit/window backpressure, and close"], ["cancel / shutdown", "Propagate cancellation and idempotently release processes, Streams, and handles"]] },
-          { type: "note", text: "An Opaque handle represents a resource inside the extension. It cannot be JSON-serialized or freely sent to a Parallel worker, and Runtime must explicitly send handle_release." }
-        ] },
-        { title: "Redis extension design example", blocks: [
-          { type: "note", text: "Illustrative, not a committed API: the repository has no Redis extension today. redis.connect, redis.get, redis.set, and redis.scan only demonstrate how a third-party extension could fit the language." },
-          { type: "code", language: "text", code: "# Possible future layout; v1.0 will not load it\nhhy-redis/\n├── hhy.toml\n└── bin/hhy-redis\n\n# Possible future HHY calls; not executable today\nimport redis\n\nlet client = redis.connect({ url: require_env(\"REDIS_URL\") })\nclient |> redis.set(\"health\", \"ok\")\nlet value = client |> redis.get(\"health\")\nclient |> redis.scan(\"session:*\") |> take(100) |> collect()" },
-          { type: "table", columns: ["Illustrative callable", "Possible contract"], rows: [["redis.connect", "Has a network effect; returns a non-serializable RedisClient handle"], ["redis.get", "Accepts client and key; returns String, Bytes, or Null"], ["redis.set", "Has a network effect and must participate in dry-run and capability auditing"], ["redis.scan", "Returns a lazy Stream and must support backpressure, cancellation, and early close"]] }
+        { title: "Official database extension example", blocks: [
+          { type: "p", text: "database is a real C11 process extension in the repository with PostgreSQL and MySQL support. It uses each driver's native parameter API and never concatenates parameters into SQL. Query values return as String or Null so protocol conversion does not lose database precision." },
+          { type: "code", language: "hhy", filename: "database-example.hhy", code: "import database\n\nlet url = require_env(\"DATABASE_URL\")\n\ndatabase.ping(url) |> print\n\ndatabase.query(\n    url,\n    \"SELECT id, name FROM users WHERE active = ?\",\n    [true],\n    100\n) |> get(\"rows\") |> print\n\ndatabase.execute(\n    url,\n    \"UPDATE users SET active = ? WHERE id = ?\",\n    [false, 42]\n) |> print" },
+          { type: "table", columns: ["Registered callable", "Arguments and result"], rows: [["database.ping(url)", "Validate connectivity; returns a Map"], ["database.query(url, sql, params, max_rows?)", "Run a bounded parameterized query; returns a result Map containing columns and rows"], ["database.execute(url, sql, params)", "Run a parameterized write; returns a Map including affected-row information"], ["database.transaction(url, statements)", "Atomically execute 1–100 INSERT/UPDATE/DELETE statements on one connection; roll back all statements on failure"]] },
+          { type: "note", text: "MySQL placeholders are ?; PostgreSQL placeholders are $1, $2, and so on. The first transaction API deliberately excludes DDL and result-returning queries. Read connection URLs from require_env or protected local configuration—never hard-code or commit credentials." }
         ] },
         { title: "What an extension author must implement", blocks: [
-          { type: "table", columns: ["Part", "Requirement"], rows: [["Executable process", "Handshake, register, and serve calls over the standard protocol channel"], ["Contracts", "Declare input, output, effect, laziness, cancellation, and threading for every callable"], ["Value conversion", "Use protocol-serializable values and controlled Opaque handles for external connections"], ["Streams", "Honor pull behavior, credit backpressure, cancellation, errors, and close lifecycle"], ["Security", "Use a minimal environment, explicit secret providers, and never bypass capabilities"], ["Tests", "Cover handshake failure, timeout, cancellation, crashes, cleanup, and incompatible versions"]] },
-          { type: "p", text: "A public Native ABI is not a prerequisite for v1.1. It will only be considered, using opaque handles and function tables, if the process protocol is insufficient and performance measurements demonstrate a need." }
+          { type: "table", columns: ["Part", "v1.1.0 requirement"], rows: [["Package", "Provide hhy.toml, an in-package executable command, and SHA-256 integrity data verifiable by the installer"], ["Startup", "Accept only --protocol 1; write protocol messages only to stdout and logs to stderr"], ["Handshake", "Validate extension_id and protocol_version and return matching identity"], ["Register", "Send exactly one initial registration; every name must stay in the package namespace and provide a valid contract"], ["Call", "Return call_result or structured error for each request_id without exposing credentials, SQL parameters, or sensitive diagnostics"], ["Shutdown", "Idempotently release connections, memory, and other extension resources"], ["Tests", "Cover identity mismatch, invalid arguments, extension exit, database failure, and resource cleanup"]] },
+          { type: "p", text: "The extension process does not receive a copy of the complete host environment; Runtime passes only arguments explicitly supplied by the script over the protocol. Errors should remain actionable without including passwords, connection URLs, SQL parameters, or sensitive database diagnostics." }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "language-vm-roadmap",
+    order: 18,
+    title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
+    summary: { zh: "从 v1.2 到 v2.0 的五版本演进顺序、建议时间窗口、交付边界与进入条件。", en: "Five releases from v1.2 to v2.0, with recommended windows, delivery boundaries, and entry gates." },
+    sections: {
+      zh: [
+        { title: "五版本演进总览", blocks: [
+          { type: "note", text: "以下时间是基于依赖顺序、验证成本和兼容性风险给出的最佳实践窗口，不是发布日期承诺。每个版本只有在上一阶段验收条件通过后才进入冻结。" },
+          { type: "evolution-roadmap" }
+        ] },
+        { title: "版本谱系、时间与验收门槛", blocks: [
+          { type: "table", columns: ["版本", "建议窗口（非承诺）", "核心交付", "进入下一阶段前必须满足"], rows: [
+            ["v1.0.0 · 已发布", "2026-08-25", "核心语言与 VM 语义冻结", "Pipe、Value、Stream、Error、核心标准库和三平台发行证据完成"],
+            ["v1.1.0 · 已发布", "2026-08-26", "本地进程扩展与官方数据库扩展", "安装/加载完整性、Protocol 1 同步调用、database 0.2.0 和三平台发行证据完成"],
+            ["v1.2", "2026 Q4–2027 Q1", "扩展协议补全与官方 Office 验证", "Stream credit、cancel、Opaque handle 生命周期和 capability 路径通过大工作簿压力测试"],
+            ["v1.3", "2027 Q2", "数据库资源模型", "连接 handle/池、流式查询、类型映射和事务在 PostgreSQL/MySQL 上具有稳定资源上限与回归测试"],
+            ["v1.4", "2027 Q3", "包分发与工程工具链", "签名校验、依赖解析、远程索引、离线锁定和可复现安装具备安全审计与回滚方案"],
+            ["v1.5", "2027 Q4–2028 Q1", "Runtime 可观测性与长期稳定化", "trace/profile/debug hooks、性能基线、模糊测试、故障注入和兼容矩阵持续通过"],
+            ["v2.0", "最早 2028 H2", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
+          ] }
+        ] },
+        { title: "演进原则", blocks: [
+          { type: "table", columns: ["原则", "约束"], rows: [["语义先冻结", "Pipe、Value、Stream、Error 与取消语义先稳定，再扩展生态表面"], ["可用、可测先于高性能", "每项能力先具备确定错误、资源上限和跨平台测试，再进行优化"], ["协议优先", "第三方能力优先通过 Process Extension Protocol 接入，不并行发明第二套语言语义"], ["ABI 有条件开放", "Native ABI 只有在 Runtime 足够稳定且测量证明必要时才评估；不开放也是有效结论"]] },
+          { type: "p", text: "路线图每个季度应重新评审一次：只调整尚未冻结版本；已经发布的语义、协议兼容承诺和迁移路径不能因排期变化而被削弱。" }
+        ] },
+        { title: "明确不在路线中承诺的事项", blocks: [
+          { type: "list", items: ["不会为了版本号引入第二套 Pipe、Stream 或 Error 模型。", "不会在缺少兼容策略时直接公开 Runtime 内部 C 结构体。", "不会把建议时间窗口当作牺牲测试、安全或跨平台验证的理由。", "不会同时推进远程包仓库、Native ABI 和多套官方扩展而绕过阶段验收。"] }
+        ] }
+      ],
+      en: [
+        { title: "Five-release evolution overview", blocks: [
+          { type: "note", text: "These dates are best-practice windows derived from dependency order, validation cost, and compatibility risk—not release-date commitments. A release enters freeze only after the previous stage passes its acceptance gate." },
+          { type: "evolution-roadmap" }
+        ] },
+        { title: "Release lineage, timing, and acceptance gates", blocks: [
+          { type: "table", columns: ["Release", "Recommended window (not committed)", "Primary delivery", "Required before the next stage"], rows: [
+            ["v1.0.0 · Released", "2026-08-25", "Core language and VM semantics frozen", "Pipe, Value, Stream, Error, the core standard library, and three-platform release evidence completed"],
+            ["v1.1.0 · Released", "2026-08-26", "Local process extensions and the official database extension", "Install/load integrity, synchronous Protocol 1 calls, database 0.2.0, and three-platform release evidence completed"],
+            ["v1.2", "2026 Q4–2027 Q1", "Protocol completion and official Office validation", "Stream credit, cancellation, opaque-handle lifecycle, and capability paths survive large-workbook stress tests"],
+            ["v1.3", "2027 Q2", "Database resource model", "Connection handles/pools, streaming queries, type mapping, and transactions have bounded resources and regression coverage on PostgreSQL and MySQL"],
+            ["v1.4", "2027 Q3", "Package distribution and engineering toolchain", "Signature verification, dependency resolution, remote index, offline lock, and reproducible installation have a security review and rollback design"],
+            ["v1.5", "2027 Q4–2028 Q1", "Runtime observability and long-term hardening", "Trace/profile/debug hooks, performance baselines, fuzzing, fault injection, and the compatibility matrix pass continuously"],
+            ["v2.0", "2028 H2 at the earliest", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
+          ] }
+        ] },
+        { title: "Evolution principles", blocks: [
+          { type: "table", columns: ["Principle", "Constraint"], rows: [["Freeze semantics first", "Stabilize Pipe, Value, Stream, Error, and cancellation semantics before broadening the ecosystem surface"], ["Usable and measurable before fast", "Every capability needs deterministic errors, resource bounds, and cross-platform tests before optimization"], ["Protocol first", "Integrate third-party capability through the Process Extension Protocol instead of inventing a second language model"], ["ABI only when justified", "Evaluate a Native ABI only after Runtime stabilization and measured need; choosing not to publish one is a valid result"]] },
+          { type: "p", text: "Review the roadmap once per quarter. Only unfrozen releases may move; scheduling changes must not weaken published semantics, compatibility commitments, or migration paths." }
+        ] },
+        { title: "Explicit non-commitments", blocks: [
+          { type: "list", items: ["No second Pipe, Stream, or Error model merely to justify a release number.", "No public exposure of internal Runtime C structures without a compatibility strategy.", "No use of recommended windows as a reason to skip testing, security, or cross-platform validation.", "No simultaneous rush into a remote registry, Native ABI, and multiple official extensions before stage gates pass."] }
         ] }
       ]
     }
@@ -1882,7 +1947,7 @@ export function getChapter(slug: string): Chapter | undefined {
 
 export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "roadmap" {
   if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project") return "project";
-  if (chapter.slug === "extensions-roadmap") return "roadmap";
+  if (chapter.slug === "extensions-roadmap" || chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"
     ? "reference"
     : "guide";

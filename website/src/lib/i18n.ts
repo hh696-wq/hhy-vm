@@ -1,3 +1,5 @@
+import { hhyVersionLabel } from "./release";
+
 export const languages = ["zh", "en"] as const;
 
 export type Language = (typeof languages)[number];
@@ -17,8 +19,8 @@ export const ui = {
     tutorial: "教程",
     spec: "规范",
     github: "GitHub",
-    download: "下载 V1.0.0",
-    version: "HHY Language V1.0.0",
+    download: `下载 ${hhyVersionLabel}`,
+    version: `HHY Language ${hhyVersionLabel}`,
     headline: "Pipe Everything.",
     subtitle: "一门面向系统自动化、以数据流为核心的脚本语言。",
     solo: "独立构建，为流而生。",
@@ -43,8 +45,8 @@ export const ui = {
     learnTitle: "学习 HHY",
     learnBody: "从安装到编写真实系统脚本，沿着清晰路径逐步掌握。",
     allTutorials: "查看完整手册",
-    stable: "V1.0.0 已冻结并通过三平台公开验证",
-    stableBody: "macOS arm64、Linux arm64、Linux x86_64；规范是语言行为的唯一来源。",
+    stable: `${hhyVersionLabel} 已发布并通过三平台公开验证`,
+    stableBody: "macOS arm64、Linux arm64、Linux x86_64；包含首个稳定的本地进程扩展工作流。",
     footerLine: "一门以 Flow 为核心的系统脚本语言。"
   },
   en: {
@@ -53,8 +55,8 @@ export const ui = {
     tutorial: "Tutorial",
     spec: "Spec",
     github: "GitHub",
-    download: "Download V1.0.0",
-    version: "HHY Language V1.0.0",
+    download: `Download ${hhyVersionLabel}`,
+    version: `HHY Language ${hhyVersionLabel}`,
     headline: "Pipe Everything.",
     subtitle: "A flow-first scripting language for system automation.",
     solo: "Built solo. Designed to flow.",
@@ -79,8 +81,8 @@ export const ui = {
     learnTitle: "Learn HHY",
     learnBody: "Follow a focused path from installation to real system scripts.",
     allTutorials: "View the full manual",
-    stable: "V1.0.0 is frozen and verified on three platforms",
-    stableBody: "macOS arm64, Linux arm64, and Linux x86_64; the specification is the single source of language behavior.",
+    stable: `${hhyVersionLabel} is released and verified on three platforms`,
+    stableBody: "macOS arm64, Linux arm64, and Linux x86_64; includes the first stable local process-extension workflow.",
     footerLine: "A flow-first scripting language for system automation."
   }
 } as const;

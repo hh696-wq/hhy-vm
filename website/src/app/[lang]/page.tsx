@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/json-ld";
 import { HomePage } from "@/components/home-page";
 import { isLanguage } from "@/lib/i18n";
+import { hhyVersion } from "@/lib/release";
 import { createMetadata, localizedUrl, releaseUrl, siteName, siteOrigin } from "@/lib/seo";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
@@ -12,8 +13,8 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
     language: lang,
     title: lang === "zh" ? "HHY 系统脚本语言：管道即语言" : "HHY System Scripting Language: Pipe Everything",
     description: lang === "zh"
-      ? "HHY 是一门开源、以 Flow 为核心的系统脚本语言，通过统一管道处理文件、进程、HTTP、JSON、CSV 与自动化任务。下载 HHY 1.0.0 或在线学习完整语法。"
-      : "HHY is an open-source, flow-first system scripting language that unifies files, processes, HTTP, JSON, CSV, and automation through pipelines. Download HHY 1.0.0 or learn the complete syntax online.",
+      ? `HHY 是一门开源、以 Flow 为核心的系统脚本语言，通过统一管道处理文件、进程、HTTP、JSON、CSV 与自动化任务。下载 HHY ${hhyVersion} 或在线学习语言与本地进程扩展。`
+      : `HHY is an open-source, flow-first system scripting language that unifies files, processes, HTTP, JSON, CSV, and automation through pipelines. Download HHY ${hhyVersion} or learn the language and local process extensions online.`,
     keywords: lang === "zh" ? ["HHY下载", "HHY教程", "HHY语法"] : ["download HHY", "HHY tutorial", "HHY documentation"]
   });
 }
@@ -43,7 +44,7 @@ export default async function LanguageHome({ params }: { params: Promise<{ lang:
           applicationCategory: "DeveloperApplication",
           applicationSubCategory: "Programming Language",
           operatingSystem: "macOS arm64, Linux arm64, Linux x86_64",
-          softwareVersion: "1.0.0",
+          softwareVersion: hhyVersion,
           license: "https://www.apache.org/licenses/LICENSE-2.0",
           codeRepository: "https://github.com/hh696-wq/hhy-vm",
           downloadUrl: releaseUrl,

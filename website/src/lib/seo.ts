@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import type { Language } from "@/lib/i18n";
+import { hhyReleaseUrl } from "@/lib/release";
 
 export const siteOrigin = "https://hhylang.dev";
 export const siteName = "HHY Language";
-export const releaseUrl = "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.0.0";
+export const releaseUrl = hhyReleaseUrl;
 
 const sharedKeywords = [
   "HHY", "HHY Language", "HHY scripting language", "flow-first language",

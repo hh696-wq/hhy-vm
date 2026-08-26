@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { chapterKind, chapters } from "@/lib/docs";
 import type { Chapter } from "@/lib/docs";
 import type { Language } from "@/lib/i18n";
+import { hhyVersionLabel } from "@/lib/release";
 
 export function LearnLayout({ language, chapter, children }: { language: Language; chapter?: Chapter; children: ReactNode }) {
   const guideChapters = chapters.filter((item) => chapterKind(item) === "guide").sort((a, b) => a.order - b.order);
@@ -29,7 +30,7 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
           <small className="docs-nav-group">{language === "zh" ? "路线图" : "Roadmap"}</small>
           {roadmapChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
         </nav>
-        <Link className="spec-link" href="https://github.com/hh696-wq/hhy-vm/blob/main/docs/HHY_V1.md" target="_blank">{language === "zh" ? "V1.0 完整规范 ↗" : "Full V1.0 spec ↗"}</Link>
+        <Link className="spec-link" href="https://github.com/hh696-wq/hhy-vm/blob/main/docs/HHY_V1.md" target="_blank">{language === "zh" ? `${hhyVersionLabel} 完整规范 ↗` : `Full ${hhyVersionLabel} spec ↗`}</Link>
       </aside>
       <div className="docs-content">
         {children}
