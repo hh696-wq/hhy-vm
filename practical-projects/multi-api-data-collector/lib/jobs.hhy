@@ -1,0 +1,10 @@
+export fn build_jobs(config) {
+    let mut jobs = []
+    for page in range(1, config.pages + 1) {
+        jobs = append(jobs, { source: "OpenAlex", page: page, offset: 0 })
+        jobs = append(jobs, { source: "Crossref", page: page, offset: (page - 1) * config.per_page })
+        jobs = append(jobs, { source: "GitHub", page: page, offset: 0 })
+    }
+    return jobs
+}
+

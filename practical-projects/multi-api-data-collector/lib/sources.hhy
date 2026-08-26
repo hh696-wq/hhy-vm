@@ -1,0 +1,158 @@
+fn request_openalex(job, url, topic, per_page, user_agent) {
+    return http.get(url, {
+        query: { search: topic, page: job.page, "per-page": per_page, select: "id,display_name,cited_by_count,type" },
+        headers: { "User-Agent": user_agent }
+    })
+        |> timeout(10s)
+        |> retry({ count: 2, backoff: 500ms })
+        |> send
+        |> response_body
+}
+
+fn normalize_openalex(body) {
+    return body
+        |> parse_json
+        |> get("results")
+        |> stream
+        |> map { item ->
+        return {
+            source: "OpenAlex",
+            external_id: item.id,
+            title: item.display_name,
+            url: item.id,
+            record_type: item.type,
+            metric_name: "citations",
+            metric_value: item.cited_by_count
+        }
+    }
+        |> collect
+}
+
+fn request_crossref(job, url, topic, per_page, user_agent) {
+    return http.get(url, {
+        query: { "query.title": topic, rows: per_page, offset: job.offset },
+        headers: { "User-Agent": user_agent }
+    })
+        |> timeout(10s)
+        |> retry({ count: 2, backoff: 500ms })
+        |> send
+        |> response_body
+}
+
+fn normalize_crossref(body) {
+    let response = body |> parse_json
+    return response.message.items
+        |> stream
+        |> map { item ->
+        let mut title = item.DOI
+        let candidate = attempt { item.title[0] }
+        if candidate.ok == true {
+            title = candidate.value
+        }
+        return {
+            source: "Crossref",
+            external_id: item.DOI,
+            title: title,
+            url: item.URL,
+            record_type: item.type,
+            metric_name: "references",
+            metric_value: item["reference-count"]
+        }
+    }
+        |> collect
+}
+
+fn request_github(job, url, topic, per_page, user_agent) {
+    return http.get(url, {
+        query: {
+            q: topic,
+            sort: "stars",
+            order: "desc",
+            page: job.page,
+            per_page: per_page
+        },
+        headers: {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": user_agent
+        }
+    })
+        |> timeout(10s)
+        |> retry({ count: 2, backoff: 500ms })
+        |> send
+        |> response_body
+}
+
+fn normalize_github(body) {
+    let response = body |> parse_json
+    return response.items
+        |> stream
+        |> map { item ->
+        return {
+            source: "GitHub",
+            external_id: item.full_name,
+            title: item.full_name,
+            url: item.html_url,
+            record_type: "repository",
+            metric_name: "stars",
+            metric_value: item.stargazers_count
+        }
+    }
+        |> collect
+}
+
+fn request_source(job, openalex_url, crossref_url, github_url, topic, per_page, user_agent) {
+    if job.source == "OpenAlex" {
+        return request_openalex(job, openalex_url, topic, per_page, user_agent)
+    }
+    if job.source == "Crossref" {
+        return request_crossref(job, crossref_url, topic, per_page, user_agent)
+    }
+    return request_github(job, github_url, topic, per_page, user_agent)
+}
+
+fn normalize_source(source, body) {
+    if source == "OpenAlex" {
+        return normalize_openalex(body)
+    }
+    if source == "Crossref" {
+        return normalize_crossref(body)
+    }
+    return normalize_github(body)
+}
+
+export fn collect_pages(jobs, config) {
+    let parallelism = config.parallelism
+    let openalex_url = config.openalex_url
+    let crossref_url = config.crossref_url
+    let github_url = config.github_url
+    let topic = config.topic
+    let per_page = config.per_page
+    let user_agent = config.user_agent
+    return jobs
+        |> stream
+        |> parallel(parallelism) { job ->
+        sleep(250ms)
+        let fetched = attempt {
+            request_source(job, openalex_url, crossref_url, github_url, topic, per_page, user_agent)
+        }
+
+        if fetched.ok == true {
+            return { ok: true, source: job.source, page: job.page, body: fetched.value, error: null }
+        }
+        return { ok: false, source: job.source, page: job.page, body: null, error: fetched.error.message }
+    }
+        |> collect
+        |> stream
+        |> map { page ->
+        if page.ok != true {
+            return { ok: false, source: page.source, page: page.page, records: [], error: page.error }
+        }
+        let normalized = attempt { normalize_source(page.source, page.body) }
+        if normalized.ok == true {
+            return { ok: true, source: page.source, page: page.page, records: normalized.value, error: null }
+        }
+        return { ok: false, source: page.source, page: page.page, records: [], error: normalized.error.message }
+    }
+        |> collect
+}

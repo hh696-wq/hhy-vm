@@ -1,0 +1,52 @@
+export fn load_existing(csv_path) {
+    let existing = attempt {
+        read_lines(csv_path) |> parse_csv |> collect
+    }
+    if existing.ok == true {
+        return existing.value
+    }
+    return []
+}
+
+export fn flatten_records(page_results) {
+    return page_results
+        |> stream
+        |> where { page -> page.ok == true }
+        |> flat_map { page -> page.records |> stream }
+        |> where { record -> record.external_id != null and record.title != null }
+        |> collect
+}
+
+export fn failures(page_results) {
+    return page_results
+        |> stream
+        |> where { page -> page.ok != true }
+        |> map { page -> { source: page.source, page: page.page, error: page.error } }
+        |> collect
+}
+
+export fn incremental_merge(existing, incoming) {
+    return [existing, incoming]
+        |> stream
+        |> flat_map { records -> records |> stream }
+        |> group_by { record -> join([record.source, record.external_id], ":") }
+        |> map { group -> group.values[length(group.values) - 1] }
+        |> sort_by({ order: "asc" }) { record -> join([record.source, record.external_id], ":") }
+        |> collect
+}
+
+export fn csv_rows(records) {
+    return records
+        |> stream
+        |> map { record ->
+        return {
+            source: record.source,
+            external_id: record.external_id,
+            title: record.title,
+            url: record.url,
+            record_type: record.record_type,
+            metric_name: record.metric_name,
+            metric_value: record.metric_value
+        }
+    }
+}

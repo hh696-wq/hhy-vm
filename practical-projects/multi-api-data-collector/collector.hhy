@@ -1,0 +1,59 @@
+#!/usr/bin/env hhy
+
+import { build_jobs } from "./lib/jobs.hhy"
+import { collect_pages } from "./lib/sources.hhy"
+import { load_existing, flatten_records, failures, incremental_merge, csv_rows } from "./lib/merge.hhy"
+
+if length(args) != 4 {
+    print_error("usage: hhy run collector.hhy <config.json> <records.csv> <report.json> <failures.json>")
+    exit(3)
+}
+
+try {
+    let config = read_text(path(args[0])) |> parse_json
+    let csv_path = path(args[1])
+    let jobs = build_jobs(config)
+    let existing = load_existing(csv_path)
+    let page_results = collect_pages(jobs, config)
+    let incoming = flatten_records(page_results)
+    let failed = failures(page_results)
+    let merged = incremental_merge(existing, incoming)
+    let successful_pages = page_results |> stream |> where { page -> page.ok == true } |> count
+    let report = {
+        tool: "HHY Multi-API Data Collector",
+        version: "1.0.0",
+        project: config.project,
+        topic: config.topic,
+        ok: length(failed) == 0,
+        stats: {
+            requested_pages: length(jobs),
+            successful_pages: successful_pages,
+            failed_pages: length(failed),
+            previous_records: length(existing),
+            incoming_records: length(incoming),
+            total_records: length(merged)
+        }
+    }
+
+    merged |> csv_rows |> encode_csv({ header: true }) |> save_lines(csv_path, { atomic: true, create_parents: true })
+    report |> encode_json({ pretty: true }) |> save_text(path(args[2]), { atomic: true, create_parents: true })
+    failed |> encode_json({ pretty: true }) |> save_text(path(args[3]), { atomic: true, create_parents: true })
+
+    print("HHY Multi-API Data Collector", config.topic)
+    print("Pages", successful_pages, "/", length(jobs), "Incoming", length(incoming), "Previous", length(existing), "Total", length(merged))
+    merged
+        |> stream
+        |> group_by { record -> record.source }
+        |> map { group -> join(["✓", group.key, "records"], "  ") }
+        |> print
+    print("CSV", csv_path)
+    print("Report", path(args[2]))
+    print("Failures", path(args[3]))
+
+    if not report.ok {
+        exit(1)
+    }
+} catch err {
+    print_error(err)
+    exit(1)
+}

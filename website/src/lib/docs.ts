@@ -15,6 +15,7 @@ export type ChapterSlug =
   | "dataflow-etl-project"
   | "asset-governance-project"
   | "hong-kong-film-companies-project"
+  | "multi-api-data-collector-project"
   | "syntax-reference"
   | "standard-library"
   | "extensions-roadmap"
@@ -1329,7 +1330,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "syntax-reference",
-    order: 14,
+    order: 16,
     title: { zh: "语法完整参考", en: "Complete Syntax Reference" },
     summary: { zh: `${hhyVersionLabel} 的词法、字面量、运算符、语句、闭包和模块语法。`, en: `${hhyVersionLabel} lexical rules, literals, operators, statements, closures, and module syntax.` },
     sections: {
@@ -1379,7 +1380,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "standard-library",
-    order: 15,
+    order: 17,
     title: { zh: "标准库函数索引", en: "Standard Library Function Index" },
     summary: { zh: `运行时 Registry 中全部 94 个 ${hhyVersionLabel} 核心 callable 的签名与用途。`, en: `Signatures and purposes for all 94 ${hhyVersionLabel} core callables in the runtime Registry.` },
     sections: {
@@ -1601,7 +1602,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "cli-reference",
-    order: 16,
+    order: 18,
     title: { zh: "CLI 参考", en: "CLI Reference" },
     summary: { zh: "运行、检查、格式化、REPL 与 dry-run。", en: "Run, check, format, use the REPL, and inspect dry-run plans." },
     sections: {
@@ -1866,8 +1867,56 @@ export const chapters: Chapter[] = [
     }
   },
   {
+    slug: "multi-api-data-collector-project",
+    order: 15,
+    title: { zh: "实战项目：多 API 数据采集器", en: "Project: Multi-API Data Collector" },
+    summary: { zh: "并发采集 OpenAlex、Crossref 和 GitHub 分页数据，统一字段、记录失败并增量汇总为 CSV。", en: "Collect paginated OpenAlex, Crossref, and GitHub data concurrently, normalize it, record failures, and incrementally merge CSV." },
+    sections: {
+      zh: [
+        { title: "一条可靠的数据采集 Flow", blocks: [
+          { type: "p", text: `这个项目使用 HHY ${hhyVersionTag} 同时采集 OpenAlex 学术成果、Crossref 论文元数据和 GitHub 仓库。每个来源请求 2 页，HTTP 下载由 parallel(3) 有界并发完成，异构 JSON 随后统一成 source、external_id、title、url、record_type、metric_name 和 metric_value。` },
+          { type: "table", columns: ["能力", "实现"], rows: [["分页与并发", "6 个任务 + parallel(3)"], ["网络容错", "250ms 限速 + 10s timeout + 2 次 retry + attempt"], ["数据治理", "字段统一 + source/external_id 去重 + 稳定排序"], ["增量保存", "读取已有 CSV，新记录覆盖同键旧记录，atomic save"], ["故障审计", "失败来源、页码和错误写入 failures.json"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/multi-api-data-collector", label: "在 GitHub 查看完整源码 ↗", description: "包含 HHY 入口、分页任务、三源适配器、增量合并、配置和确定性自测。" }
+        ] },
+        { title: "项目结构", blocks: [
+          { type: "image", src: "/multi-api-data-collector-tree.png", alt: "HHY 多 API 数据采集器目录结构", caption: "collector.hhy 负责编排，jobs.hhy 生成分页任务，sources.hhy 下载并标准化三种 API，merge.hhy 完成去重与增量合并。", width: 900, height: 760, size: "medium" },
+          { type: "table", columns: ["文件", "职责"], rows: [["collector.hhy", "组合采集、统计和原子输出"], ["lib/jobs.hhy", "生成 OpenAlex、Crossref、GitHub 分页任务"], ["lib/sources.hhy", "限速、超时、重试、并发下载和字段统一"], ["lib/merge.hhy", "读取旧 CSV、去重、排序和增量覆盖"]] }
+        ] },
+        { title: "运行与增量结果", blocks: [
+          { type: "code", language: "sh", code: "./build/hhy run practical-projects/multi-api-data-collector/collector.hhy \\\n  practical-projects/multi-api-data-collector/config/public-apis.json \\\n  practical-projects/multi-api-data-collector/output/records.csv \\\n  practical-projects/multi-api-data-collector/output/report.json \\\n  practical-projects/multi-api-data-collector/output/failures.json" },
+          { type: "image", src: "/multi-api-data-collector-run.png", alt: "HHY 多 API 数据采集器自测终端结果", caption: "确定性端到端验证：6 页、12 条输入、9 条唯一记录；第二次运行读取 9 条旧记录，增量合并后仍为 9 条。", width: 1180, height: 760, size: "wide" },
+          { type: "note", text: "公开 API 数据和额度会变化。正式输出保留来源 URL；本地 fixture 只用于回归测试并在退出后删除，不会写入正式 output。" }
+        ] },
+        { title: "验证", blocks: [
+          { type: "code", language: "sh", code: "sh practical-projects/multi-api-data-collector/self-test.sh" },
+          { type: "p", text: "测试连续运行两次，验证分页、并发、字段统一、跨页去重、稳定排序、失败列表和增量覆盖。并发用于等待 HTTP，而不是把数值计算伪装成 HHY 的优势。" }
+        ] }
+      ],
+      en: [
+        { title: "One reliable collection flow", blocks: [
+          { type: "p", text: `Built with HHY ${hhyVersionTag}, this project collects two pages each from OpenAlex, Crossref, and GitHub. parallel(3) bounds concurrent HTTP downloads before heterogeneous JSON is normalized into one seven-column schema.` },
+          { type: "table", columns: ["Capability", "Implementation"], rows: [["Pagination and concurrency", "Six jobs with parallel(3)"], ["Network resilience", "250ms pacing, 10s timeout, two retries, and attempt"], ["Data governance", "Normalization, composite-key deduplication, stable sorting"], ["Incremental output", "Read existing CSV, replace matching keys, atomic save"], ["Failure audit", "Source, page, and error in failures.json"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/multi-api-data-collector", label: "View the complete source on GitHub ↗", description: "Includes the HHY entry point, pagination jobs, three adapters, incremental merge, configuration, and deterministic self-test." }
+        ] },
+        { title: "Project layout", blocks: [
+          { type: "image", src: "/multi-api-data-collector-tree.png", alt: "HHY Multi-API Data Collector project tree", caption: "collector.hhy orchestrates; jobs.hhy creates pages; sources.hhy downloads and normalizes; merge.hhy deduplicates and incrementally merges.", width: 900, height: 760, size: "medium" },
+          { type: "table", columns: ["File", "Responsibility"], rows: [["collector.hhy", "Compose collection, statistics, and atomic output"], ["lib/jobs.hhy", "Create OpenAlex, Crossref, and GitHub page jobs"], ["lib/sources.hhy", "Pacing, timeout, retry, concurrent download, normalization"], ["lib/merge.hhy", "Read old CSV, deduplicate, sort, and incrementally replace"]] }
+        ] },
+        { title: "Run and incremental result", blocks: [
+          { type: "code", language: "sh", code: "./build/hhy run practical-projects/multi-api-data-collector/collector.hhy \\\n  practical-projects/multi-api-data-collector/config/public-apis.json \\\n  practical-projects/multi-api-data-collector/output/records.csv \\\n  practical-projects/multi-api-data-collector/output/report.json \\\n  practical-projects/multi-api-data-collector/output/failures.json" },
+          { type: "image", src: "/multi-api-data-collector-run.png", alt: "HHY Multi-API Data Collector terminal verification", caption: "Deterministic end-to-end verification: six pages, twelve incoming records, and nine unique records after both the initial and incremental runs.", width: 1180, height: 760, size: "wide" },
+          { type: "note", text: "Public APIs and quotas change. Source URLs remain in the output; local fixtures exist only for regression testing and never enter the production output directory." }
+        ] },
+        { title: "Verification", blocks: [
+          { type: "code", language: "sh", code: "sh practical-projects/multi-api-data-collector/self-test.sh" },
+          { type: "p", text: "The test runs twice to verify pagination, concurrency, normalization, cross-page deduplication, stable sorting, the failure list, and incremental replacement." }
+        ] }
+      ]
+    }
+  },
+  {
     slug: "extensions-roadmap",
-    order: 17,
+    order: 19,
     title: { zh: "扩展系统", en: "Extension System" },
     summary: { zh: "面向扩展开发者的 v1.1.0 实现说明：本地包清单、权限声明、进程协议、加载链路和 callable 注册。", en: "The v1.1.0 implementation guide for extension developers: local manifests, capability declarations, the process protocol, load lifecycle, and callable registration." },
     sections: {
@@ -1939,7 +1988,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "database-extension",
-    order: 18,
+    order: 20,
     title: { zh: "数据库扩展使用指南", en: "Database Extension Guide" },
     summary: { zh: "安装官方 database 0.2.0 扩展，通过 JSON 配置连接 MySQL/PostgreSQL，并完成查询、写入与事务。", en: "Install the official database 0.2.0 extension, configure MySQL/PostgreSQL with JSON, and run queries, writes, and transactions." },
     sections: {
@@ -2007,7 +2056,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "language-vm-roadmap",
-    order: 19,
+    order: 21,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
     summary: { zh: "从 v1.2 到 v2.0 的五版本演进顺序、建议时间窗口、交付边界与进入条件。", en: "Five releases from v1.2 to v2.0, with recommended windows, delivery boundaries, and entry gates." },
     sections: {
@@ -2068,7 +2117,7 @@ export function getChapter(slug: string): Chapter | undefined {
 }
 
 export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" {
-  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project") return "project";
+  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project" || chapter.slug === "multi-api-data-collector-project") return "project";
   if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension") return "extension";
   if (chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"
