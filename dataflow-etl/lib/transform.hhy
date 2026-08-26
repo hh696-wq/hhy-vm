@@ -1,0 +1,42 @@
+export fn qualified(customers, minimum_spend) {
+    return customers
+        |> stream
+        |> where { customer -> customer.spend >= minimum_spend }
+        |> sort_by({ order: "desc" }) { customer -> customer.spend }
+        |> collect
+}
+
+export fn department_summary(customers) {
+    return customers
+        |> stream
+        |> group_by { customer -> customer.department }
+        |> map { group ->
+        let spend = group.values
+            |> stream
+            |> map { customer -> customer.spend }
+            |> sum
+        return {
+            department: group.key,
+            customers: length(group.values),
+            total_spend: spend
+        }
+    }
+        |> sort_by({ order: "asc" }) { row -> row.department }
+        |> collect
+}
+
+export fn csv_rows(customers) {
+    return customers
+        |> stream
+        |> map { customer ->
+        return {
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+            department: customer.department,
+            spend: customer.spend,
+            region: customer.region,
+            tier: customer.tier
+        }
+    }
+}

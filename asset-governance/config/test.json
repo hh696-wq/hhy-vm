@@ -1,0 +1,9 @@
+{
+  "project": "asset-fixture",
+  "large_file": "256b",
+  "actions": [
+    { "kind": "copy", "source": "assets/Logo Final.PNG", "target": "quarantine/Logo Final.PNG" },
+    { "kind": "move", "source": "tmp/old.tmp", "target": "archive/old.tmp" },
+    { "kind": "remove", "source": "build/stale.bundle.js" }
+  ]
+}

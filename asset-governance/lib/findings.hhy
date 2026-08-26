@@ -1,0 +1,17 @@
+export fn finding(id, kind, severity, message, file) {
+    return { id: id, kind: kind, severity: severity, message: message, file: file }
+}
+
+export fn count_severity(findings, severity) {
+    return findings |> stream |> where { item -> item.severity == severity } |> count
+}
+
+export fn combine(groups) {
+    let mut result = []
+    for group in groups {
+        for item in group {
+            result = append(result, item)
+        }
+    }
+    return result
+}

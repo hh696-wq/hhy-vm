@@ -1,0 +1,59 @@
+import { finding } from "./findings.hhy"
+
+fn size_limit(value) {
+    if value == "256b" {
+        return 256b
+    }
+    if value == "1kib" {
+        return 1kib
+    }
+    if value == "1mib" {
+        return 1mib
+    }
+    throw(join(["unsupported large_file value", value], ": "))
+}
+
+export fn inventory(root, limit_value) {
+    let limit = size_limit(limit_value)
+    let all_files = root |> files("**/*") |> where { entry -> type(entry) == "File" } |> collect
+    let mut findings = []
+    let mut total_size = 0b
+
+    for file in all_files {
+        total_size = total_size + file.size
+        if file.size > limit {
+            findings = append(findings, finding(
+                    join(["large", file.name], "."),
+                    "large_file",
+                    "warning",
+                    "File exceeds configured size limit",
+                    file.name
+            ))
+        }
+        if regex_match(file.name, /[A-Z ]/) {
+            findings = append(findings, finding(
+                    join(["naming", file.name], "."),
+                    "naming",
+                    "warning",
+                    "File name contains uppercase letters or spaces",
+                    file.name
+            ))
+        }
+        if now() - file.modified > 365d {
+            findings = append(findings, finding(
+                    join(["stale", file.name], "."),
+                    "stale",
+                    "warning",
+                    "File has not been modified for more than 365 days",
+                    file.name
+            ))
+        }
+    }
+
+    return {
+        files: all_files,
+        count: length(all_files),
+        total_size: total_size,
+        findings: findings
+    }
+}

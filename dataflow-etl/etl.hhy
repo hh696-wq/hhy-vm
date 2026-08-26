@@ -1,0 +1,36 @@
+#!/usr/bin/env hhy
+
+import { load_customers, load_events } from "./lib/sources.hhy"
+import { enrich_customers } from "./lib/enrich.hhy"
+import { qualified, department_summary, csv_rows } from "./lib/transform.hhy"
+import { build_report } from "./lib/report.hhy"
+
+if length(args) != 4 {
+    print_error("usage: hhy run etl.hhy <input-root> <config.json> <report.json> <customers.csv>")
+    exit(3)
+}
+
+try {
+    let input_root = path(args[0])
+    let config = read_text(path(args[1])) |> parse_json
+    let raw_customers = load_customers(input_root)
+    let events = load_events(input_root)
+    let enriched = enrich_customers(raw_customers, config.api_base)
+    let customers = qualified(enriched, config.minimum_spend)
+    let summaries = department_summary(customers)
+    let report = build_report(config.project, customers, summaries, events)
+
+    report |> encode_json({ pretty: true }) |> save_text(path(args[2]), { atomic: true })
+    customers |> csv_rows |> encode_csv({ header: true }) |> save_lines(path(args[3]), { atomic: true })
+
+    print("DataFlow ETL", config.project)
+    print("Customers", length(customers), "Events", length(events), "Departments", length(summaries))
+    print("Report", path(args[2]))
+
+    if not report.ok {
+        exit(1)
+    }
+} catch err {
+    print_error(err)
+    exit(1)
+}

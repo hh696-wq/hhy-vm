@@ -1,0 +1,6 @@
+id,name,email,department,active,spend
+101," Ada Lovelace "," ADA@EXAMPLE.COM ",Engineering,true,420
+102,"Grace Hopper",GRACE@EXAMPLE.COM,Engineering,true,310
+103,"Inactive User",inactive@example.com,Sales,false,900
+104,"Lin Chen",lin@example.com,Product,true,80
+105,"Katherine Johnson",kat@example.com,Research,true,250

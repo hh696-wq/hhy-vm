@@ -10,6 +10,9 @@ export type ChapterSlug =
   | "http"
   | "parallel-watch"
   | "modules-errors"
+  | "flowguard-project"
+  | "dataflow-etl-project"
+  | "asset-governance-project"
   | "syntax-reference"
   | "standard-library"
   | "extensions-roadmap"
@@ -24,6 +27,7 @@ export type DocBlock =
   | { type: "list"; items: string[] }
   | { type: "table"; columns: string[]; rows: string[][] }
   | { type: "link"; href: string; label: string; description: string }
+  | { type: "image"; src: string; alt: string; caption: string; width: number; height: number; size: "medium" | "wide" }
   | { type: "api"; entries: { name: string; signature: string; description: string }[] };
 
 export type DocSection = {
@@ -1318,7 +1322,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "syntax-reference",
-    order: 11,
+    order: 14,
     title: { zh: "语法完整参考", en: "Complete Syntax Reference" },
     summary: { zh: "V1.0 的词法、字面量、运算符、语句、闭包和模块语法。", en: "V1.0 lexical rules, literals, operators, statements, closures, and module syntax." },
     sections: {
@@ -1368,7 +1372,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "standard-library",
-    order: 12,
+    order: 15,
     title: { zh: "标准库函数索引", en: "Standard Library Function Index" },
     summary: { zh: "运行时 Registry 中全部 94 个 V1.0 callable 的签名与用途。", en: "Signatures and purposes for all 94 V1.0 callables in the runtime Registry." },
     sections: {
@@ -1590,7 +1594,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "cli-reference",
-    order: 13,
+    order: 16,
     title: { zh: "CLI 参考", en: "CLI Reference" },
     summary: { zh: "运行、检查、格式化、REPL 与 dry-run。", en: "Run, check, format, use the REPL, and inspect dry-run plans." },
     sections: {
@@ -1629,8 +1633,172 @@ export const chapters: Chapter[] = [
     }
   },
   {
+    slug: "dataflow-etl-project",
+    order: 12,
+    title: { zh: "实战项目：DataFlow ETL", en: "Project: DataFlow ETL" },
+    summary: { zh: "从 CSV、JSON 目录和 HTTP API 同步数据，完成清洗、过滤、并发补全、分组汇总及 JSON/CSV 双输出。", en: "Synchronize CSV, JSON-directory, and HTTP API data through cleaning, filtering, concurrent enrichment, grouping, and JSON/CSV outputs." },
+    sections: {
+      zh: [
+        { title: "完整的数据同步管道", blocks: [
+          { type: "p", text: "DataFlow ETL 是完全由 HHY v1.0 编写并通过端到端自测的数据同步应用。它读取客户 CSV 和事件 JSON 目录，规范化姓名与邮箱，过滤停用和低消费客户，并发请求本地画像 API，按部门 group_by 汇总，最后原子写入 JSON 报告和 CSV 明细。" },
+          { type: "table", columns: ["阶段", "实现"], rows: [["采集", "read_lines + parse_csv；files + parse_json"], ["清洗", "trim、lower、to_int 与结构化 Map"], ["补全", "parallel(4) + http.get + timeout + retry"], ["汇总", "where、sort_by、group_by、sum"], ["输出", "encode_json/save_text 与 encode_csv/save_lines"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/dataflow-etl", label: "在 GitHub 查看 DataFlow ETL 完整源码 ↗", description: "包含 HHY 模块、CSV/JSON 测试数据、画像 API、报告断言和一键自测。" }
+        ] },
+        { title: "真实目录与数据流", blocks: [
+          { type: "image", src: "/dataflow-etl-tree.png", alt: "DataFlow ETL 项目目录树", caption: "真实项目目录：入口、四个 HHY 模块、CSV/JSON fixtures、配置和测试工具。", width: 900, height: 760, size: "medium" },
+          { type: "code", language: "text", code: "customers.csv + events/*.json + HTTP profiles\n                    ↓\n            parse / trim / lower\n                    ↓\n          active + minimum spend filter\n                    ↓\n          parallel HTTP enrichment\n                    ↓\n          group_by department + sum\n                    ↓\n              report.json + customers.csv" }
+        ] },
+        { title: "实际自测结果", blocks: [
+          { type: "code", language: "sh", code: "cd hhy-vm\nsh dataflow-etl/self-test.sh" },
+          { type: "image", src: "/dataflow-etl-self-test.png", alt: "DataFlow ETL 实际端到端自测结果", caption: "真实运行：3 条合格客户、2 个事件文件、2 个部门汇总，HTTP 补全及 JSON/CSV 断言全部通过。", width: 1180, height: 400, size: "wide" },
+          { type: "note", text: "测试服务只监听 127.0.0.1:18992。测试会验证客户过滤和排序、邮箱清洗、远程 region/tier 字段、部门消费汇总以及两种输出格式。" }
+        ] },
+        { title: "运行自己的同步任务", blocks: [
+          { type: "p", text: "复制 config/test.json，替换项目名、API 地址和最低消费阈值，再准备 customers.csv 与 events/*.json。HTTP 单项失败会变成结构化 error，报告 ok=false 并返回退出码 1。" },
+          { type: "code", language: "sh", code: "hhy run dataflow-etl/etl.hhy \\\n  ./input \\\n  ./config.json \\\n  ./output/report.json \\\n  ./output/customers.csv" }
+        ] }
+      ],
+      en: [
+        { title: "A complete synchronization pipeline", blocks: [
+          { type: "p", text: "DataFlow ETL is written entirely in HHY v1.0 and verified end to end. It reads customer CSV and an event JSON directory, normalizes names and email addresses, filters inactive and low-spend customers, calls a profile API concurrently, aggregates departments with group_by, and atomically writes JSON and CSV outputs." },
+          { type: "table", columns: ["Stage", "Implementation"], rows: [["Ingest", "read_lines + parse_csv; files + parse_json"], ["Clean", "trim, lower, to_int, and structured Maps"], ["Enrich", "parallel(4) + http.get + timeout + retry"], ["Aggregate", "where, sort_by, group_by, and sum"], ["Output", "encode_json/save_text and encode_csv/save_lines"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/dataflow-etl", label: "View the complete DataFlow ETL source on GitHub ↗", description: "Includes HHY modules, CSV/JSON fixtures, profile API, report assertions, and one-command self-test." }
+        ] },
+        { title: "Real layout and data flow", blocks: [
+          { type: "image", src: "/dataflow-etl-tree.png", alt: "DataFlow ETL project tree", caption: "The real project layout: entry point, four HHY modules, CSV/JSON fixtures, configuration, and test utilities.", width: 900, height: 760, size: "medium" },
+          { type: "code", language: "text", code: "customers.csv + events/*.json + HTTP profiles\n                    ↓\n            parse / trim / lower\n                    ↓\n          active + minimum spend filter\n                    ↓\n          parallel HTTP enrichment\n                    ↓\n          group_by department + sum\n                    ↓\n              report.json + customers.csv" }
+        ] },
+        { title: "Actual self-test result", blocks: [
+          { type: "code", language: "sh", code: "cd hhy-vm\nsh dataflow-etl/self-test.sh" },
+          { type: "image", src: "/dataflow-etl-self-test.png", alt: "Actual DataFlow ETL end-to-end result", caption: "Actual run: three qualified customers, two event files, two department summaries, and all HTTP enrichment plus JSON/CSV assertions passed.", width: 1180, height: 400, size: "wide" },
+          { type: "note", text: "The test API binds only to 127.0.0.1:18992. Assertions cover filtering and ordering, email cleanup, remote region/tier fields, department spend totals, and both output formats." }
+        ] },
+        { title: "Run your own synchronization", blocks: [
+          { type: "p", text: "Copy config/test.json, replace the project name, API base, and minimum-spend threshold, then provide customers.csv and events/*.json. An individual HTTP failure becomes a structured error, sets report ok=false, and returns exit code 1." },
+          { type: "code", language: "sh", code: "hhy run dataflow-etl/etl.hhy \\\n  ./input \\\n  ./config.json \\\n  ./output/report.json \\\n  ./output/customers.csv" }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "asset-governance-project",
+    order: 13,
+    title: { zh: "实战项目：Asset Governance", en: "Project: Asset Governance" },
+    summary: { zh: "扫描项目资产、生成治理报告，并用 Runtime 原生 dry-run 安全执行 copy、move、remove 整改动作。", en: "Audit project assets, generate a governance report, and safely execute copy, move, and remove remediations with Runtime-native dry-run." },
+    sections: {
+      zh: [
+        { title: "审计与整改分离", blocks: [
+          { type: "p", text: "Asset Governance 由 audit.hhy 和 cleanup.hhy 两个程序组成。审计器扫描源码、配置、图片、视频和构建产物，发现超大、过旧、命名不规范、重复文本内容和疑似凭据；清理器只接受审计报告中的白名单动作，不通过 shell 拼接命令。" },
+          { type: "table", columns: ["检查或动作", "HHY 实现"], rows: [["文件清单和大小", "files、File.size、Bytes"], ["旧文件", "File.modified、now、Duration"], ["命名与敏感信息", "Regex、read_text、脱敏 finding"], ["重复内容", "group_by 文本内容，不把原文写进报告"], ["整改", "copy、move、remove 与 --dry-run EffectDispatcher"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/asset-governance", label: "在 GitHub 查看 Asset Governance 完整源码 ↗", description: "包含审计器、清理器、四个 HHY 模块、风险 fixtures 和 dry-run/正式整改断言。" }
+        ] },
+        { title: "项目目录", blocks: [
+          { type: "image", src: "/asset-governance-tree.png", alt: "Asset Governance 项目目录树", caption: "真实目录包含审计与清理入口、治理模块，以及故意准备的大文件、旧文件、重复文件和敏感配置 fixtures。", width: 900, height: 960, size: "medium" },
+          { type: "table", columns: ["程序", "职责"], rows: [["audit.hhy", "扫描项目并原子生成 report.json；存在 critical finding 时返回 1"], ["cleanup.hhy", "读取 report.actions，执行受控 copy/move/remove"], ["self-test.sh", "创建隔离 mktemp 工作区，先 dry-run 再正式整改并逐项断言"]] }
+        ] },
+        { title: "实际自测与 dry-run", blocks: [
+          { type: "code", language: "sh", code: "cd hhy-vm\nsh asset-governance/self-test.sh" },
+          { type: "image", src: "/asset-governance-self-test.png", alt: "Asset Governance 审计、dry-run 和正式整改的真实终端输出", caption: "真实运行：识别 large/naming/stale/sensitive/duplicate finding；dry-run 输出副作用计划且文件不变；正式执行三个动作后断言通过。", width: 1180, height: 1100, size: "wide" },
+          { type: "note", text: "截图中的 Processed 表示程序走到了该动作；dry-run 阶段由 Runtime 拦截副作用。测试随后确认目标目录完全未改变，正式运行后才验证 copy、move 和 remove 生效。" }
+        ] },
+        { title: "两阶段运行", blocks: [
+          { type: "p", text: "先运行审计并阅读 report.json。存在 critical finding 时 audit 返回 1，但报告仍完整生成。确认 actions 后先执行 dry-run，检查 Runtime 输出的 effect 计划，最后再正式整改。" },
+          { type: "code", language: "sh", code: "hhy run asset-governance/audit.hhy ./project ./config.json ./report.json\nhhy run --dry-run asset-governance/cleanup.hhy ./project ./report.json\nhhy run asset-governance/cleanup.hhy ./project ./report.json" }
+        ] }
+      ],
+      en: [
+        { title: "Separate audit from remediation", blocks: [
+          { type: "p", text: "Asset Governance consists of audit.hhy and cleanup.hhy. The auditor scans source, configuration, images, video, and build outputs for oversized, stale, badly named, duplicate-text, and possibly sensitive files. The cleaner accepts only allow-listed report actions and never assembles shell commands." },
+          { type: "table", columns: ["Check or action", "HHY implementation"], rows: [["Inventory and size", "files, File.size, and Bytes"], ["Stale files", "File.modified, now, and Duration"], ["Naming and secrets", "Regex, read_text, and redacted findings"], ["Duplicate content", "group_by text content without storing source text in the report"], ["Remediation", "copy, move, remove, and --dry-run EffectDispatcher"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/asset-governance", label: "View the complete Asset Governance source on GitHub ↗", description: "Includes auditor, cleaner, four HHY modules, risky fixtures, and dry-run plus applied-remediation assertions." }
+        ] },
+        { title: "Project layout", blocks: [
+          { type: "image", src: "/asset-governance-tree.png", alt: "Asset Governance project tree", caption: "The real layout contains audit and cleanup entry points, governance modules, and intentionally large, stale, duplicate, and sensitive fixtures.", width: 900, height: 960, size: "medium" },
+          { type: "table", columns: ["Program", "Responsibility"], rows: [["audit.hhy", "Scan and atomically write report.json; return 1 when a critical finding exists"], ["cleanup.hhy", "Read report.actions and execute controlled copy/move/remove operations"], ["self-test.sh", "Create an isolated mktemp workspace, dry-run first, then apply and assert every action"]] }
+        ] },
+        { title: "Actual self-test and dry-run", blocks: [
+          { type: "code", language: "sh", code: "cd hhy-vm\nsh asset-governance/self-test.sh" },
+          { type: "image", src: "/asset-governance-self-test.png", alt: "Actual Asset Governance audit, dry-run, and applied-remediation terminal output", caption: "Actual run: detects large/naming/stale/sensitive/duplicate findings; dry-run prints the effect plan without changes; all assertions pass after three real actions.", width: 1180, height: 1100, size: "wide" },
+          { type: "note", text: "Processed means that program control reached the action; Runtime intercepts its effect during dry-run. The test then proves that the workspace is unchanged, and verifies copy, move, and remove only after the real run." }
+        ] },
+        { title: "Two-phase operation", blocks: [
+          { type: "p", text: "Run the audit and inspect report.json first. audit returns 1 for a critical finding but still writes the complete report. After approving actions, run dry-run, inspect Runtime's effect plan, and only then apply remediation." },
+          { type: "code", language: "sh", code: "hhy run asset-governance/audit.hhy ./project ./config.json ./report.json\nhhy run --dry-run asset-governance/cleanup.hhy ./project ./report.json\nhhy run asset-governance/cleanup.hhy ./project ./report.json" }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "flowguard-project",
+    order: 11,
+    title: { zh: "实战项目：FlowGuard", en: "Project: FlowGuard" },
+    summary: { zh: "用 HHY v1.0 构建完整的代码仓库体检与质量门禁应用，包含真实数据、并发检查、JSON 报告和端到端测试。", en: "Build a complete repository health and quality-gate application with HHY v1.0, including real fixtures, concurrent checks, JSON reports, and end-to-end tests." },
+    sections: {
+      zh: [
+        { title: "这不是语法 Demo", blocks: [
+          { type: "p", text: "FlowGuard 是一个完全使用 HHY v1.0 编写的可运行应用。它接收项目目录与 JSON 配置，检查必需文件、扫描文件和疑似凭据、并发执行质量命令与 HTTP 健康检查，最终原子写入结构化报告，并用稳定退出码决定质量门禁是否通过。" },
+          { type: "table", columns: ["应用能力", "使用的 HHY 能力"], rows: [["项目结构检查", "Path、read_text、attempt、List"], ["文件与安全扫描", "files、Stream、Regex、Bytes"], ["质量命令", "run、parallel、Duration、CommandResult"], ["服务健康检查", "http.get、timeout、retry、parallel"], ["报告与门禁", "Map、encode_json、原子 save_text、exit"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/flowguard", label: "在 GitHub 查看 FlowGuard 完整源码 ↗", description: "包含 HHY 入口、六个业务模块、配置、测试项目、HTTP 服务和报告断言。" }
+        ] },
+        { title: "项目目录", blocks: [
+          { type: "p", text: "入口脚本只负责编排，具体检查被拆分到 lib 中；config 保存两套场景，fixtures 提供可以重复测试的项目数据。output 和 __pycache__ 被忽略，不进入仓库。" },
+          { type: "image", src: "/flowguard-project-tree-v2.png", alt: "FlowGuard 项目目录树，展示 config、fixtures、lib、入口脚本和测试工具", caption: "FlowGuard 的真实目录结构；output 与 __pycache__ 是本地自测产物，不在 Git 中。", width: 900, height: 890, size: "medium" },
+          { type: "table", columns: ["路径", "职责"], rows: [["flowguard.hhy", "读取参数和配置，组合检查，写报告并设置退出码"], ["lib/*.hhy", "结构、文件、安全、命令、健康和报告模块"], ["config/*.json", "健康与风险场景配置"], ["fixtures/*", "确定性的被检查项目数据"], ["self-test.sh", "启动测试服务并验证两个端到端场景"]] }
+        ] },
+        { title: "运行完整自测", blocks: [
+          { type: "p", text: "在仓库根目录执行一条命令。自测会启动仅监听 127.0.0.1:18991 的临时 HTTP 服务，先检查 HHY 模块，再运行健康和风险两套场景，并用 Python 对生成的 JSON 报告做结构与结果断言。" },
+          { type: "code", language: "sh", code: "cd hhy-vm\nsh flowguard/self-test.sh" },
+          { type: "image", src: "/flowguard-self-test-v2.png", alt: "FlowGuard 端到端自测的终端输出，健康场景全部通过，风险场景发现五项失败，最终自测通过", caption: "真实运行结果：healthy-service 8 项通过；risky-service 正确发现 5 项失败；最终 FlowGuard self-test passed。", width: 1180, height: 850, size: "wide" }
+        ] },
+        { title: "健康场景与风险场景", blocks: [
+          { type: "table", columns: ["场景", "输入数据", "预期结果"], rows: [["healthy-service", "README、LICENSE、package.json、源码、两个成功命令和 2xx 健康端点", "8 passed，退出码 0"], ["risky-service", "缺少 LICENSE、模拟 DEMO_TOKEN、失败命令和 404 端点", "5 failed，退出码 1；自测将这个非零状态视为正确结果"]] },
+          { type: "note", text: "风险场景里的凭据是明确标注的假数据。FlowGuard 报告只保存文件名和 content_redacted: true，不保存匹配内容。" }
+        ] },
+        { title: "配置自己的项目", blocks: [
+          { type: "code", language: "text", code: "{\n  \"project\": { \"name\": \"my-service\" },\n  \"required_files\": [\"README.md\", \"LICENSE\"],\n  \"limits\": { \"large_file\": \"4kib\" },\n  \"commands\": [\n    { \"name\": \"tests\", \"argv\": [\"npm\", \"test\"] }\n  ],\n  \"health_checks\": [\n    { \"name\": \"api\", \"url\": \"http://127.0.0.1:8080/health\" }\n  ]\n}" },
+          { type: "p", text: "命令使用 argv 数组直接交给 run，不经过 shell 拼接；每个命令限制为 15 秒和 1 MiB 输出。当前示例接受 256b、1kib、4kib 或 1mib 文件阈值。" },
+          { type: "code", language: "sh", code: "hhy run \\\n  --limit max_runtime=2min \\\n  --limit max_memory=256mib \\\n  --limit max_processes=8 \\\n  flowguard/flowguard.hhy \\\n  /path/to/project \\\n  flowguard/config/my-project.json \\\n  report.json" }
+        ] },
+        { title: "为什么它能代表 HHY", blocks: [
+          { type: "p", text: "FlowGuard 把文件系统、进程、HTTP 和数据处理统一进同一条可靠工作流。单项失败通过 attempt 转换为结构化检查结果，不会阻止其他检查完成；parallel 提供有上限的并发；最终报告可以直接交给 CI/CD 读取。这正是 HHY 相比复杂 Shell 脚本最有辨识度的应用方向。" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/flowguard/README.zh-CN.md", label: "阅读 FlowGuard 中文使用说明 ↗", description: "查看配置字段、手动运行方式、测试设计与真实项目接入命令。" }
+        ] }
+      ],
+      en: [
+        { title: "More than a syntax demo", blocks: [
+          { type: "p", text: "FlowGuard is a runnable application written entirely in HHY v1.0. It accepts a project directory and JSON configuration, checks required files, scans files and possible credentials, runs quality commands and HTTP health checks concurrently, atomically writes a structured report, and uses a stable exit code to enforce the quality gate." },
+          { type: "table", columns: ["Application capability", "HHY capabilities used"], rows: [["Project structure", "Path, read_text, attempt, and List"], ["File and security scan", "files, Stream, Regex, and Bytes"], ["Quality commands", "run, parallel, Duration, and CommandResult"], ["Service health", "http.get, timeout, retry, and parallel"], ["Report and gate", "Map, encode_json, atomic save_text, and exit"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/flowguard", label: "View the complete FlowGuard source on GitHub ↗", description: "Includes the HHY entry point, six business modules, configurations, fixtures, HTTP server, and report assertions." }
+        ] },
+        { title: "Project layout", blocks: [
+          { type: "p", text: "The entry script focuses on orchestration while lib contains each check. Config holds two scenarios, and fixtures provides repeatable project data. output and __pycache__ are ignored and never committed." },
+          { type: "image", src: "/flowguard-project-tree-v2.png", alt: "FlowGuard project tree showing config, fixtures, lib, entry script, and test utilities", caption: "The real FlowGuard layout. output and __pycache__ are local test artifacts and are not tracked by Git.", width: 900, height: 890, size: "medium" },
+          { type: "table", columns: ["Path", "Responsibility"], rows: [["flowguard.hhy", "Read arguments and configuration, combine checks, write the report, and set the exit code"], ["lib/*.hhy", "Structure, file, security, command, health, and reporting modules"], ["config/*.json", "Healthy and risky scenario configurations"], ["fixtures/*", "Deterministic projects under inspection"], ["self-test.sh", "Start the test service and verify both end-to-end scenarios"]] }
+        ] },
+        { title: "Run the complete self-test", blocks: [
+          { type: "p", text: "Run one command from the repository root. The test starts a temporary HTTP service bound only to 127.0.0.1:18991, checks the HHY modules, runs both scenarios, and uses Python assertions to validate the generated JSON reports." },
+          { type: "code", language: "sh", code: "cd hhy-vm\nsh flowguard/self-test.sh" },
+          { type: "image", src: "/flowguard-self-test-v2.png", alt: "FlowGuard end-to-end terminal output with the healthy scenario passing and five expected failures in the risky scenario", caption: "Actual output: healthy-service passes all eight checks; risky-service finds five failures; the run ends with FlowGuard self-test passed.", width: 1180, height: 850, size: "wide" }
+        ] },
+        { title: "Healthy and risky scenarios", blocks: [
+          { type: "table", columns: ["Scenario", "Input data", "Expected result"], rows: [["healthy-service", "README, LICENSE, package.json, source, two successful commands, and a 2xx health endpoint", "8 passed and exit code 0"], ["risky-service", "Missing LICENSE, fake DEMO_TOKEN, failed command, and a 404 endpoint", "5 failed and exit code 1; the harness treats this nonzero status as correct"]] },
+          { type: "note", text: "The credential in the risky fixture is explicitly fake. FlowGuard stores only the file name and content_redacted: true; matching content never enters the report." }
+        ] },
+        { title: "Configure your own project", blocks: [
+          { type: "code", language: "text", code: "{\n  \"project\": { \"name\": \"my-service\" },\n  \"required_files\": [\"README.md\", \"LICENSE\"],\n  \"limits\": { \"large_file\": \"4kib\" },\n  \"commands\": [\n    { \"name\": \"tests\", \"argv\": [\"npm\", \"test\"] }\n  ],\n  \"health_checks\": [\n    { \"name\": \"api\", \"url\": \"http://127.0.0.1:8080/health\" }\n  ]\n}" },
+          { type: "p", text: "Commands are passed directly to run as argv arrays and are never assembled through shell. Each command is limited to 15 seconds and 1 MiB of output. The current example accepts 256b, 1kib, 4kib, or 1mib file thresholds." },
+          { type: "code", language: "sh", code: "hhy run \\\n  --limit max_runtime=2min \\\n  --limit max_memory=256mib \\\n  --limit max_processes=8 \\\n  flowguard/flowguard.hhy \\\n  /path/to/project \\\n  flowguard/config/my-project.json \\\n  report.json" }
+        ] },
+        { title: "Why it represents HHY", blocks: [
+          { type: "p", text: "FlowGuard brings filesystem, process, HTTP, and data processing into one reliable workflow. attempt turns an individual failure into a structured check without preventing other checks from completing; parallel provides bounded concurrency; and CI/CD can consume the final report directly. This is where HHY is most distinct from a large shell script." },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/flowguard/README.md", label: "Read the FlowGuard guide ↗", description: "See configuration fields, manual commands, test design, and instructions for checking a real project." }
+        ] }
+      ]
+    }
+  },
+  {
     slug: "extensions-roadmap",
-    order: 14,
+    order: 17,
     title: { zh: "扩展系统路线图", en: "Extension System Roadmap" },
     summary: { zh: "了解扩展安装、加载、进程协议与 Redis 扩展示例的后续设计；这些能力尚未在 v1.0 实现。", en: "Preview the planned extension installation, loading, process protocol, and a Redis extension example; none of these capabilities is implemented in v1.0." },
     sections: {
@@ -1712,7 +1880,8 @@ export function getChapter(slug: string): Chapter | undefined {
   return chapters.find((chapter) => chapter.slug === slug);
 }
 
-export function chapterKind(chapter: Chapter): "guide" | "reference" | "roadmap" {
+export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "roadmap" {
+  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project") return "project";
   if (chapter.slug === "extensions-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"
     ? "reference"

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { CodeBlock } from "@/components/code-block";
 import { JsonLd } from "@/components/json-ld";
@@ -47,6 +48,8 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
       <article className="chapter-article">
         <p className="eyebrow">{chapterKind(chapter) === "guide"
           ? (lang === "zh" ? `指南 · 第 ${chapter.order} 章` : `Guide · Chapter ${chapter.order}`)
+          : chapterKind(chapter) === "project"
+            ? (lang === "zh" ? "实战项目 · 已通过自测" : "Project · Self-tested")
           : chapterKind(chapter) === "reference"
             ? (lang === "zh" ? "HHY 参考" : "HHY Reference")
             : (lang === "zh" ? "路线图 · 尚未实现" : "Roadmap · Not implemented")}</p>
@@ -63,11 +66,12 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                 <div className="doc-table-wrap" key={index}>
                   <table className="doc-table">
                     <thead><tr>{block.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-                    <tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody>
+                    <tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td data-label={block.columns[cellIndex]} key={cellIndex}>{cell}</td>)}</tr>)}</tbody>
                   </table>
                 </div>
               );
               if (block.type === "link") return <a className="doc-link-card" href={block.href} target={block.href.startsWith("/") ? undefined : "_blank"} rel={block.href.startsWith("/") ? undefined : "noreferrer"} key={index}><strong>{block.label}</strong><span>{block.description}</span></a>;
+              if (block.type === "image") return <figure className={`doc-image ${block.size}`} key={index}><a href={block.src} target="_blank" rel="noreferrer" aria-label={lang === "zh" ? "查看原图" : "View full-size image"}><Image src={block.src} alt={block.alt} width={block.width} height={block.height} sizes={block.size === "medium" ? "(max-width: 560px) calc(100vw - 32px), 480px" : "(max-width: 720px) calc(100vw - 32px), 680px"} /></a><figcaption>{block.caption}</figcaption></figure>;
               if (block.type === "api") return (
                 <div className="api-reference" key={index}>
                   <nav className="api-index" aria-label={lang === "zh" ? "本节函数索引" : "Function index"}>

@@ -1,0 +1,53 @@
+import { finding } from "./findings.hhy"
+
+fn text_file(file) {
+    let extension = lower(file.path.extension)
+    return extension == ".js" or extension == ".json" or extension == ".md" or extension == ".txt" or extension == ".env" or extension == ".tmp"
+}
+
+export fn inspect_content(files) {
+    let records = files
+        |> stream
+        |> where { file -> text_file(file) }
+        |> map { file ->
+        let content = attempt { read_text(file.path) }
+        if content.ok {
+            return { name: file.name, content: content.value, readable: true }
+        }
+        return { name: file.name, content: "", readable: false }
+    }
+        |> collect
+
+    let mut findings = []
+    for record in records {
+        if record.readable and regex_match(record.content, /BEGIN [A-Z ]*PRIVATE KEY|DEMO_TOKEN[ ]*=|password[ ]*=/i) {
+            findings = append(findings, finding(
+                    join(["sensitive", record.name], "."),
+                    "sensitive",
+                    "critical",
+                    "Possible credential pattern; matching content is redacted",
+                    record.name
+            ))
+        }
+    }
+
+    let duplicate_groups = records
+        |> stream
+        |> where { record -> record.readable and byte_length(record.content) > 0 }
+        |> group_by { record -> record.content }
+        |> where { group -> length(group.values) > 1 }
+        |> collect
+
+    for group in duplicate_groups {
+        let names = group.values |> stream |> map { record -> record.name } |> collect
+        findings = append(findings, finding(
+                join(["duplicate", names[0]], "."),
+                "duplicate_content",
+                "warning",
+                "Multiple text files have identical content",
+                join(names, ", ")
+        ))
+    }
+
+    return findings
+}

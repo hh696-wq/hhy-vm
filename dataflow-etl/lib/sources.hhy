@@ -1,0 +1,24 @@
+export fn load_customers(input_root) {
+    return path_join(input_root, "customers.csv")
+        |> read_lines
+        |> parse_csv({ header: true })
+        |> map { row ->
+        return {
+            id: trim(row.id),
+            name: trim(row.name),
+            email: lower(trim(row.email)),
+            department: trim(row.department),
+            active: lower(trim(row.active)) == "true",
+            spend: to_int(row.spend)
+        }
+    }
+        |> collect
+}
+
+export fn load_events(input_root) {
+    return path_join(input_root, "events")
+        |> files("*.json")
+        |> where { file -> type(file) == "File" }
+        |> map { file -> read_text(file.path) |> parse_json }
+        |> collect
+}

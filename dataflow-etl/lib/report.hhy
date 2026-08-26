@@ -1,0 +1,17 @@
+export fn build_report(project_name, customers, summaries, events) {
+    let enriched = customers |> stream |> where { customer -> customer.enriched } |> count
+    return {
+        tool: "DataFlow ETL",
+        version: "1.0.0",
+        project: project_name,
+        ok: enriched == length(customers),
+        source_stats: {
+            qualified_customers: length(customers),
+            enriched_customers: enriched,
+            event_files: length(events)
+        },
+        department_summary: summaries,
+        customers: customers,
+        events: events
+    }
+}

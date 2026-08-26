@@ -1,0 +1,30 @@
+#!/usr/bin/env hhy
+
+import { combine } from "./lib/findings.hhy"
+import { inventory } from "./lib/inventory.hhy"
+import { inspect_content } from "./lib/content.hhy"
+import { build_report, print_report } from "./lib/report.hhy"
+
+if length(args) != 3 {
+    print_error("usage: hhy run audit.hhy <project-root> <config.json> <report.json>")
+    exit(3)
+}
+
+try {
+    let root = path(args[0])
+    let config = read_text(path(args[1])) |> parse_json
+    let files = inventory(root, config.large_file)
+    let content_findings = inspect_content(files.files)
+    let findings = combine([files.findings, content_findings])
+    let report = build_report(config.project, files, findings, config.actions)
+
+    report |> encode_json({ pretty: true }) |> save_text(path(args[2]), { atomic: true })
+    print_report(report, path(args[2]))
+
+    if not report.ok {
+        exit(1)
+    }
+} catch err {
+    print_error(err)
+    exit(1)
+}

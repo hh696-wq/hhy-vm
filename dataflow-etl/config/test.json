@@ -1,0 +1,5 @@
+{
+  "project": "customer-sync-fixture",
+  "api_base": "http://127.0.0.1:18992",
+  "minimum_spend": 100
+}

@@ -1,0 +1,30 @@
+import { count_severity } from "./findings.hhy"
+
+export fn build_report(project, inventory, findings, actions) {
+    let critical = count_severity(findings, "critical")
+    let warnings = count_severity(findings, "warning")
+    return {
+        tool: "Asset Governance",
+        version: "1.0.0",
+        project: project,
+        ok: critical == 0,
+        summary: {
+            files: inventory.count,
+            critical: critical,
+            warnings: warnings,
+            findings: length(findings),
+            planned_actions: length(actions)
+        },
+        findings: findings,
+        actions: actions
+    }
+}
+
+export fn print_report(report, output) {
+    print("Asset Governance", report.project)
+    print("Files", report.summary.files, "Critical", report.summary.critical, "Warnings", report.summary.warnings)
+    for item in report.findings {
+        print(upper(item.severity), upper(item.kind), item.file, item.message)
+    }
+    print("Report", output)
+}

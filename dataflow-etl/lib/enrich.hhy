@@ -1,0 +1,42 @@
+export fn enrich_customers(customers, api_base) {
+    return customers
+        |> stream
+        |> where { customer -> customer.active }
+        |> parallel(4) { customer ->
+        let profile = attempt {
+            http.get(join([api_base, "profiles", customer.id], "/"))
+                |> timeout(3s)
+                |> retry({ count: 1, backoff: 50ms })
+                |> send
+                |> response_body
+                |> parse_json
+        }
+
+        if profile.ok {
+            return {
+                id: customer.id,
+                name: customer.name,
+                email: customer.email,
+                department: customer.department,
+                spend: customer.spend,
+                region: profile.value.region,
+                tier: profile.value.tier,
+                enriched: true,
+                error: null
+            }
+        }
+
+        return {
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+            department: customer.department,
+            spend: customer.spend,
+            region: null,
+            tier: null,
+            enriched: false,
+            error: profile.error.message
+        }
+    }
+        |> collect
+}

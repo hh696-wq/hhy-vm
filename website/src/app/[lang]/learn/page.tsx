@@ -26,6 +26,7 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
   const { lang } = await params;
   if (!isLanguage(lang)) notFound();
   const guideChapters = chapters.filter((chapter) => chapterKind(chapter) === "guide").sort((a, b) => a.order - b.order);
+  const projectChapters = chapters.filter((chapter) => chapterKind(chapter) === "project").sort((a, b) => a.order - b.order);
   const referenceChapters = chapters.filter((chapter) => chapterKind(chapter) === "reference").sort((a, b) => a.order - b.order);
   const roadmapChapters = chapters.filter((chapter) => chapterKind(chapter) === "roadmap").sort((a, b) => a.order - b.order);
 
@@ -58,6 +59,18 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
             <h2>{chapter.title[lang]}</h2>
             <p>{chapter.summary[lang]}</p>
             <strong>{lang === "zh" ? "阅读章节" : "Read chapter"}<ArrowRight size={17} /></strong>
+          </Link>
+        ))}
+      </div>
+      <h2 className="docs-index-heading reference-heading">{lang === "zh" ? "实战项目" : "Project"}</h2>
+      <p className="docs-index-description">{lang === "zh" ? "阅读一个由 HHY v1.0 完整实现、包含真实数据与端到端测试的应用。" : "Study a complete HHY v1.0 application with real fixtures and end-to-end tests."}</p>
+      <div className="chapter-grid">
+        {projectChapters.map((chapter) => (
+          <Link href={`/${lang}/learn/${chapter.slug}`} className="chapter-card project-card" key={chapter.slug}>
+            <span>{String(chapter.order).padStart(2, "0")}</span>
+            <h2>{chapter.title[lang]}</h2>
+            <p>{chapter.summary[lang]}</p>
+            <strong>{lang === "zh" ? "查看完整项目" : "Explore project"}<ArrowRight size={17} /></strong>
           </Link>
         ))}
       </div>

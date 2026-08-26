@@ -1,0 +1,32 @@
+#!/usr/bin/env hhy
+
+if length(args) != 2 {
+    print_error("usage: hhy run cleanup.hhy <project-root> <report.json>")
+    exit(3)
+}
+
+try {
+    let root = path(args[0])
+    let report = read_text(path(args[1])) |> parse_json
+
+    for action in report.actions {
+        let source = path_join(root, action.source)
+
+        if action.kind == "copy" {
+            copy(source, path_join(root, action.target), { overwrite: true })
+        } else if action.kind == "move" {
+            move(source, path_join(root, action.target), { overwrite: true })
+        } else if action.kind == "remove" {
+            remove(source)
+        } else {
+            print_error("unsupported governance action", action.kind)
+            exit(3)
+        }
+        print("Processed", action.kind, action.source)
+    }
+
+    print("Asset cleanup completed", length(report.actions), "actions")
+} catch err {
+    print_error(err)
+    exit(1)
+}
