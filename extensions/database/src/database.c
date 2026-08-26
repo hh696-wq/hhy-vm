@@ -153,7 +153,8 @@ static bool mysql_transaction_execute(MYSQL *connection, const char *sql, json_t
     if (statement == NULL || mysql_stmt_prepare(statement, sql, strlen(sql)) != 0 ||
         mysql_stmt_param_count(statement) != count) {
         *error = "MySQL transaction statement preparation failed";
-        if (statement) mysql_stmt_close(statement); return false;
+        if (statement) mysql_stmt_close(statement);
+        return false;
     }
     MYSQL_BIND *inputs = calloc(count, sizeof(*inputs));
     unsigned long *lengths = calloc(count, sizeof(*lengths)); bool *nulls = calloc(count, sizeof(*nulls));
@@ -205,7 +206,9 @@ static json_t *mysql_run(const char *url, const char *sql, json_t *params,
     if (statement == NULL || mysql_stmt_prepare(statement, sql, strlen(sql)) != 0 ||
         mysql_stmt_param_count(statement) != parameter_count) {
         *error = "MySQL statement preparation failed";
-        if (statement) mysql_stmt_close(statement); mysql_close(connection); return NULL;
+        if (statement) mysql_stmt_close(statement);
+        mysql_close(connection);
+        return NULL;
     }
     bool update_max_length = true;
     if (query && mysql_stmt_attr_set(statement, STMT_ATTR_UPDATE_MAX_LENGTH,
@@ -366,7 +369,8 @@ static json_t *postgres_transaction(const char *url, json_t *statements,
     }
     if (ok) {
         control = PQexec(connection, "COMMIT"); ok = PQresultStatus(control) == PGRES_COMMAND_OK;
-        if (!ok) *error = "PostgreSQL transaction commit failed"; PQclear(control);
+        if (!ok) *error = "PostgreSQL transaction commit failed";
+        PQclear(control);
     }
     if (!ok) { control = PQexec(connection, "ROLLBACK"); PQclear(control); }
     PQfinish(connection);

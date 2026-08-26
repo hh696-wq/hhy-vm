@@ -263,7 +263,8 @@ bool hhy_contract_namespace_installed(const char *name, size_t length) {
 
 static char *copy_text(const char *text) {
     size_t length = strlen(text); char *copy = malloc(length + 1);
-    if (copy != NULL) memcpy(copy, text, length + 1); return copy;
+    if (copy != NULL) memcpy(copy, text, length + 1);
+    return copy;
 }
 
 bool hhy_contract_register_extension(const HhyCallableContract *contract,

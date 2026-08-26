@@ -253,7 +253,9 @@ static json_t *value_to_protocol_json(Runtime *rt, const HhyNode *site, Value va
             for (size_t i = 0; i < value.as.list.count; i++) {
                 json_t *item = value_to_protocol_json(rt, site, value.as.list.items[i]);
                 if (item == NULL || json_array_append_new(array, item) != 0) {
-                    if (item != NULL) json_decref(item); json_decref(array); return NULL;
+                    if (item != NULL) json_decref(item);
+                    json_decref(array);
+                    return NULL;
                 }
             }
             return array;
@@ -265,7 +267,11 @@ static json_t *value_to_protocol_json(Runtime *rt, const HhyNode *site, Value va
                 json_t *item = value_to_protocol_json(rt, site, value.as.map.values[i]);
                 int result = item == NULL ? -1 : json_object_set_new(object, key, item);
                 free(key);
-                if (result != 0) { if (item != NULL) json_decref(item); json_decref(object); return NULL; }
+                if (result != 0) {
+                    if (item != NULL) json_decref(item);
+                    json_decref(object);
+                    return NULL;
+                }
             }
             return object;
         }

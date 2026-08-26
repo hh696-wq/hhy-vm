@@ -86,7 +86,8 @@ int main(int argc, char **argv) {
     if (argc != 3 || strcmp(argv[1], "--protocol") != 0 || strcmp(argv[2], "1") != 0) return 3;
     json_t *hello = read_message();
     if (hello == NULL || strcmp(json_string_value(json_object_get(hello, "type")), "handshake") != 0) {
-        if (hello != NULL) json_decref(hello); return 2;
+        if (hello != NULL) json_decref(hello);
+        return 2;
     }
     json_decref(hello); json_t *response = envelope("handshake_result", "handshake");
     json_object_set_new(response, "extension_version", json_string("0.1.0"));

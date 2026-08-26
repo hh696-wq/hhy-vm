@@ -112,7 +112,8 @@ static bool copy_file(const char *source, const char *target, mode_t mode) {
     }
     if (input >= 0) close(input);
     if (output >= 0 && close(output) != 0) ok = false;
-    if (!ok) unlink(target); return ok;
+    if (!ok) unlink(target);
+    return ok;
 }
 
 static bool sha256_file(const char *path, char output[65]) {
@@ -125,7 +126,8 @@ static bool sha256_file(const char *path, char output[65]) {
         if (count < sizeof(buffer)) { if (ferror(file)) ok = false; break; }
     }
     if (ok) ok = EVP_DigestFinal_ex(context, digest, &length) == 1 && length == 32;
-    if (file) fclose(file); EVP_MD_CTX_free(context);
+    if (file) fclose(file);
+    EVP_MD_CTX_free(context);
     if (!ok) return false;
     for (unsigned int i = 0; i < length; i++) snprintf(output + i * 2, 3, "%02x", digest[i]);
     output[64] = '\0'; return true;
