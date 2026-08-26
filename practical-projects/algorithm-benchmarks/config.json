@@ -1,9 +1,0 @@
-{
-  "warmups": 1,
-  "runs": 5,
-  "cases": [
-    { "algorithm": "fibonacci", "input": 22 },
-    { "algorithm": "prime_count", "input": 3000 },
-    { "algorithm": "gcd_grid", "input": 70 }
-  ]
-}
