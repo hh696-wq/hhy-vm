@@ -6,14 +6,14 @@ Asset Governance 是使用 HHY v1.0 编写的完整文件资产治理项目。�
 
 ```sh
 cd /path/to/hhy-vm
-sh asset-governance/self-test.sh
+sh practical-projects/asset-governance/self-test.sh
 ```
 
 自测使用 `mktemp` 创建隔离工作区，首先验证审计报告，然后运行：
 
 ```sh
-hhy run --dry-run asset-governance/cleanup.hhy PROJECT report.json
-hhy run asset-governance/cleanup.hhy PROJECT report.json
+hhy run --dry-run practical-projects/asset-governance/cleanup.hhy PROJECT report.json
+hhy run practical-projects/asset-governance/cleanup.hhy PROJECT report.json
 ```
 
 测试会断言 dry-run 后没有文件发生变化，正式执行后 copy、move、remove 三个动作全部生效。敏感内容始终脱敏，报告只记录文件名。

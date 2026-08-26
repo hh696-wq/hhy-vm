@@ -24,7 +24,7 @@ python3 test-server.py
 Then run FlowGuard from this directory:
 
 ```sh
-../build/hhy run flowguard.hhy \
+../../build/hhy run flowguard.hhy \
   fixtures/healthy-project \
   config/healthy.json \
   output/healthy-report.json

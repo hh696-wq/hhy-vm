@@ -6,7 +6,7 @@ DataFlow ETL 是使用 HHY v1.0 编写的完整数据同步项目，真实串联
 
 ```sh
 cd /path/to/hhy-vm
-sh dataflow-etl/self-test.sh
+sh practical-projects/dataflow-etl/self-test.sh
 ```
 
 测试服务只监听 `127.0.0.1:18992`。断言覆盖清洗后的邮箱、过滤和排序结果、HTTP 补充字段、事件文件数量、部门聚合值，以及 JSON/CSV 两种输出。

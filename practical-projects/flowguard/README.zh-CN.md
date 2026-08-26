@@ -31,7 +31,7 @@ flowguard/
 在 HHY 仓库根目录执行：
 
 ```sh
-sh flowguard/self-test.sh
+sh practical-projects/flowguard/self-test.sh
 ```
 
 测试会启动仅监听 `127.0.0.1:18991` 的临时服务，然后执行两个场景：
@@ -39,22 +39,22 @@ sh flowguard/self-test.sh
 1. `healthy-project` 的必需文件、文件扫描、两个并发命令和健康接口必须全部通过，FlowGuard 返回 0。
 2. `risky-project` 故意缺少 LICENSE，包含假的 `DEMO_TOKEN`，运行一个失败命令并访问 404 端点，FlowGuard 必须生成报告并返回 1。
 
-报告生成在 `flowguard/output/`，该目录已加入 `.gitignore`。
+报告生成在 `practical-projects/flowguard/output/`，该目录已加入 `.gitignore`。
 
 ## 手动运行
 
 先启动测试接口：
 
 ```sh
-cd flowguard
+cd practical-projects/flowguard
 python3 test-server.py
 ```
 
 另开终端运行健康项目：
 
 ```sh
-cd flowguard
-../build/hhy run flowguard.hhy \
+cd practical-projects/flowguard
+../../build/hhy run flowguard.hhy \
   fixtures/healthy-project \
   config/healthy.json \
   output/healthy-report.json
@@ -87,8 +87,8 @@ hhy run \
   --limit max_runtime=2min \
   --limit max_memory=256mib \
   --limit max_processes=8 \
-  flowguard/flowguard.hhy \
+  practical-projects/flowguard/flowguard.hhy \
   /path/to/project \
-  flowguard/config/my-project.json \
+  practical-projects/flowguard/config/my-project.json \
   report.json
 ```

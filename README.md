@@ -136,6 +136,15 @@ http.get("https://example.com/users")
 更多可执行场景见 [examples](examples/README.md)。README 与规范中的完整
 HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语言实现脱节。
 
+## 实战项目
+
+完整、经过端到端自测的 HHY 应用统一收录在
+[practical-projects](practical-projects/README.md)：
+
+- [FlowGuard](practical-projects/flowguard/README.zh-CN.md)：面向 CI/CD 的项目质量门禁；
+- [DataFlow ETL](practical-projects/dataflow-etl/README.zh-CN.md)：CSV/JSON 数据补全与报表管道；
+- [Asset Governance](practical-projects/asset-governance/README.zh-CN.md)：安全的资产审计与整改工作流。
+
 ## 下载并运行
 
 从 [GitHub Releases](https://github.com/hh696-wq/hhy-vm/releases/latest)

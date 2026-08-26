@@ -2,7 +2,7 @@
 set -eu
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-hhy_bin=${HHY_BIN:-"$project_dir/../build/hhy"}
+hhy_bin=${HHY_BIN:-"$project_dir/../../build/hhy"}
 output_dir="$project_dir/output"
 workspace=$(mktemp -d "${TMPDIR:-/tmp}/asset-governance.XXXXXX")
 trap 'rm -rf "$workspace"' EXIT INT TERM
