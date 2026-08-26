@@ -1,0 +1,39 @@
+import { count_status } from "./checks.hhy"
+
+export fn build_report(project_name, root_text, checks) {
+    let passed = count_status(checks, "pass")
+    let warnings = count_status(checks, "warn")
+    let failed = count_status(checks, "fail")
+
+    return {
+        tool: "FlowGuard",
+        version: "1.0.0",
+        project: { name: project_name, root: root_text },
+        ok: failed == 0,
+        summary: {
+            total: length(checks),
+            passed: passed,
+            warnings: warnings,
+            failed: failed
+        },
+        checks: checks
+    }
+}
+
+export fn print_report(report, output) {
+    print("FlowGuard", report.project.name)
+    print("Summary", report.summary.passed, "passed", report.summary.warnings, "warnings", report.summary.failed, "failed")
+
+    for item in report.checks {
+        let mut marker = "✓"
+        if item.status == "warn" {
+            marker = "!"
+        }
+        if item.status == "fail" {
+            marker = "✗"
+        }
+        print(marker, upper(item.category), item.message)
+    }
+
+    print("Report", output)
+}

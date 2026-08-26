@@ -1,0 +1,29 @@
+export fn check(id, category, status, message, details) {
+    return {
+        id: id,
+        category: category,
+        status: status,
+        message: message,
+        details: details
+    }
+}
+
+export fn count_status(checks, wanted) {
+    let mut total = 0
+    for item in checks {
+        if item.status == wanted {
+            total = total + 1
+        }
+    }
+    return total
+}
+
+export fn combine(groups) {
+    let mut combined = []
+    for group in groups {
+        for item in group {
+            combined = append(combined, item)
+        }
+    }
+    return combined
+}

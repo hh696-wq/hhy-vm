@@ -1,0 +1,90 @@
+import { check } from "./checks.hhy"
+
+fn scannable(file) {
+    let extension = lower(file.path.extension)
+    return extension == ".js" or extension == ".ts" or extension == ".json" or extension == ".md" or extension == ".txt" or extension == ".env"
+}
+
+fn parse_size(value) {
+    if value == "256b" {
+        return 256b
+    }
+    if value == "1kib" {
+        return 1kib
+    }
+    if value == "4kib" {
+        return 4kib
+    }
+    if value == "1mib" {
+        return 1mib
+    }
+    throw(join(["unsupported large_file value", value, "use 256b, 1kib, 4kib, or 1mib"], ": "))
+}
+
+export fn inspect_files(root, large_file_value) {
+    let large_file_limit = parse_size(large_file_value)
+    let all_files = root
+        |> files("**/*")
+        |> where { entry -> type(entry) == "File" }
+        |> collect
+
+    let mut total_bytes = 0b
+    let mut large_files = 0
+    let mut secret_findings = 0
+    let mut results = []
+
+    for file in all_files {
+        total_bytes = total_bytes + file.size
+
+        if file.size > large_file_limit {
+            large_files = large_files + 1
+            results = append(results, check(
+                    join(["files.large", file.name], "."),
+                    "files",
+                    "warn",
+                    join(["Large file requires review", file.name], ": "),
+                    { file: file.name }
+            ))
+        }
+
+        if scannable(file) {
+            let content = attempt { read_text(file.path) }
+            if content.ok and regex_match(content.value, /BEGIN [A-Z ]*PRIVATE KEY|DEMO_TOKEN[ ]*=|password[ ]*=/i) {
+                secret_findings = secret_findings + 1
+                results = append(results, check(
+                        join(["security.secret", file.name], "."),
+                        "security",
+                        "fail",
+                        join(["Possible credential pattern requires review", file.name], ": "),
+                        { file: file.name, content_redacted: true }
+                ))
+            }
+        }
+    }
+
+    let mut file_status = "pass"
+    let mut security_status = "pass"
+    if large_files > 0 {
+        file_status = "warn"
+    }
+    if secret_findings > 0 {
+        security_status = "fail"
+    }
+
+    results = append(results, check(
+            "files.inventory",
+            "files",
+            file_status,
+            "File inventory completed",
+            { files: length(all_files), large_files: large_files }
+    ))
+    results = append(results, check(
+            "security.credentials",
+            "security",
+            security_status,
+            "Credential scan completed",
+            { findings: secret_findings }
+    ))
+
+    return results
+}

@@ -1,0 +1,30 @@
+import { check } from "./checks.hhy"
+
+export fn inspect_structure(root, required_files) {
+    let mut results = []
+
+    for relative in required_files {
+        let target = path_join(root, relative)
+        let readable = attempt { read_text(target) }
+
+        if readable.ok {
+            results = append(results, check(
+                    join(["structure", relative], "."),
+                    "structure",
+                    "pass",
+                    join(["Required file exists", relative], ": "),
+                    { path: relative }
+            ))
+        } else {
+            results = append(results, check(
+                    join(["structure", relative], "."),
+                    "structure",
+                    "fail",
+                    join(["Required file is missing or unreadable", relative], ": "),
+                    { path: relative, error: readable.error.message }
+            ))
+        }
+    }
+
+    return results
+}

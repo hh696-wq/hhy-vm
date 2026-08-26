@@ -1,0 +1,45 @@
+import { check } from "./checks.hhy"
+
+export fn inspect_commands(root, commands) {
+    return commands
+        |> stream
+        |> parallel(3) { command ->
+        let execution = attempt {
+            run(command.argv, {
+                    cwd: root,
+                    timeout: 15s,
+                    max_output: 1mib
+            })
+        }
+
+        if not execution.ok {
+            return check(
+                join(["command", command.name], "."),
+                "quality",
+                "fail",
+                join(["Command could not be executed", command.name], ": "),
+                { error: execution.error.message }
+            )
+        }
+
+        let result = execution.value
+        if result.exit_code == 0 {
+            return check(
+                join(["command", command.name], "."),
+                "quality",
+                "pass",
+                join(["Command passed", command.name], ": "),
+                { exit_code: result.exit_code, stdout: trim(result.stdout) }
+            )
+        }
+
+        return check(
+            join(["command", command.name], "."),
+            "quality",
+            "fail",
+            join(["Command failed", command.name], ": "),
+            { exit_code: result.exit_code, stderr: trim(result.stderr) }
+        )
+    }
+        |> collect
+}

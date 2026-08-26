@@ -1,0 +1,12 @@
+{
+  "project": { "name": "healthy-service" },
+  "required_files": ["README.md", "LICENSE", "package.json"],
+  "limits": { "large_file": "4kib" },
+  "commands": [
+    { "name": "metadata", "argv": ["/bin/sh", "-c", "test -f package.json && grep -q healthy-service package.json"] },
+    { "name": "source", "argv": ["/bin/sh", "-c", "test -f src/app.js && grep -q greeting src/app.js"] }
+  ],
+  "health_checks": [
+    { "name": "fixture-api", "url": "http://127.0.0.1:18991/health" }
+  ]
+}

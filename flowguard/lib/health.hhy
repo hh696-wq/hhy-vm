@@ -1,0 +1,43 @@
+import { check } from "./checks.hhy"
+
+export fn inspect_health(services) {
+    return services
+        |> stream
+        |> parallel(4) { service ->
+        let response = attempt {
+            http.get(service.url)
+                |> timeout(3s)
+                |> retry({ count: 1, backoff: 50ms })
+                |> send
+        }
+
+        if response.ok and response.value.status >= 200 and response.value.status < 300 {
+            return check(
+                join(["health", service.name], "."),
+                "health",
+                "pass",
+                join(["Service is healthy", service.name], ": "),
+                { url: service.url, status: response.value.status }
+            )
+        }
+
+        if response.ok {
+            return check(
+                join(["health", service.name], "."),
+                "health",
+                "fail",
+                join(["Service returned an unhealthy status", service.name], ": "),
+                { url: service.url, status: response.value.status }
+            )
+        }
+
+        return check(
+            join(["health", service.name], "."),
+            "health",
+            "fail",
+            join(["Service health check failed", service.name], ": "),
+            { url: service.url, error: response.error.message }
+        )
+    }
+        |> collect
+}

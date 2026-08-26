@@ -1,0 +1,40 @@
+#!/usr/bin/env hhy
+
+import { combine } from "./lib/checks.hhy"
+import { inspect_structure } from "./lib/structure.hhy"
+import { inspect_files } from "./lib/files.hhy"
+import { inspect_commands } from "./lib/commands.hhy"
+import { inspect_health } from "./lib/health.hhy"
+import { build_report, print_report } from "./lib/report.hhy"
+
+if length(args) != 3 {
+    print_error("usage: hhy run flowguard.hhy <project-root> <config.json> <report.json>")
+    exit(3)
+}
+
+let root = path(args[0])
+let config_path = path(args[1])
+let output_path = path(args[2])
+
+try {
+    let config = read_text(config_path) |> parse_json
+    let structure_checks = inspect_structure(root, config.required_files)
+    let file_checks = inspect_files(root, config.limits.large_file)
+    let command_checks = inspect_commands(root, config.commands)
+    let health_checks = inspect_health(config.health_checks)
+    let checks = combine([structure_checks, file_checks, command_checks, health_checks])
+    let report = build_report(config.project.name, args[0], checks)
+
+    report
+        |> encode_json({ pretty: true })
+        |> save_text(output_path, { atomic: true })
+
+    print_report(report, output_path)
+
+    if not report.ok {
+        exit(1)
+    }
+} catch err {
+    print_error(err)
+    exit(1)
+}

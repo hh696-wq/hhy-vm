@@ -1,0 +1,13 @@
+{
+  "project": { "name": "risky-service" },
+  "required_files": ["README.md", "LICENSE", "package.json"],
+  "limits": { "large_file": "256b" },
+  "commands": [
+    { "name": "metadata", "argv": ["/bin/sh", "-c", "test -f package.json"] },
+    { "name": "tests", "argv": ["/bin/sh", "-c", "echo fixture test failed >&2; exit 2"] }
+  ],
+  "health_checks": [
+    { "name": "fixture-api", "url": "http://127.0.0.1:18991/health" },
+    { "name": "missing-worker", "url": "http://127.0.0.1:18991/missing" }
+  ]
+}
