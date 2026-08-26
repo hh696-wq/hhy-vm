@@ -101,7 +101,8 @@ static bool parse_mysql_url(const char *url, MysqlUrl *parsed) {
     if (port != NULL) {
         if (!copy_part(parsed->host, sizeof(parsed->host), at + 1, port)) return false;
         char *end = NULL; unsigned long value = strtoul(port + 1, &end, 10);
-        if (end != slash || value == 0 || value > 65535) return false; parsed->port = (unsigned int)value;
+        if (end != slash || value == 0 || value > 65535) return false;
+        parsed->port = (unsigned int)value;
     } else if (!copy_part(parsed->host, sizeof(parsed->host), at + 1, slash)) return false;
     return parsed->host[0] != '\0' && parsed->database[0] != '\0';
 }
