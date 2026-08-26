@@ -2,6 +2,8 @@
 #include "hhy/common.h"
 #include "hhy/checker.h"
 #include "hhy/formatter.h"
+#include "hhy/extensions.h"
+#include "hhy/package.h"
 #include "hhy/parser.h"
 #include "hhy/runtime.h"
 #include "hhy/token.h"
@@ -34,6 +36,9 @@ static void usage(FILE *stream) {
         "  hhy tokens <file.hhy>     Print lexer tokens\n"
         "  hhy fmt <file.hhy>...     Format source files in place\n"
         "  hhy fmt --check <files>   Verify canonical formatting\n"
+        "  hhy install [--yes] <dir> Install a local process extension\n"
+        "  hhy list                  List installed extensions\n"
+        "  hhy remove <package>      Remove an installed extension\n"
         "  hhy <file.hhy> [args]     Execute an HHY script\n"
         "  hhy run <file.hhy> [args] Execute an HHY script\n"
         "  hhy run --dry-run <file>   Plan without external side effects\n"
@@ -190,9 +195,30 @@ int main(int argc, char **argv) {
     }
     if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0) {
         puts("hhy " HHY_VERSION);
+        puts("© 2026 HHY Language contributors");
+        puts("Author: houhuiyang");
+        puts("License: Apache License 2.0");
+        puts("https://hhylang.dev/");
+        puts("huiyang.hou@qq.com");
         return 0;
     }
-    if (strcmp(argv[1], "repl") == 0) return hhy_repl();
+    if (strcmp(argv[1], "repl") == 0) {
+        int result = hhy_repl(); hhy_extensions_shutdown(); return result;
+    }
+    if (strcmp(argv[1], "install") == 0) {
+        bool assume_yes = argc == 4 && strcmp(argv[2], "--yes") == 0;
+        int path_index = assume_yes ? 3 : 2;
+        if (argc != path_index + 1) { fputs("usage: hhy install [--yes] <local-path>\n", stderr); return 3; }
+        return hhy_package_install(argv[path_index], assume_yes);
+    }
+    if (strcmp(argv[1], "list") == 0) {
+        if (argc != 2) { fputs("usage: hhy list\n", stderr); return 3; }
+        return hhy_package_list();
+    }
+    if (strcmp(argv[1], "remove") == 0) {
+        if (argc != 3) { fputs("usage: hhy remove <package>\n", stderr); return 3; }
+        return hhy_package_remove(argv[2]);
+    }
 
     Command command;
     int source_index = 2;
@@ -251,5 +277,6 @@ int main(int argc, char **argv) {
                                        dry_run, command == COMMAND_RUN ? &limits : NULL);
         if (file_result != 0) result = file_result;
     }
+    hhy_extensions_shutdown();
     return result;
 }

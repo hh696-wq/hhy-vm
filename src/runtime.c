@@ -3,9 +3,11 @@
 #define _DARWIN_C_SOURCE
 #include "hhy/runtime.h"
 #include "hhy/contracts.h"
+#include "hhy/extensions.h"
 #include "hhy/parser.h"
 #include "hhy/platform_watch.h"
 #include "hhy/fuzz.h"
+#include <jansson.h>
 
 #include <errno.h>
 #include <ctype.h>
@@ -232,6 +234,75 @@ static Value null_value(void) { Value v = {.kind = V_NULL}; return v; }
 static Value bool_value(bool b) { Value v = {.kind = V_BOOL}; v.as.boolean = b; return v; }
 static Value int_value(int64_t n) { Value v = {.kind = V_INT}; v.as.integer = n; return v; }
 static Value float_value(double n) { Value v = {.kind = V_FLOAT}; v.as.number = n; return v; }
+static void *rt_alloc(Runtime *rt, size_t size);
+static char *rt_strndup(Runtime *rt, const char *text, size_t length);
+static Value string_n(Runtime *rt, const char *text, size_t length);
+static Value list_new(Runtime *rt, size_t count);
+static void runtime_type_error(Runtime *rt, const HhyNode *node, const char *message);
+static void runtime_value_error(Runtime *rt, const HhyNode *node, const char *message);
+
+static json_t *value_to_protocol_json(Runtime *rt, const HhyNode *site, Value value) {
+    switch (value.kind) {
+        case V_NULL: return json_null();
+        case V_BOOL: return json_boolean(value.as.boolean);
+        case V_INT: return json_integer(value.as.integer);
+        case V_FLOAT: return json_real(value.as.number);
+        case V_STRING: return json_stringn(value.as.string, value.string_length);
+        case V_LIST: {
+            json_t *array = json_array();
+            for (size_t i = 0; i < value.as.list.count; i++) {
+                json_t *item = value_to_protocol_json(rt, site, value.as.list.items[i]);
+                if (item == NULL || json_array_append_new(array, item) != 0) {
+                    if (item != NULL) json_decref(item); json_decref(array); return NULL;
+                }
+            }
+            return array;
+        }
+        case V_MAP: {
+            json_t *object = json_object();
+            for (size_t i = 0; i < value.as.map.count; i++) {
+                char *key = hhy_strndup(value.as.map.keys[i], value.as.map.key_lengths[i]);
+                json_t *item = value_to_protocol_json(rt, site, value.as.map.values[i]);
+                int result = item == NULL ? -1 : json_object_set_new(object, key, item);
+                free(key);
+                if (result != 0) { if (item != NULL) json_decref(item); json_decref(object); return NULL; }
+            }
+            return object;
+        }
+        default:
+            runtime_type_error(rt, site, "extension arguments must be protocol-serializable values");
+            return NULL;
+    }
+}
+
+static Value protocol_json_to_value(Runtime *rt, const HhyNode *site, json_t *value) {
+    if (json_is_null(value)) return null_value();
+    if (json_is_boolean(value)) return bool_value(json_is_true(value));
+    if (json_is_integer(value)) return int_value(json_integer_value(value));
+    if (json_is_real(value)) return float_value(json_real_value(value));
+    if (json_is_string(value)) return string_n(rt, json_string_value(value), json_string_length(value));
+    if (json_is_array(value)) {
+        size_t count = json_array_size(value); Value result = list_new(rt, count);
+        for (size_t i = 0; i < count; i++)
+            result.as.list.items[i] = protocol_json_to_value(rt, site, json_array_get(value, i));
+        return result;
+    }
+    if (json_is_object(value)) {
+        size_t count = json_object_size(value); Value result = {.kind = V_MAP};
+        result.as.map.count = count; result.as.map.keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
+        result.as.map.key_lengths = count ? rt_alloc(rt, count * sizeof(size_t)) : NULL;
+        result.as.map.values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
+        const char *key; json_t *item; size_t index = 0;
+        json_object_foreach(value, key, item) {
+            result.as.map.key_lengths[index] = strlen(key);
+            result.as.map.keys[index] = rt_strndup(rt, key, result.as.map.key_lengths[index]);
+            result.as.map.values[index] = protocol_json_to_value(rt, site, item); index++;
+        }
+        return result;
+    }
+    runtime_value_error(rt, site, "extension returned an unsupported protocol value");
+    return null_value();
+}
 static void runtime_error_kind(Runtime *rt, const HhyNode *node, const char *kind,
                                const char *code, const char *message);
 
@@ -2440,7 +2511,7 @@ static int json_hex(char c) {
     return -1;
 }
 
-static Value json_string(JsonParser *p) {
+static Value json_parse_string(JsonParser *p) {
     if (!json_take(p, '"')) { json_error(p, "expected string"); return null_value(); }
     size_t maximum = (size_t)(p->end - p->current) * 3 + 1;
     char *text = rt_alloc(p->rt, maximum), *out = text;
@@ -2502,7 +2573,7 @@ static Value json_string(JsonParser *p) {
 
 static Value json_value(JsonParser *p, size_t depth);
 
-static Value json_array(JsonParser *p, size_t depth) {
+static Value json_parse_array(JsonParser *p, size_t depth) {
     json_take(p, '['); json_space(p);
     size_t count = 0, capacity = 8;
     Value *items = hhy_alloc(capacity * sizeof(Value));
@@ -2522,7 +2593,7 @@ static Value json_array(JsonParser *p, size_t depth) {
     free(items); return result;
 }
 
-static Value json_object(JsonParser *p, size_t depth) {
+static Value json_parse_object(JsonParser *p, size_t depth) {
     json_take(p, '{'); json_space(p);
     size_t count = 0, capacity = 8;
     char **keys = hhy_alloc(capacity * sizeof(char *));
@@ -2538,7 +2609,7 @@ static Value json_object(JsonParser *p, size_t depth) {
             key_lengths = hhy_realloc(key_lengths, capacity * sizeof(size_t));
             values = hhy_realloc(values, capacity * sizeof(Value));
         }
-        Value key = json_string(p); json_space(p);
+        Value key = json_parse_string(p); json_space(p);
         if (!json_take(p, ':')) { json_error(p, "expected colon after object key"); break; }
         for (size_t i = 0; i < count; i++) {
             if (key_lengths[i] == key.string_length &&
@@ -2571,9 +2642,9 @@ static Value json_value(JsonParser *p, size_t depth) {
     if (depth > 128) { json_error(p, "maximum nesting depth exceeded"); return null_value(); }
     json_space(p);
     if (p->current >= p->end) { json_error(p, "expected value"); return null_value(); }
-    if (*p->current == '"') return json_string(p);
-    if (*p->current == '[') return json_array(p, depth);
-    if (*p->current == '{') return json_object(p, depth);
+    if (*p->current == '"') return json_parse_string(p);
+    if (*p->current == '[') return json_parse_array(p, depth);
+    if (*p->current == '{') return json_parse_object(p, depth);
     if (p->end - p->current >= 4 && memcmp(p->current, "true", 4) == 0) {
         p->current += 4; p->column += 4; return bool_value(true);
     }
@@ -4631,7 +4702,35 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
         bool previous_effect_allowed = rt->effect_allowed;
         rt->current_contract = contract;
         rt->effect_allowed = effect_dispatch(rt, contract);
-        Value result = builtin(rt, env, site, callee.as.function.builtin, argc, argv);
+        Value result;
+        if (hhy_extension_owns_callable(callee.as.function.builtin)) {
+            if (!rt->effect_allowed && contract->action) result = null_value();
+            else {
+                json_t *arguments = json_array();
+                for (size_t i = 0; i < argc && !rt->failed; i++) {
+                    json_t *argument = value_to_protocol_json(rt, site, argv[i]);
+                    if (argument == NULL || json_array_append_new(arguments, argument) != 0) {
+                        if (argument != NULL) json_decref(argument);
+                        if (!rt->failed) runtime_value_error(rt, site, "cannot encode extension argument");
+                    }
+                }
+                if (rt->failed) result = null_value();
+                else {
+                    HhyExtensionError extension_error;
+                    json_t *response = hhy_extension_call(callee.as.function.builtin,
+                                                          arguments, &extension_error);
+                    if (response == NULL) {
+                        runtime_error_kind(rt, site, extension_error.kind, extension_error.code,
+                                           extension_error.message);
+                        result = null_value();
+                    } else {
+                        result = protocol_json_to_value(rt, site, response);
+                        json_decref(response);
+                    }
+                }
+                json_decref(arguments);
+            }
+        } else result = builtin(rt, env, site, callee.as.function.builtin, argc, argv);
         rt->current_contract = previous;
         rt->effect_allowed = previous_effect_allowed;
         return result;
@@ -5045,6 +5144,31 @@ static Value import_module(Runtime *rt, Env *target, const HhyNode *node) {
         if (node->children[i]->token.kind == HHY_T_STRING) path_node = node->children[i];
     if (path_node == NULL) {
         char *standard_name = token_text(rt, node->children[0]->token);
+        if (node->child_count == 1 && env_find(target, standard_name) == NULL) {
+            const char *extension_error = NULL;
+            if (hhy_extension_prepare_namespace(standard_name, strlen(standard_name),
+                                                &extension_error)) {
+                size_t count = 0, prefix_length = strlen(standard_name);
+                for (size_t i = 0; i < hhy_contract_count(); i++) {
+                    const HhyCallableContract *contract = hhy_contract_at(i);
+                    if (strncmp(contract->name, standard_name, prefix_length) == 0 &&
+                        contract->name[prefix_length] == '.') count++;
+                }
+                const char **keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
+                Value *functions = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
+                size_t index = 0;
+                for (size_t i = 0; i < hhy_contract_count(); i++) {
+                    const HhyCallableContract *contract = hhy_contract_at(i);
+                    if (strncmp(contract->name, standard_name, prefix_length) != 0 ||
+                        contract->name[prefix_length] != '.') continue;
+                    keys[index] = contract->name + prefix_length + 1;
+                    functions[index] = (Value){.kind = V_FUNCTION};
+                    functions[index].as.function.builtin = contract->name; index++;
+                }
+                env_define(rt, target, node, standard_name,
+                           map_with_entries(rt, V_MAP, count, keys, functions), false);
+            }
+        }
         if (node->child_count != 1 || env_find(target, standard_name) == NULL)
             runtime_error_kind(rt, node, "ModuleNotFoundError", "HHY_MODULE_NOT_FOUND",
                                "unknown standard module");

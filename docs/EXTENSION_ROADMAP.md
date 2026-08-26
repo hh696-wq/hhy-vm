@@ -1,7 +1,7 @@
 # HHY 扩展系统版本路线图
 
 > 状态：规划稿 v0.1  
-> 当前 Core 稳定版本：`1.0.0`（以仓库根目录 `VERSION` 为准）
+> 当前 Core 稳定版本：`1.1.0`（以仓库根目录 `VERSION` 为准）
 > 依赖规范：[HHY Language v1.0 统一规范](HHY_V1.md)  
 > 原则：HHY Core 负责 Flow，扩展负责提供可以流动的新数据。
 
@@ -314,6 +314,12 @@ example.image
 
 v1.1 第一次允许用户安装和运行第三方扩展，但首选独立进程隔离，不开放 Native ABI。
 
+实现状态（`1.1.0`）：本地 `install/list/remove`、manifest/capability 展示、安装与
+加载时 SHA-256 校验、进程握手、动态 callable 注册、同步 call/result/error 和
+shutdown 已完成。协议线格式见 [`EXTENSION_PROTOCOL_V1.md`](EXTENSION_PROTOCOL_V1.md)。
+Stream credit、Opaque handle 和跨调用 cancel 保留在后续 v1.x 增量，不属于当前
+同步有界调用子集；`database` reference extension 用于验证 PostgreSQL/MySQL 集成。
+
 ### 3.1 交付内容
 
 - `hhy.toml` manifest。
@@ -338,6 +344,7 @@ v1.1 第一次允许用户安装和运行第三方扩展，但首选独立进程
 [package]
 name = "example"
 version = "1.0.0"
+author = "Example Developer"
 requires_hhy = ">=1.1,<2.0"
 
 [extension]
@@ -375,7 +382,8 @@ shutdown
 
 - v1.1 只保证本地路径安装。
 - manifest 和可执行文件计算完整性 Hash。
-- 安装前展示 capability。
+- 安装和列出包时展示作者、协议与 capability。
+- v1.1 本地安装的 `author` 是署名，不是可信官方徽章；未来远程仓库必须通过签名验证发布者身份。
 - 未经授权不能扩大文件、网络或进程权限。
 - 扩展默认继承最小环境变量集合。
 - 凭据通过显式 secret provider 传入，不复制完整宿主环境。

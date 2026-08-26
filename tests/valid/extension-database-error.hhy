@@ -1,0 +1,9 @@
+import database
+
+let result = attempt {
+    database.ping("invalid://database")
+}
+
+print(result.ok)
+print(result.error.kind)
+print(result.error.code)

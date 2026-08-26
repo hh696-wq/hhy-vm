@@ -2,6 +2,11 @@
 set -eu
 
 HHY_BIN=${1:-build/hhy}
+extension_test_home=$(mktemp -d)
+trap 'rm -rf "$extension_test_home"' EXIT INT TERM
+HHY_EXTENSION_HOME="$extension_test_home" "$HHY_BIN" install --yes extensions/sample >/dev/null
+HHY_EXTENSION_HOME="$extension_test_home" "$HHY_BIN" install --yes extensions/database >/dev/null
+export HHY_EXTENSION_HOME="$extension_test_home"
 
 # Generated test artifacts are intentionally ignored by Git. A clean checkout
 # must create the root before the first lexer/parser snapshot is written.
@@ -71,8 +76,41 @@ recovery_count=$(printf '%s\n' "$recovery_output" | grep -c "expected expression
 
 version_output=$($HHY_BIN --version)
 case "$version_output" in
-    "hhy "*) ;;
+    "hhy "*"© 2026 HHY Language contributors"*"Author: houhuiyang"*"License: Apache License 2.0"*"https://hhylang.dev/"*"huiyang.hou@qq.com") ;;
     *) fail "unexpected --version output" ;;
+esac
+
+extension_list=$($HHY_BIN list)
+case "$extension_list" in
+    *"sample 0.1.0"*"Author"*"HHY Official"*"Protocol"*"1"*"Permissions"*) ;;
+    *) fail "sample extension was not listed: $extension_list" ;;
+esac
+
+extension_output=$($HHY_BIN run tests/valid/extension-sample.hhy)
+case "$extension_output" in
+    '{"name": "HHY", "values": [1, true, null]}
+1') ;;
+    *) fail "sample extension call returned unexpected output: $extension_output" ;;
+esac
+
+database_error_output=$($HHY_BIN run tests/valid/extension-database-error.hhy)
+case "$database_error_output" in
+    'false
+DatabaseError
+DATABASE_OPERATION_FAILED') ;;
+    *) fail "database extension error did not cross the protocol safely: $database_error_output" ;;
+esac
+
+printf 'tamper' >> "$extension_test_home/sample/bin/hhy-sample"
+if $HHY_BIN check tests/valid/extension-sample.hhy >/dev/null 2>&1; then
+    fail "extension loader accepted a modified executable"
+fi
+$HHY_BIN remove sample >/dev/null
+$HHY_BIN remove database >/dev/null
+[ -z "$($HHY_BIN list)" ] || fail "removed extensions remain installed"
+case "$extension_list" in
+    *"database 0.2.0"*"Author"*"HHY Official"*"Protocol"*"1"*"Permissions"*) ;;
+    *) fail "database extension was not listed: $extension_list" ;;
 esac
 
 cp tests/fixtures/unformatted.hhy.txt tests/output/formatted.hhy

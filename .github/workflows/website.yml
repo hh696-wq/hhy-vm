@@ -26,7 +26,8 @@ jobs:
       - name: Install HHY build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev
+          sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev \
+            libjansson-dev libssl-dev
 
       - name: Build HHY documentation checker
         run: make

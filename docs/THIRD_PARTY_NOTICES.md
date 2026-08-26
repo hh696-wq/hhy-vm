@@ -1,7 +1,30 @@
 # HHY Third-Party Notices
 
-HHY dynamically links against libcurl, PCRE2 and BDWGC. The exact versions and linked
+HHY dynamically links against libcurl, PCRE2, BDWGC, Jansson and OpenSSL libcrypto. The exact versions and linked
 library paths for a release archive are recorded in that archive's `BUILD_INFO.txt`.
+
+The separately built `database` reference extension also links against libpq and
+the MySQL client library. Those libraries are supplied by the platform and are not
+copied into this source repository.
+
+## Jansson
+
+Copyright (c) 2009-2024 Petri Lehtinen. Jansson is distributed under the MIT
+License; its `src/dtoa.c` carries the permissive Lucent Technologies notice included
+in the upstream distribution.
+
+## OpenSSL
+
+OpenSSL is distributed under the Apache License 2.0. The platform OpenSSL library is
+used only through the EVP digest API for installed-package SHA-256 verification.
+
+## PostgreSQL libpq and MySQL client
+
+libpq is distributed under the PostgreSQL License. MySQL Community and
+libmysqlclient are distributed under GPLv2 with Oracle's additional permissions;
+the connector is also subject to the Universal FOSS Exception. See the exact license
+files shipped by the selected platform packages before redistributing extension
+binaries.
 
 ## libcurl
 

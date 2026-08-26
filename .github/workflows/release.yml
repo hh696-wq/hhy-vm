@@ -9,7 +9,7 @@ on:
       tag:
         description: "Semantic release tag (must match VERSION)"
         required: true
-        default: "v1.0.0"
+        default: "v1.1.0"
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -52,13 +52,14 @@ jobs:
 
       - name: Install macOS build dependencies
         if: runner.os == 'macOS'
-        run: brew install pcre2 bdw-gc
+        run: brew install pcre2 bdw-gc jansson openssl@3 libpq mysql
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev patchelf
+          sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev \
+            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev patchelf
 
       - name: Test release source
         run: |
@@ -84,6 +85,10 @@ jobs:
           tar -xzf "$archive" -C "$verify_dir"
           "$verify_dir"/hhy-*/bin/hhy --version
           "$verify_dir"/hhy-*/bin/hhy check "$verify_dir"/hhy-*/examples/01-log-errors.hhy
+          extension_home="$verify_dir/extensions-home"
+          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy install --yes \
+            "$verify_dir"/hhy-*/extensions/sample
+          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'HHY Official'
 
       - name: Attest release archives
         uses: actions/attest@v4

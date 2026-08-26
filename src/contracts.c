@@ -1,6 +1,7 @@
 #include "hhy/contracts.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define C(name, min, max, effect, lazy, cancel, send, action, input, output, threading) \
@@ -198,19 +199,28 @@ static const HhyCallableContract contracts[] = {
       "String, String, String", "DateTime", "main")
 };
 
+static HhyCallableContract *extension_contracts = NULL;
+static size_t extension_contract_count = 0;
+
 #undef C
 #undef ONE
 
-size_t hhy_contract_count(void) { return sizeof(contracts) / sizeof(contracts[0]); }
+static size_t core_contract_count(void) { return sizeof(contracts) / sizeof(contracts[0]); }
+
+size_t hhy_contract_count(void) { return core_contract_count() + extension_contract_count; }
 
 const HhyCallableContract *hhy_contract_at(size_t index) {
-    return index < hhy_contract_count() ? &contracts[index] : NULL;
+    if (index < core_contract_count()) return &contracts[index];
+    index -= core_contract_count();
+    return index < extension_contract_count ? &extension_contracts[index] : NULL;
 }
 
 const HhyCallableContract *hhy_contract_lookup_n(const char *name, size_t length) {
-    for (size_t i = 0; i < hhy_contract_count(); i++)
-        if (strlen(contracts[i].name) == length && memcmp(contracts[i].name, name, length) == 0)
-            return &contracts[i];
+    for (size_t i = 0; i < hhy_contract_count(); i++) {
+        const HhyCallableContract *contract = hhy_contract_at(i);
+        if (strlen(contract->name) == length && memcmp(contract->name, name, length) == 0)
+            return contract;
+    }
     return NULL;
 }
 
@@ -225,26 +235,85 @@ const char *hhy_effect_name(HhyEffect effect) {
 
 bool hhy_contract_registry_valid(void) {
     for (size_t i = 0; i < hhy_contract_count(); i++) {
-        if (contracts[i].name[0] == '\0' || contracts[i].minimum_arity > contracts[i].maximum_arity ||
-            contracts[i].input_contract == NULL || contracts[i].output_contract == NULL ||
-            contracts[i].threading == NULL || contracts[i].input_contract[0] == '\0' ||
-            contracts[i].output_contract[0] == '\0' ||
-            (strcmp(contracts[i].threading, "main") != 0 &&
-             strcmp(contracts[i].threading, "worker") != 0 &&
-             strcmp(contracts[i].threading, "isolated_process") != 0) ||
-            strcmp(contracts[i].input_contract, "runtime-checked") == 0)
+        const HhyCallableContract *contract = hhy_contract_at(i);
+        if (contract->name[0] == '\0' || contract->minimum_arity > contract->maximum_arity ||
+            contract->input_contract == NULL || contract->output_contract == NULL ||
+            contract->threading == NULL || contract->input_contract[0] == '\0' ||
+            contract->output_contract[0] == '\0' ||
+            (strcmp(contract->threading, "main") != 0 &&
+             strcmp(contract->threading, "worker") != 0 &&
+             strcmp(contract->threading, "isolated_process") != 0) ||
+            strcmp(contract->input_contract, "runtime-checked") == 0)
             return false;
         for (size_t j = i + 1; j < hhy_contract_count(); j++)
-            if (strcmp(contracts[i].name, contracts[j].name) == 0) return false;
+            if (strcmp(contract->name, hhy_contract_at(j)->name) == 0) return false;
     }
     return true;
 }
 
 bool hhy_contract_namespace_installed(const char *name, size_t length) {
     for (size_t i = 0; i < hhy_contract_count(); i++) {
-        const char *separator = strchr(contracts[i].name, '.');
-        if (separator != NULL && (size_t)(separator - contracts[i].name) == length &&
-            memcmp(contracts[i].name, name, length) == 0) return true;
+        const HhyCallableContract *contract = hhy_contract_at(i);
+        const char *separator = strchr(contract->name, '.');
+        if (separator != NULL && (size_t)(separator - contract->name) == length &&
+            memcmp(contract->name, name, length) == 0) return true;
     }
     return false;
+}
+
+static char *copy_text(const char *text) {
+    size_t length = strlen(text); char *copy = malloc(length + 1);
+    if (copy != NULL) memcpy(copy, text, length + 1); return copy;
+}
+
+bool hhy_contract_register_extension(const HhyCallableContract *contract,
+                                     const char **error) {
+    if (contract == NULL || contract->name == NULL || contract->input_contract == NULL ||
+        contract->output_contract == NULL || contract->threading == NULL ||
+        strchr(contract->name, '.') == NULL) {
+        *error = "extension callable must use a qualified name"; return false;
+    }
+    if (strncmp(contract->name, "hhy.", 4) == 0 || strncmp(contract->name, "std.", 4) == 0 ||
+        hhy_contract_lookup(contract->name) != NULL) {
+        *error = "extension callable uses a reserved or duplicate name"; return false;
+    }
+    HhyCallableContract item = *contract;
+    item.name = copy_text(contract->name); item.input_contract = copy_text(contract->input_contract);
+    item.output_contract = copy_text(contract->output_contract); item.threading = copy_text(contract->threading);
+    if (item.name == NULL || item.input_contract == NULL || item.output_contract == NULL || item.threading == NULL) {
+        free((char *)item.name); free((char *)item.input_contract); free((char *)item.output_contract);
+        free((char *)item.threading); *error = "out of memory"; return false;
+    }
+    HhyCallableContract *next = realloc(extension_contracts,
+        (extension_contract_count + 1) * sizeof(*extension_contracts));
+    if (next == NULL) {
+        free((char *)item.name); free((char *)item.input_contract); free((char *)item.output_contract);
+        free((char *)item.threading); *error = "out of memory"; return false;
+    }
+    extension_contracts = next; extension_contracts[extension_contract_count++] = item;
+    if (!hhy_contract_registry_valid()) {
+        extension_contract_count--;
+        free((char *)item.name); free((char *)item.input_contract);
+        free((char *)item.output_contract); free((char *)item.threading);
+        *error = "extension registered an invalid contract"; return false;
+    }
+    return true;
+}
+
+void hhy_contract_clear_extensions(void) {
+    hhy_contract_rollback_extensions(0);
+}
+
+size_t hhy_contract_extension_count(void) { return extension_contract_count; }
+
+void hhy_contract_rollback_extensions(size_t count) {
+    if (count > extension_contract_count) return;
+    for (size_t i = count; i < extension_contract_count; i++) {
+        free((char *)extension_contracts[i].name);
+        free((char *)extension_contracts[i].input_contract);
+        free((char *)extension_contracts[i].output_contract);
+        free((char *)extension_contracts[i].threading);
+    }
+    extension_contract_count = count;
+    if (count == 0) { free(extension_contracts); extension_contracts = NULL; }
 }

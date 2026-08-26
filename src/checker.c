@@ -1,6 +1,7 @@
 #define _XOPEN_SOURCE 700
 #include "hhy/checker.h"
 #include "hhy/contracts.h"
+#include "hhy/extensions.h"
 #include "hhy/parser.h"
 
 #include <stdio.h>
@@ -218,9 +219,20 @@ static void check_import(Checker *checker, const HhyNode *node) {
         HhyToken module_name = node->children[0]->token;
         bool installed = node->child_count == 1 &&
             hhy_contract_namespace_installed(module_name.start, module_name.length);
+        const char *extension_error = NULL;
+        if (!installed && node->child_count == 1)
+            installed = hhy_extension_prepare_namespace(module_name.start,
+                                                         module_name.length,
+                                                         &extension_error);
         if (!installed)
             error(checker, node->children[0]->token,
                   "ModuleNotFoundError(HHY_MODULE_NOT_FOUND): standard module is not installed");
+        else {
+            define(checker, node->children[0]->token, false);
+            CheckBinding *binding = local(checker->scope, node->children[0]->token);
+            if (binding != NULL && !token_is(node->children[0]->token, "http") &&
+                !token_is(node->children[0]->token, "datetime")) binding->sendable = false;
+        }
         goto cleanup;
     }
     for (size_t i = 1; i < close; i++) {

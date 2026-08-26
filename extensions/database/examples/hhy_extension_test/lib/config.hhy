@@ -1,0 +1,7 @@
+export fn load_database_config(config_path) {
+    let config = read_text(path(config_path)) |> parse_json
+    require(config, "url")
+    require(config, "database")
+    require(config, "max_rows")
+    return config
+}

@@ -1,0 +1,6 @@
+import sample
+
+[1]
+    |> stream
+    |> parallel(1) { value -> sample.echo(value) }
+    |> collect

@@ -33,5 +33,10 @@ size_t hhy_contract_count(void);
 const HhyCallableContract *hhy_contract_at(size_t index);
 bool hhy_contract_registry_valid(void);
 bool hhy_contract_namespace_installed(const char *name, size_t length);
+bool hhy_contract_register_extension(const HhyCallableContract *contract,
+                                     const char **error);
+void hhy_contract_clear_extensions(void);
+size_t hhy_contract_extension_count(void);
+void hhy_contract_rollback_extensions(size_t count);
 
 #endif

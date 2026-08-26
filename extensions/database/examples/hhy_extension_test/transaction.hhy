@@ -1,0 +1,66 @@
+#!/usr/bin/env hhy
+
+import database
+import { load_database_config } from "./lib/config.hhy"
+
+if length(args) != 2 or args[1] != "--write" {
+    print_error("usage: hhy run transaction.hhy <config.json> --write")
+    exit(3)
+}
+
+let config = load_database_config(args[0])
+if config.database != "hhy_extension_test" {
+    print_error("transaction example only permits the hhy_extension_test database")
+    exit(3)
+}
+
+try {
+    database.execute(
+        config.url,
+        "CREATE TABLE IF NOT EXISTS _hhy_transaction_test (id BIGINT PRIMARY KEY, message VARCHAR(255) NOT NULL)",
+        []
+    )
+    database.execute(config.url, "DELETE FROM _hhy_transaction_test", [])
+
+    let committed = database.transaction(config.url, [
+        { sql: "INSERT INTO _hhy_transaction_test (id, message) VALUES (?, ?)", params: [1, "created"] },
+        { sql: "UPDATE _hhy_transaction_test SET message = ? WHERE id = ?", params: ["committed", 1] }
+    ])
+    committed |> print
+
+    let committed_rows = database.query(
+        config.url,
+        "SELECT id, message FROM _hhy_transaction_test WHERE id = ?",
+        [1],
+        1
+    )
+    if committed_rows.rows[0].message != "committed" {
+        throw("transaction commit verification failed")
+    }
+
+    try {
+        database.transaction(config.url, [
+            { sql: "INSERT INTO _hhy_transaction_test (id, message) VALUES (?, ?)", params: [2, "must roll back"] },
+            { sql: "INSERT INTO _hhy_transaction_test (id, message) VALUES (?, ?)", params: [1, "duplicate key"] }
+        ])
+        throw("transaction rollback test unexpectedly committed")
+    } catch transaction_error {
+        transaction_error |> print_error
+    }
+
+    let rolled_back = database.query(
+        config.url,
+        "SELECT COUNT(*) AS row_count FROM _hhy_transaction_test WHERE id = ?",
+        [2],
+        1
+    )
+    if rolled_back.rows[0].row_count != "0" {
+        throw("transaction rollback verification failed")
+    }
+
+    database.execute(config.url, "DROP TABLE _hhy_transaction_test", [])
+    print("transaction commit and rollback verified")
+} catch err {
+    print_error(err)
+    exit(1)
+}

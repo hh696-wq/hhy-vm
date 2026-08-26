@@ -9,7 +9,7 @@
 
   [Website](https://hhylang.dev) · [Language Specification](docs/HHY_V1.md) · [Examples](examples/README.md) · [Known Limitations](docs/KNOWN_LIMITATIONS.md)
 
-  [![Version](https://img.shields.io/badge/version-1.0.0-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.1.0-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -42,15 +42,15 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前稳定版本是 **V1.0.0**（`1.0.0`），正式支持 macOS arm64、Linux arm64 和
+当前稳定版本是 **V1.1.0**（`1.1.0`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64。
 
 ### 从源码构建
 
-需要 C11 编译器、`make`、libcurl、PCRE2 和 BDWGC。macOS 可以先安装依赖：
+需要 C11 编译器、`make`、libcurl、PCRE2、BDWGC、Jansson 和 OpenSSL。macOS 可以先安装依赖：
 
 ```sh
-brew install curl pcre2 bdw-gc
+brew install curl pcre2 bdw-gc jansson openssl@3
 ```
 
 然后构建并验证：
@@ -143,8 +143,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.0.0-PLATFORM-ARCH.tar.gz
-cd hhy-1.0.0-PLATFORM-ARCH
+tar -xzf hhy-1.1.0-PLATFORM-ARCH.tar.gz
+cd hhy-1.1.0-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -163,12 +163,50 @@ cd hhy-1.0.0-PLATFORM-ARCH
 | `hhy ast <file.hhy>` | 输出抽象语法树 |
 | `hhy tokens <file.hhy>` | 输出词法 Token |
 | `hhy run --dry-run <file.hhy>` | 生成脱敏执行计划，不执行外部副作用 |
+| `hhy install <local-path>` | 校验权限与 SHA-256 后安装本地进程扩展 |
+| `hhy list` | 列出已安装扩展 |
+| `hhy remove <package>` | 移除扩展包 |
 
 运行 `hhy --help` 查看完整参数和资源限制选项。
 
-## V1.0.0 状态
+## 本地进程扩展
 
-V1.0 contract 和支持矩阵已经冻结。每次主分支提交都会在 macOS arm64、
+V1.1 只从本地路径安装扩展。安装前会展示 capability，安装后和每次加载前都会
+校验 manifest 与可执行文件的 SHA-256：
+
+```sh
+make -C extensions/database
+./build/hhy install ./extensions/database
+./build/hhy list
+```
+
+`install` 与 `list` 会展示作者、协议和完整 capability，方便安装前确认来源与
+最小权限。官方包使用 `author = "HHY Official"`；本地 manifest 的作者字段是
+署名信息，不能替代未来远程仓库的发布者签名。
+
+数据库连接信息由脚本显式读取并只作为该次调用参数传给隔离扩展进程：
+
+```hhy-snippet
+import database
+
+let url = require_env("DATABASE_URL")
+database.query(url, "SELECT id, name FROM users WHERE active = $1", [true], 100)
+    |> get("rows")
+    |> print
+
+database.transaction(url, [
+    { sql: "INSERT INTO audit_log (id, message) VALUES ($1, $2)", params: [1, "created"] },
+    { sql: "UPDATE audit_log SET message = $1 WHERE id = $2", params: ["committed", 1] }
+])
+```
+
+PostgreSQL 使用 `$1` 参数，MySQL 使用 `?`。事务第一版在同一连接上原子执行
+1–100 条 `INSERT`、`UPDATE` 或 `DELETE`，任一失败会整体回滚。完整示例和构建依赖见
+[`extensions/database`](extensions/database/README.md)。
+
+## V1.1.0 状态
+
+V1.0 语言 contract 保持兼容；V1.1 加入本地 Process Extension Protocol。每次主分支提交都会在 macOS arm64、
 Linux arm64 和 Linux x86_64 上执行严格编译、sanitizer、完整测试、fuzz、
 文档验证、发行包内容检查和 SHA-256 校验。
 

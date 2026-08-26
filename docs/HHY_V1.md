@@ -1,6 +1,6 @@
 # HHY Language v1.0 统一规范
 
-> 当前稳定版本：`1.0.0`（以仓库根目录 `VERSION` 为准）
+> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.1.0`
 > 规范状态：v1.0 已冻结
 > 官网：[hhylang.dev](https://hhylang.dev)  
 > 定位：Flow-first system scripting language  
@@ -1017,6 +1017,7 @@ Opaque handle：
 [package]
 name = "office"
 version = "1.0.0"
+author = "HHY Official"
 
 [extension]
 kind = "process"
@@ -1030,6 +1031,7 @@ network = []
 ```
 
 - 安装扩展不等于永久授予全部权限。
+- `author` 是必须展示的作者署名；本地安装不把该字符串当作签名或身份凭证。
 - Runtime 根据脚本输入和 CLI 授权限制文件、进程与网络范围。
 - dry-run 必须展示扩展声明的 action。
 - 未声明或未授权的 effect 在执行前产生 PermissionError。

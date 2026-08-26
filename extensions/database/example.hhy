@@ -1,0 +1,8 @@
+import database
+
+let url = require_env("DATABASE_URL")
+database.ping(url) |> print
+
+database.query(url, "SELECT 1 AS value", [], 10)
+    |> get("rows")
+    |> print

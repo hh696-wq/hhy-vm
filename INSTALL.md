@@ -1,7 +1,7 @@
 # Installing HHY
 
-Current stable version: `1.0.0` (from the repository `VERSION` file).
-HHY v1.0 supports macOS arm64 and Linux x86_64/arm64.
+Current stable version: `1.1.0` (from the repository `VERSION` file).
+HHY v1.1 supports macOS arm64 and Linux x86_64/arm64.
 
 ## Install a release binary
 
@@ -9,8 +9,8 @@ Download the archive for your platform from the
 [GitHub Releases page](https://github.com/hh696-wq/hhy-vm/releases/latest), then:
 
 ```sh
-tar -xzf hhy-1.0.0-PLATFORM-ARCH.tar.gz
-cd hhy-1.0.0-PLATFORM-ARCH
+tar -xzf hhy-1.1.0-PLATFORM-ARCH.tar.gz
+cd hhy-1.1.0-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -19,18 +19,26 @@ Release archives include required non-system runtime libraries. Keep `bin/`
 and `lib/` together; add the extracted `bin` directory to `PATH` if desired.
 Verify the archive with its `.sha256` file before running it.
 
+Official local extension packages are included under `extensions/`. For example:
+
+```sh
+./bin/hhy install ./extensions/database
+./bin/hhy list
+```
+
 ## Dependencies for building from source
 
 macOS with Homebrew:
 
 ```sh
-brew install pcre2 bdw-gc
+brew install pcre2 bdw-gc jansson openssl@3
 ```
 
 Ubuntu/Debian:
 
 ```sh
-sudo apt-get install build-essential libcurl4-openssl-dev libpcre2-dev libgc-dev
+sudo apt-get install build-essential libcurl4-openssl-dev libpcre2-dev libgc-dev \
+  libjansson-dev libssl-dev
 ```
 
 运行开发用覆盖引导 fuzz 还需要 LLVM clang：macOS 使用 `brew install llvm`，
@@ -43,6 +51,19 @@ make
 make test
 sudo make install PREFIX=/usr/local
 hhy --version
+```
+
+Building the bundled `database` process extension additionally requires `libpq`
+and the MySQL client development library:
+
+```sh
+# macOS
+brew install libpq mysql
+make -C extensions/database
+
+# Ubuntu/Debian
+sudo apt-get install libpq-dev default-libmysqlclient-dev
+make -C extensions/database
 ```
 
 For an isolated installation, set `DESTDIR`; for a Homebrew prefix use

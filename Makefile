@@ -6,6 +6,8 @@ VERSION := $(shell cat VERSION)
 CPPFLAGS += -DHHY_VERSION=\"$(VERSION)\"
 PCRE2_PREFIX ?= $(shell brew --prefix pcre2 2>/dev/null)
 GC_PREFIX ?= $(shell brew --prefix bdw-gc 2>/dev/null)
+JANSSON_PREFIX ?= $(shell brew --prefix jansson 2>/dev/null)
+OPENSSL_PREFIX ?= $(shell brew --prefix openssl@3 2>/dev/null)
 ifneq ($(PCRE2_PREFIX),)
 CPPFLAGS += -I$(PCRE2_PREFIX)/include
 LDFLAGS += -L$(PCRE2_PREFIX)/lib
@@ -14,7 +16,15 @@ ifneq ($(GC_PREFIX),)
 CPPFLAGS += -I$(GC_PREFIX)/include
 LDFLAGS += -L$(GC_PREFIX)/lib
 endif
-LDLIBS ?= -lcurl -lpcre2-8 -lgc -lm
+ifneq ($(JANSSON_PREFIX),)
+CPPFLAGS += -I$(JANSSON_PREFIX)/include
+LDFLAGS += -L$(JANSSON_PREFIX)/lib
+endif
+ifneq ($(OPENSSL_PREFIX),)
+CPPFLAGS += -I$(OPENSSL_PREFIX)/include
+LDFLAGS += -L$(OPENSSL_PREFIX)/lib
+endif
+LDLIBS ?= -lcurl -lpcre2-8 -lgc -ljansson -lcrypto -lm
 
 SOURCES := $(wildcard src/*.c)
 SOURCE_NAMES := $(notdir $(SOURCES:.c=.o))
@@ -32,7 +42,7 @@ PACKAGE := hhy-$(VERSION)-$(SYSTEM)-$(ARCH)
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: all clean test test-debug debug install dist fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
+.PHONY: all clean extensions test test-debug debug install dist fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
 
 all: $(TARGET)
 
@@ -56,10 +66,14 @@ build/debug/%.o: src/%.c
 
 debug: $(DEBUG_TARGET)
 
-test: $(TARGET)
+extensions:
+	$(MAKE) -C extensions/sample
+	$(MAKE) -C extensions/database
+
+test: $(TARGET) extensions
 	sh tests/run.sh $(TARGET)
 
-test-debug: $(DEBUG_TARGET)
+test-debug: $(DEBUG_TARGET) extensions
 	sh tests/run.sh $(DEBUG_TARGET)
 
 fuzz:
@@ -86,14 +100,20 @@ install: $(TARGET)
 
 dist:
 	$(MAKE) clean
-	$(MAKE) all
+	$(MAKE) all extensions
 	rm -rf build/$(PACKAGE)
-	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/lib build/$(PACKAGE)/docs build/$(PACKAGE)/examples dist
+	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/lib build/$(PACKAGE)/docs build/$(PACKAGE)/examples \
+		build/$(PACKAGE)/extensions/sample/bin build/$(PACKAGE)/extensions/database/bin dist
 	cp $(TARGET) build/$(PACKAGE)/bin/hhy
 	cp README.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
-	cp docs/HHY_V1.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md build/$(PACKAGE)/docs/
+	cp docs/HHY_V1.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md docs/EXTENSION_PROTOCOL_V1.md docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md build/$(PACKAGE)/docs/
 	CC="$(CC)" sh scripts/build-info.sh $(TARGET) > build/$(PACKAGE)/BUILD_INFO.txt
 	cp examples/*.hhy examples/README.md build/$(PACKAGE)/examples/
+	cp extensions/README.md build/$(PACKAGE)/extensions/
+	cp extensions/sample/hhy.toml extensions/sample/bin/hhy-sample build/$(PACKAGE)/extensions/sample/
+	mv build/$(PACKAGE)/extensions/sample/hhy-sample build/$(PACKAGE)/extensions/sample/bin/
+	cp extensions/database/hhy.toml extensions/database/bin/hhy-database build/$(PACKAGE)/extensions/database/
+	mv build/$(PACKAGE)/extensions/database/hhy-database build/$(PACKAGE)/extensions/database/bin/
 	sh scripts/bundle-runtime.sh build/$(PACKAGE)
 	COPYFILE_DISABLE=1 tar -C build -czf dist/$(PACKAGE).tar.gz $(PACKAGE)
 	@if command -v sha256sum >/dev/null 2>&1; then \
@@ -105,3 +125,5 @@ dist:
 clean:
 	rm -f src/*.o
 	rm -rf build
+	$(MAKE) -C extensions/sample clean
+	$(MAKE) -C extensions/database clean

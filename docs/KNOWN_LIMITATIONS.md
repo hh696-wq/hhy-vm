@@ -1,8 +1,8 @@
-# HHY v1.0 已知限制
+# HHY v1.1 已知限制
 
-> 当前稳定版本：`1.0.0`；本文描述 v1.0 的公开限制。
+> 当前稳定版本：`1.1.0`；本文描述 v1.1 的公开限制。
 
-本文记录 v1.0 的公开限制。限制不是未实现功能的替代说法；凡属于
+本文记录 v1.1 的公开限制。限制不是未实现功能的替代说法；凡属于
 [`HHY_V1.md`](HHY_V1.md) 发布条件的能力仍必须实现和验证。
 
 ## 平台
@@ -32,8 +32,10 @@
 
 ## 扩展与兼容
 
-- v1.0 不包含包管理器、Office 包、Process Extension Protocol 或公开 Native ABI。
-- Core 内部 Contract Registry 不是稳定 C ABI；v1.1 才计划开放进程隔离扩展。
+- v1.1 首期只支持本地路径安装，不包含远程仓库、依赖解析或公开 Native ABI。
+- Process Extension Protocol v1 支持握手、动态 callable 注册、普通调用、结构化错误和关闭；Stream credit、Opaque handle 与跨调用取消仍未开放给第三方扩展。
+- `database` reference extension 当前返回有界 List，不提供流式结果集或连接池；事务第一版仅接受 1–100 条 `INSERT`、`UPDATE`、`DELETE`，不在事务列表中接受 DDL 或查询；PostgreSQL/MySQL 目标限制为 manifest 声明的本机端口。
+- Core 内部 Contract Registry 仍不是稳定 C ABI；第三方扩展必须使用进程协议。
 - v1.x 可以新增非关键字 API，但不得改变合法 v1.0 程序的既有语义。
 
 ## 验证环境说明

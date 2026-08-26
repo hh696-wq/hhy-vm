@@ -20,7 +20,12 @@ do
 done
 
 actual=$($HHY_BIN --version)
-expected="hhy $VERSION"
+expected="hhy $VERSION
+© 2026 HHY Language contributors
+Author: houhuiyang
+License: Apache License 2.0
+https://hhylang.dev/
+huiyang.hou@qq.com"
 if [ "$actual" != "$expected" ]; then
     echo "version mismatch: executable reports '$actual', expected '$expected'" >&2
     exit 1

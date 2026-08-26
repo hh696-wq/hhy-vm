@@ -1,0 +1,4 @@
+import sample
+
+sample.echo({ name: "HHY", values: [1, true, null] }) |> encode_json |> print
+sample.wait(1) |> print

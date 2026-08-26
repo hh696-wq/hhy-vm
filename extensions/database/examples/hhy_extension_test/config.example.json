@@ -1,0 +1,5 @@
+{
+  "url": "mysql://root:CHANGE_ME@127.0.0.1:3306/hhy_extension_test",
+  "database": "hhy_extension_test",
+  "max_rows": 1000
+}

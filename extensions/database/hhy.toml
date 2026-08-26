@@ -1,0 +1,16 @@
+[package]
+name = "database"
+version = "0.2.0"
+author = "HHY Official"
+requires_hhy = ">=1.1,<2.0"
+
+[extension]
+kind = "process"
+command = "bin/hhy-database"
+protocol = "1"
+
+[capabilities]
+read = []
+write = []
+network = ["127.0.0.1:5432", "127.0.0.1:3306"]
+process = false

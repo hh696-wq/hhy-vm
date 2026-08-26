@@ -1,0 +1,34 @@
+#!/usr/bin/env hhy
+
+import database
+import { load_database_config } from "./lib/config.hhy"
+
+if length(args) != 1 {
+    print_error("usage: hhy run read.hhy <config.json>")
+    exit(3)
+}
+
+try {
+    let config = load_database_config(args[0])
+
+    let table_count = database.query(
+        config.url,
+        "SELECT COUNT(*) AS table_count FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'",
+        [config.database],
+        1
+    )
+
+    let tables = database.query(
+        config.url,
+        "SELECT TABLE_NAME AS table_name, ENGINE AS engine, TABLE_ROWS AS estimated_rows FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME",
+        [config.database],
+        config.max_rows
+    )
+
+    print("Database", config.database)
+    print("Table count", table_count.rows[0].table_count)
+    tables.rows |> encode_json({ pretty: true }) |> print
+} catch err {
+    print_error(err)
+    exit(1)
+}
