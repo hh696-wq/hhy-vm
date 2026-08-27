@@ -526,6 +526,9 @@ hhy ast script.hhy
 hhy tokens script.hhy
 hhy run --dry-run script.hhy
 hhy run --limit max_runtime=30s --limit max_memory=256mib script.hhy
+hhy profile script.hhy [args...]
+hhy profile --cpu script.hhy
+hhy profile --heap --format json --output profile.json script.hhy
 hhy --version
 hhy --help`,
   syntaxLiterals: `let nothing = null
@@ -1604,7 +1607,7 @@ export const chapters: Chapter[] = [
     slug: "cli-reference",
     order: 18,
     title: { zh: "CLI 参考", en: "CLI Reference" },
-    summary: { zh: "运行、检查、格式化、REPL 与 dry-run。", en: "Run, check, format, use the REPL, and inspect dry-run plans." },
+    summary: { zh: "运行、检查、格式化、REPL、dry-run 与性能分析。", en: "Run, check, format, use the REPL, inspect dry-run plans, and profile performance." },
     sections: {
       zh: [
         { title: "版本与发布信息", blocks: [
@@ -1614,8 +1617,15 @@ export const chapters: Chapter[] = [
         ] },
         { title: "完整命令", blocks: [
           { type: "code", language: "sh", code: code.cli },
-          { type: "table", columns: ["命令", "用途"], rows: [["hhy run", "运行脚本并传递 args"], ["hhy repl", "启动交互环境"], ["hhy check", "检查语法和核心语义"], ["hhy fmt", "写入官方格式"], ["hhy fmt --check", "只检查格式"], ["hhy ast", "输出 AST"], ["hhy tokens", "输出 Lexer Token"], ["hhy run --dry-run", "预览脱敏执行计划"]] },
+          { type: "table", columns: ["命令", "用途"], rows: [["hhy run", "运行脚本并传递 args"], ["hhy profile", "分析 CPU 热点、调用次数和托管 Heap 分配"], ["hhy repl", "启动交互环境"], ["hhy check", "检查语法和核心语义"], ["hhy fmt", "写入官方格式"], ["hhy fmt --check", "只检查格式"], ["hhy ast", "输出 AST"], ["hhy tokens", "输出 Lexer Token"], ["hhy run --dry-run", "预览脱敏执行计划"]] },
           { type: "p", text: "hhy script.hhy 是 hhy run script.hhy 的简写。脚本参数可能以 - 开头时，在 Runtime 选项后使用 -- 分隔。" }
+        ] },
+        { title: "CPU 与 Heap 性能分析", blocks: [
+          { type: "p", text: "profile 会真实执行脚本，默认在一次运行中同时收集 CPU 和托管 Heap 数据。报告写入 stderr，因此脚本 stdout 保持不变；命令返回脚本原有退出码。" },
+          { type: "code", language: "sh", code: "hhy profile algorithms.hhy -- fibonacci 22\nhhy profile --cpu algorithms.hhy fibonacci 22\nhhy profile --heap --format json --output profile.json algorithms.hhy fibonacci 22" },
+          { type: "table", columns: ["选项", "行为"], rows: [["--cpu", "只收集 1ms 进程 CPU 采样和调用次数"], ["--heap", "只收集累计分配、分配次数、Heap 峰值和 GC 后占用"], ["--format text|json", "选择人类可读或机器可读报告；默认 text"], ["--output <path>", "把报告写入文件，而不是 stderr"], ["--limit NAME=VALUE", "与 run 相同，覆盖 Runtime 资源限制"], ["--dry-run", "与 run 相同，拦截外部副作用并分析计划执行"]] },
+          { type: "terminal", command: "hhy profile algorithms.hhy -- fibonacci 22", output: "HHY profile: algorithms.hhy\n\nSummary\n  Wall time        1.020 s\n  CPU time         1.009 s\n  CPU utilization  99.0%\n  CPU samples      532\n  Heap peak        1.8 MiB\n  Allocated        15.6 MiB\n  Allocations      284718\n\nCPU hotspots\n  CPU%    Samples      Calls  Function\n  100.0%      532      21891  fibonacci  algorithms.hhy:1:1\n\nAllocation hotspots\n  Bytes          Objects  Function\n  15.6 MiB        284579  fibonacci  algorithms.hhy:1:1" },
+          { type: "note", text: "CPU 使用进程 CPU 时间采样，文件、HTTP 和进程等待不会被误算成 CPU 热点。运行不足数毫秒的脚本可能样本太少，应增大输入或重复负载。Heap 只统计 HHY 的 Boehm GC 托管内存，不包含扩展子进程或原生库自行管理的内存。" }
         ] },
         { title: "Runtime 资源限制", blocks: [
           { type: "p", text: "run 的 --limit NAME=VALUE 可以重复出现。大小必须带 b/kb/mb/gb/kib/mib/gib，时间必须带 ns/us/ms/s/min/h，计数值不带单位。" },
@@ -1635,8 +1645,15 @@ export const chapters: Chapter[] = [
         ] },
         { title: "Complete command set", blocks: [
           { type: "code", language: "sh", code: code.cli },
-          { type: "table", columns: ["Command", "Purpose"], rows: [["hhy run", "Run a script and pass args"], ["hhy repl", "Start the interactive environment"], ["hhy check", "Check syntax and core semantics"], ["hhy fmt", "Write canonical formatting"], ["hhy fmt --check", "Check formatting only"], ["hhy ast", "Print the AST"], ["hhy tokens", "Print Lexer tokens"], ["hhy run --dry-run", "Preview a redacted execution plan"]] },
+          { type: "table", columns: ["Command", "Purpose"], rows: [["hhy run", "Run a script and pass args"], ["hhy profile", "Analyze CPU hotspots, call counts, and managed-Heap allocations"], ["hhy repl", "Start the interactive environment"], ["hhy check", "Check syntax and core semantics"], ["hhy fmt", "Write canonical formatting"], ["hhy fmt --check", "Check formatting only"], ["hhy ast", "Print the AST"], ["hhy tokens", "Print Lexer tokens"], ["hhy run --dry-run", "Preview a redacted execution plan"]] },
           { type: "p", text: "hhy script.hhy is shorthand for hhy run script.hhy. Use -- after Runtime options when script arguments may begin with a dash." }
+        ] },
+        { title: "CPU and Heap profiling", blocks: [
+          { type: "p", text: "profile executes the script and collects CPU and managed-Heap data in the same run by default. Reports go to stderr, leaving script stdout unchanged, and the command preserves the script's exit code." },
+          { type: "code", language: "sh", code: "hhy profile algorithms.hhy -- fibonacci 22\nhhy profile --cpu algorithms.hhy fibonacci 22\nhhy profile --heap --format json --output profile.json algorithms.hhy fibonacci 22" },
+          { type: "table", columns: ["Option", "Behavior"], rows: [["--cpu", "Collect only 1ms process-CPU samples and call counts"], ["--heap", "Collect only cumulative allocations, allocation count, Heap peak, and post-GC usage"], ["--format text|json", "Select a human- or machine-readable report; default: text"], ["--output <path>", "Write the report to a file instead of stderr"], ["--limit NAME=VALUE", "Override Runtime resource limits, as with run"], ["--dry-run", "Block external effects, as with run, and profile plan execution"]] },
+          { type: "terminal", command: "hhy profile algorithms.hhy -- fibonacci 22", output: "HHY profile: algorithms.hhy\n\nSummary\n  Wall time        1.020 s\n  CPU time         1.009 s\n  CPU utilization  99.0%\n  CPU samples      532\n  Heap peak        1.8 MiB\n  Allocated        15.6 MiB\n  Allocations      284718\n\nCPU hotspots\n  CPU%    Samples      Calls  Function\n  100.0%      532      21891  fibonacci  algorithms.hhy:1:1\n\nAllocation hotspots\n  Bytes          Objects  Function\n  15.6 MiB        284579  fibonacci  algorithms.hhy:1:1" },
+          { type: "note", text: "CPU profiling samples process CPU time, so file, HTTP, and process waits are not misreported as CPU hotspots. Scripts that finish in a few milliseconds may need a larger or repeated workload. Heap metrics cover memory managed by HHY's Boehm GC, not extension subprocesses or memory owned directly by native libraries." }
         ] },
         { title: "Runtime resource limits", blocks: [
           { type: "p", text: "The run command accepts repeatable --limit NAME=VALUE options. Sizes require b/kb/mb/gb/kib/mib/gib, durations require ns/us/ms/s/min/h, and counts have no unit." },
