@@ -36,7 +36,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev \
+          sudo apt-get install --yes clang gdb libcurl4-openssl-dev libpcre2-dev libgc-dev \
             libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev patchelf
 
       - name: Validate callable contracts
@@ -50,6 +50,7 @@ jobs:
           make clean
           make
           make extensions
+          gdb --batch -ex run -ex bt --args build/hhy run tests/acceptance/03-process-system.hhy
           sh -x tests/run.sh build/hhy
 
       - name: Coverage-guided fuzzing
