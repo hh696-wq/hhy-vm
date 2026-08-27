@@ -36,7 +36,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes clang gdb libcurl4-openssl-dev libpcre2-dev libgc-dev \
+          sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev \
             libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev patchelf
 
       - name: Validate callable contracts
@@ -46,12 +46,7 @@ jobs:
         run: make test-debug SANITIZERS=${{ matrix.sanitizers }}
 
       - name: Release suite
-        run: |
-          make clean
-          make
-          make extensions
-          gdb --batch -ex run -ex bt --args build/hhy run tests/acceptance/03-process-system.hhy
-          sh -x tests/run.sh build/hhy
+        run: make clean && make test
 
       - name: Coverage-guided fuzzing
         run: make fuzz-ci FUZZ_CC=clang
@@ -106,11 +101,7 @@ jobs:
         run: make test-debug
 
       - name: Release suite
-        run: |
-          make clean
-          make
-          make extensions
-          sh -x tests/run.sh build/hhy
+        run: make clean && make test
 
       - name: Deterministic fuzz smoke
         run: make fuzz-smoke

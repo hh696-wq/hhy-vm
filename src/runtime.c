@@ -5756,7 +5756,16 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
     }
     GC_INIT();
     hhy_resolve_slots((HhyNode *)program);
-    Runtime *rt = hhy_alloc(sizeof(*rt));
+    /* Runtime owns GC-managed Stream/Module/Frame chains that must remain
+       traceable until explicit teardown. Uncollectable Boehm memory is scanned
+       like a root while retaining deterministic GC_free ownership here. */
+    Runtime *rt = GC_malloc_uncollectable(sizeof(*rt));
+    if (rt == NULL) {
+        HhyRunResult failed = {.ok = false, .exit_code = 70};
+        fputs("hhy: out of memory\n", stderr);
+        return failed;
+    }
+    memset(rt, 0, sizeof(*rt));
     rt->source = source;
     rt->dry_run = dry_run;
     rt->effect_allowed = true;
@@ -5769,14 +5778,14 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
         if (rt->profiler == NULL) {
             HhyRunResult failed = {.ok = false, .exit_code = 4};
             fputs("hhy: cannot initialize profiler\n", stderr);
-            free(rt);
+            GC_free(rt);
             return failed;
         }
     }
     if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
         HhyRunResult failed = {.ok = false, .exit_code = 4};
         fputs("hhy: cannot initialize HTTP runtime\n", stderr);
-        hhy_profiler_free(rt->profiler); free(rt);
+        hhy_profiler_free(rt->profiler); GC_free(rt);
         return failed;
     }
     hhy_interrupt_requested = 0;
@@ -5814,7 +5823,7 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
     runtime_release(rt);
     curl_global_cleanup();
     sigaction(SIGINT, &previous_interrupt, NULL);
-    free(rt);
+    GC_free(rt);
     return result;
 }
 
