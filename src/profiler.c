@@ -11,6 +11,7 @@
 
 typedef struct {
     char *name;
+    size_t name_length;
     char *path;
     uint32_t line;
     uint32_t column;
@@ -44,12 +45,13 @@ struct HhyProfiler {
 
 static HhyProfiler *active_profiler;
 
-static char *copy_text(const char *text) {
-    size_t length = strlen(text);
+static char *copy_text_n(const char *text, size_t length) {
     char *copy = malloc(length + 1);
-    if (copy != NULL) memcpy(copy, text, length + 1);
+    if (copy != NULL) { memcpy(copy, text, length); copy[length] = '\0'; }
     return copy;
 }
+
+static char *copy_text(const char *text) { return copy_text_n(text, strlen(text)); }
 
 static void sample_handler(int signal_number) {
     (void)signal_number;
@@ -71,16 +73,25 @@ static double timeval_seconds(struct timeval value) {
     return (double)value.tv_sec + (double)value.tv_usec / 1000000.0;
 }
 
-static bool same_entry(const ProfileEntry *entry, const char *name, const char *path,
+static bool same_entry(const ProfileEntry *entry, const char *name, size_t name_length,
+                       const char *path,
                        uint32_t line, uint32_t column) {
-    return entry->line == line && entry->column == column &&
-           strcmp(entry->name, name) == 0 && strcmp(entry->path, path) == 0;
+    return entry->line == line && entry->column == column && entry->name_length == name_length &&
+           memcmp(entry->name, name, name_length) == 0 && strcmp(entry->path, path) == 0;
 }
 
-static size_t find_or_add(HhyProfiler *profiler, const char *name, const char *path,
-                          uint32_t line, uint32_t column) {
+static size_t find_entry(HhyProfiler *profiler, const char *name, size_t name_length,
+                         const char *path, uint32_t line, uint32_t column) {
     for (size_t i = 0; i < profiler->entry_count; i++)
-        if (same_entry(&profiler->entries[i], name, path, line, column)) return i;
+        if (same_entry(&profiler->entries[i], name, name_length, path, line, column)) return i;
+    return SIZE_MAX;
+}
+
+static size_t find_or_add(HhyProfiler *profiler, const char *name, size_t name_length,
+                          const char *path,
+                          uint32_t line, uint32_t column) {
+    size_t existing = find_entry(profiler, name, name_length, path, line, column);
+    if (existing != SIZE_MAX) return existing;
     if (profiler->entry_count == profiler->entry_capacity) {
         size_t capacity = profiler->entry_capacity < 16 ? 16 : profiler->entry_capacity * 2;
         ProfileEntry *entries = realloc(profiler->entries, capacity * sizeof(*entries));
@@ -91,12 +102,12 @@ static size_t find_or_add(HhyProfiler *profiler, const char *name, const char *p
     size_t index = profiler->entry_count++;
     ProfileEntry *entry = &profiler->entries[index];
     memset(entry, 0, sizeof(*entry));
-    entry->name = copy_text(name);
+    entry->name = copy_text_n(name, name_length);
     entry->path = copy_text(path);
     if (entry->name == NULL || entry->path == NULL) {
         free(entry->name); free(entry->path); profiler->entry_count--; return SIZE_MAX;
     }
-    entry->line = line; entry->column = column;
+    entry->name_length = name_length; entry->line = line; entry->column = column;
     return index;
 }
 
@@ -132,18 +143,33 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
 
 size_t hhy_profiler_enter(HhyProfiler *profiler, const char *name,
                           const char *path, uint32_t line, uint32_t column) {
+    return hhy_profiler_enter_n(profiler, name, strlen(name), path, line, column);
+}
+
+size_t hhy_profiler_enter_n(HhyProfiler *profiler, const char *name, size_t name_length,
+                            const char *path, uint32_t line, uint32_t column) {
     if (profiler == NULL) return SIZE_MAX;
+    size_t previous = profiler->current_entry < 0 ? SIZE_MAX : (size_t)profiler->current_entry;
+    size_t index = find_entry(profiler, name, name_length, path, line, column);
+    if (index != SIZE_MAX) {
+        profiler->entries[index].calls++;
+        profiler->current_entry = (sig_atomic_t)index;
+        return previous;
+    }
     sigset_t blocked, previous_mask;
     sigemptyset(&blocked); sigaddset(&blocked, SIGPROF);
     sigprocmask(SIG_BLOCK, &blocked, &previous_mask);
-    size_t previous = profiler->current_entry < 0 ? SIZE_MAX : (size_t)profiler->current_entry;
-    size_t index = find_or_add(profiler, name, path, line, column);
+    index = find_or_add(profiler, name, name_length, path, line, column);
     if (index != SIZE_MAX) {
         profiler->entries[index].calls++;
         profiler->current_entry = (sig_atomic_t)index;
     }
     sigprocmask(SIG_SETMASK, &previous_mask, NULL);
     return previous;
+}
+
+bool hhy_profiler_tracks_heap(const HhyProfiler *profiler) {
+    return profiler != NULL && profiler->options.heap;
 }
 
 void hhy_profiler_leave(HhyProfiler *profiler, size_t previous_entry) {

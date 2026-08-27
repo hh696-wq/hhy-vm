@@ -205,6 +205,9 @@ struct Runtime {
     jmp_buf memory_jump;
     bool memory_jump_ready;
     size_t memory_baseline;
+    size_t memory_check_budget;
+    size_t memory_observed_local;
+    uint32_t safepoint_ticks;
     char *emergency_error_keys[8];
     size_t emergency_error_key_lengths[8];
     Value emergency_error_values[8];
@@ -351,13 +354,24 @@ static void runtime_memory_limit(Runtime *rt) {
 
 static bool runtime_memory_available(Runtime *rt, size_t size) {
     if (size > rt->limits.max_memory) return false;
+    if (size <= rt->memory_check_budget) {
+        rt->memory_check_budget -= size;
+        if (rt->memory_observed_local <= SIZE_MAX - size) rt->memory_observed_local += size;
+        return true;
+    }
     size_t used = GC_get_memory_use();
     size_t local = used > rt->memory_baseline ? used - rt->memory_baseline : 0;
-    if (local <= rt->limits.max_memory - size) return true;
-    GC_gcollect();
-    used = GC_get_memory_use();
-    local = used > rt->memory_baseline ? used - rt->memory_baseline : 0;
-    return local <= rt->limits.max_memory - size;
+    if (local > rt->limits.max_memory - size) {
+        GC_gcollect();
+        used = GC_get_memory_use();
+        local = used > rt->memory_baseline ? used - rt->memory_baseline : 0;
+        if (local > rt->limits.max_memory - size) return false;
+    }
+    size_t available = rt->limits.max_memory - local - size;
+    const size_t check_step = 256 * 1024;
+    rt->memory_check_budget = available < check_step ? available : check_step;
+    rt->memory_observed_local = local + size;
+    return true;
 }
 
 static void *rt_alloc(Runtime *rt, size_t size) {
@@ -365,9 +379,9 @@ static void *rt_alloc(Runtime *rt, size_t size) {
     if (!runtime_memory_available(rt, requested)) runtime_memory_limit(rt);
     void *pointer = GC_malloc(requested);
     if (pointer == NULL) runtime_memory_limit(rt);
-    if (!runtime_memory_available(rt, 0)) runtime_memory_limit(rt);
-    if (rt->profiler != NULL)
-        hhy_profiler_allocation(rt->profiler, requested, GC_get_memory_use());
+    if (hhy_profiler_tracks_heap(rt->profiler))
+        hhy_profiler_allocation(rt->profiler, requested,
+                                rt->memory_baseline + rt->memory_observed_local);
     memset(pointer, 0, size);
     return pointer;
 }
@@ -377,9 +391,9 @@ static void *rt_alloc_atomic(Runtime *rt, size_t size) {
     if (!runtime_memory_available(rt, requested)) runtime_memory_limit(rt);
     void *pointer = GC_malloc_atomic(requested);
     if (pointer == NULL) runtime_memory_limit(rt);
-    if (!runtime_memory_available(rt, 0)) runtime_memory_limit(rt);
-    if (rt->profiler != NULL)
-        hhy_profiler_allocation(rt->profiler, requested, GC_get_memory_use());
+    if (hhy_profiler_tracks_heap(rt->profiler))
+        hhy_profiler_allocation(rt->profiler, requested,
+                                rt->memory_baseline + rt->memory_observed_local);
     memset(pointer, 0, size);
     return pointer;
 }
@@ -625,6 +639,11 @@ static bool runtime_check_cancel(Runtime *rt, const HhyNode *node) {
         runtime_error_kind(rt, node, "CancelledError", "HHY_CANCELLED", "execution cancelled");
     }
     return true;
+}
+
+static bool runtime_safepoint(Runtime *rt, const HhyNode *node) {
+    rt->safepoint_ticks++;
+    return (rt->safepoint_ticks & 1023U) == 0 && runtime_check_cancel(rt, node);
 }
 
 static bool runtime_wait_ns(Runtime *rt, const HhyNode *node, uint64_t nanoseconds) {
@@ -1047,6 +1066,79 @@ static bool sortable_scalar(Value value) {
     return numeric(value) || value.kind == V_STRING || value.kind == V_PATH ||
            value.kind == V_BYTES || value.kind == V_DURATION || value.kind == V_PERCENT ||
            value.kind == V_DATETIME;
+}
+
+static bool compare_sort_keys(Runtime *rt, const HhyNode *site, Value left, Value right,
+                              int *comparison) {
+    bool same_unit = left.kind == right.kind &&
+        (left.kind == V_BYTES || left.kind == V_DURATION || left.kind == V_PERCENT);
+    bool same_datetime = left.kind == V_DATETIME && right.kind == V_DATETIME;
+    bool comparable = (numeric(left) && numeric(right)) ||
+        ((left.kind == V_STRING || left.kind == V_PATH) && left.kind == right.kind) ||
+        same_unit || same_datetime;
+    if (!comparable) {
+        runtime_type_error(rt, site, "sort_by keys must be comparable scalars");
+        return false;
+    }
+    if (numeric(left)) {
+        double a = as_double(left), b = as_double(right);
+        *comparison = a < b ? -1 : a > b ? 1 : 0;
+    } else if (same_unit) {
+        *comparison = left.as.number < right.as.number ? -1 :
+            left.as.number > right.as.number ? 1 : 0;
+    } else if (same_datetime) {
+        *comparison = left.as.datetime.nanoseconds < right.as.datetime.nanoseconds ? -1 :
+            left.as.datetime.nanoseconds > right.as.datetime.nanoseconds ? 1 : 0;
+    } else {
+        size_t common = left.string_length < right.string_length
+            ? left.string_length : right.string_length;
+        *comparison = memcmp(left.as.string, right.as.string, common);
+        if (*comparison == 0)
+            *comparison = left.string_length < right.string_length ? -1 :
+                left.string_length > right.string_length ? 1 : 0;
+    }
+    return true;
+}
+
+static bool stable_sort_values(Runtime *rt, const HhyNode *site, Value *items, Value *keys,
+                               size_t count, bool descending) {
+    if (count < 2) return true;
+    Value *temporary_items = hhy_alloc(count * sizeof(Value));
+    Value *temporary_keys = hhy_alloc(count * sizeof(Value));
+    Value *source_items = items, *source_keys = keys;
+    Value *target_items = temporary_items, *target_keys = temporary_keys;
+    for (size_t width = 1; width < count; width = width > count / 2 ? count : width * 2) {
+        for (size_t start = 0; start < count; start += width * 2) {
+            size_t middle = start + width < count ? start + width : count;
+            size_t end = middle + width < count ? middle + width : count;
+            size_t left = start, right = middle, output = start;
+            while (left < middle || right < end) {
+                bool take_left = right >= end;
+                if (left < middle && right < end) {
+                    int comparison = 0;
+                    if (!compare_sort_keys(rt, site, source_keys[left], source_keys[right],
+                                           &comparison)) {
+                        free(temporary_items); free(temporary_keys); return false;
+                    }
+                    take_left = descending ? comparison >= 0 : comparison <= 0;
+                }
+                size_t selected = take_left ? left++ : right++;
+                target_items[output] = source_items[selected];
+                target_keys[output++] = source_keys[selected];
+            }
+        }
+        Value *swap = source_items; source_items = target_items; target_items = swap;
+        swap = source_keys; source_keys = target_keys; target_keys = swap;
+        if (runtime_check_cancel(rt, site)) {
+            free(temporary_items); free(temporary_keys); return false;
+        }
+    }
+    if (source_items != items) {
+        memcpy(items, source_items, count * sizeof(Value));
+        memcpy(keys, source_keys, count * sizeof(Value));
+    }
+    free(temporary_items); free(temporary_keys);
+    return true;
 }
 
 static const char *bytes_find(const char *text, size_t text_length,
@@ -1490,7 +1582,20 @@ static void stream_close(Stream *stream) {
     for (size_t i = 0; i < stream->job_count; i++) {
         if (stream->jobs[i].active) {
             kill(stream->jobs[i].pid, SIGTERM);
-            while (waitpid(stream->jobs[i].pid, NULL, 0) < 0 && errno == EINTR) {}
+            bool reaped = false;
+            for (size_t attempt = 0; attempt < 50; attempt++) {
+                pid_t waited = waitpid(stream->jobs[i].pid, NULL, WNOHANG);
+                if (waited == stream->jobs[i].pid || (waited < 0 && errno == ECHILD)) {
+                    reaped = true; break;
+                }
+                if (waited < 0 && errno != EINTR) break;
+                struct timespec pause = {.tv_sec = 0, .tv_nsec = 10000000L};
+                nanosleep(&pause, NULL);
+            }
+            if (!reaped) {
+                kill(stream->jobs[i].pid, SIGKILL);
+                while (waitpid(stream->jobs[i].pid, NULL, 0) < 0 && errno == EINTR) {}
+            }
             stream->jobs[i].active = false;
             if (stream->runtime != NULL && stream->runtime->active_processes > 0)
                 stream->runtime->active_processes--;
@@ -1842,49 +1947,11 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
             }
             stream_close(stream->source.as.stream);
             if (stream->kind == STREAM_SORT && !rt->failed) {
-                for (size_t i = 1; i < count; i++) {
-                    Value moving_item = items[i], moving_key = keys[i];
-                    size_t j = i;
-                    while (j > 0) {
-                        Value previous = keys[j - 1];
-                        bool same_unit = previous.kind == moving_key.kind &&
-                            (previous.kind == V_BYTES || previous.kind == V_DURATION ||
-                             previous.kind == V_PERCENT);
-                        bool same_datetime = previous.kind == V_DATETIME &&
-                            moving_key.kind == V_DATETIME;
-                        bool comparable = (numeric(previous) && numeric(moving_key)) ||
-                            ((previous.kind == V_STRING || previous.kind == V_PATH) &&
-                             previous.kind == moving_key.kind) || same_unit || same_datetime;
-                        if (!comparable) {
-                            runtime_type_error(rt, site, "sort_by keys must be comparable scalars");
-                            break;
-                        }
-                        int comparison;
-                        if (numeric(previous)) {
-                            double a = as_double(previous), b = as_double(moving_key);
-                            comparison = a < b ? -1 : a > b ? 1 : 0;
-                        } else if (same_unit) {
-                            comparison = previous.as.number < moving_key.as.number ? -1 :
-                                previous.as.number > moving_key.as.number ? 1 : 0;
-                        } else if (same_datetime) {
-                            comparison = previous.as.datetime.nanoseconds < moving_key.as.datetime.nanoseconds ? -1 :
-                                previous.as.datetime.nanoseconds > moving_key.as.datetime.nanoseconds ? 1 : 0;
-                        } else {
-                            size_t common = previous.string_length < moving_key.string_length
-                                ? previous.string_length : moving_key.string_length;
-                            comparison = memcmp(previous.as.string, moving_key.as.string, common);
-                            if (comparison == 0)
-                                comparison = previous.string_length < moving_key.string_length ? -1 :
-                                    previous.string_length > moving_key.string_length ? 1 : 0;
-                        }
-                        bool move = stream->descending ? comparison < 0 : comparison > 0;
-                        if (!move) break;
-                        items[j] = items[j - 1]; keys[j] = keys[j - 1]; j--;
-                    }
-                    items[j] = moving_item; keys[j] = moving_key;
+                if (stable_sort_values(rt, site, items, keys, count, stream->descending)) {
+                    stream->materialized = list_new(rt, count);
+                    if (count)
+                        memcpy(stream->materialized.as.list.items, items, count * sizeof(Value));
                 }
-                stream->materialized = list_new(rt, count);
-                if (count) memcpy(stream->materialized.as.list.items, items, count * sizeof(Value));
             } else if (stream->kind == STREAM_GROUP && !rt->failed) {
                 size_t group_count = 0;
                 Value *group_keys = hhy_alloc((count ? count : 1) * sizeof(Value));
@@ -4765,20 +4832,23 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
     if (rt->profiler == NULL || callee.kind != V_FUNCTION)
         return call_value_impl(rt, env, site, callee, argc, argv);
     const char *name = callee.as.function.builtin;
+    size_t name_length = name == NULL ? 0 : strlen(name);
     const HhySource *source = rt->source;
     uint32_t line = site->token.line, column = site->token.column;
     if (name == NULL && callee.as.function.node != NULL) {
         const HhyNode *function = callee.as.function.node;
         source = callee.as.function.source == NULL ? rt->source : callee.as.function.source;
-        if (callee.as.function.is_closure) name = "<closure>";
+        if (callee.as.function.is_closure) { name = "<closure>"; name_length = 9; }
         else if (function->child_count > 0) {
-            name = token_text(rt, function->children[0]->token);
+            name = function->children[0]->token.start;
+            name_length = function->children[0]->token.length;
             line = function->token.line; column = function->token.column;
         }
     }
-    if (name == NULL) name = "<call>";
+    if (name == NULL) { name = "<call>"; name_length = 6; }
     const char *path = source == NULL || source->path == NULL ? "<runtime>" : source->path;
-    size_t previous = hhy_profiler_enter(rt->profiler, name, path, line, column);
+    size_t previous = hhy_profiler_enter_n(rt->profiler, name, name_length,
+                                           path, line, column);
     Value result = call_value_impl(rt, env, site, callee, argc, argv);
     hhy_profiler_leave(rt->profiler, previous);
     return result;
@@ -5025,6 +5095,7 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
         case HHY_N_WHILE: {
             Value result = null_value();
             for (;;) {
+                if (runtime_safepoint(rt, node)) break;
                 Value condition = eval(rt, env, node->children[0]); bool yes;
                 if (!require_bool(rt,node,condition,&yes) || !yes || rt->failed) break;
                 result = exec_node(rt, env, node->children[1]);
@@ -5046,6 +5117,7 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
                 runtime_type_error(rt,node,"for expects List or Stream"); return null_value();
             }
             for (;;) {
+                if (runtime_safepoint(rt, node)) break;
                 if (iterable.kind == V_LIST) {
                     if (index >= iterable.as.list.count) break;
                     item = iterable.as.list.items[index++];

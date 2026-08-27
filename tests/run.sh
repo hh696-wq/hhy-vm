@@ -369,6 +369,8 @@ fi
 set +e
 runtime_limit_output=$("$HHY_BIN" run --limit max_runtime=20ms tests/valid/cancel.hhy 2>&1)
 runtime_limit_status=$?
+cpu_loop_limit_output=$("$HHY_BIN" run --limit max_runtime=20ms tests/valid/cpu-loop-timeout.hhy 2>&1)
+cpu_loop_limit_status=$?
 open_limit_output=$("$HHY_BIN" run --limit max_open_files=1 tests/valid/process-options.hhy 2>&1)
 open_limit_status=$?
 process_limit_output=$("$HHY_BIN" run --limit max_processes=1 tests/valid/parallel.hhy 2>&1)
@@ -380,6 +382,8 @@ invalid_limit_status=$?
 set -e
 [ "$runtime_limit_status" -eq 5 ] || fail "max_runtime returned status $runtime_limit_status"
 case "$runtime_limit_output" in *"TimeoutError"*"max_runtime"*) ;; *) fail "max_runtime diagnostic is incorrect" ;; esac
+[ "$cpu_loop_limit_status" -eq 5 ] || fail "CPU loop max_runtime returned status $cpu_loop_limit_status"
+case "$cpu_loop_limit_output" in *"TimeoutError"*"max_runtime"*) ;; *) fail "CPU loop max_runtime diagnostic is incorrect" ;; esac
 [ "$open_limit_status" -eq 1 ] || fail "max_open_files was not enforced"
 case "$open_limit_output" in *"ResourceLimitError"*"max_open_files"*) ;; *) fail "max_open_files diagnostic is incorrect" ;; esac
 [ "$process_limit_status" -eq 1 ] || fail "max_processes was not enforced"

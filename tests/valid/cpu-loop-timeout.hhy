@@ -1,0 +1,4 @@
+let mut spins = 0
+while true {
+    spins = spins + 1
+}
