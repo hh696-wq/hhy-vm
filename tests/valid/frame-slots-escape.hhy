@@ -1,0 +1,22 @@
+fn make_counter(start) {
+    let mut current = start
+    fn next(ignored) {
+        current = current + 1
+        return current
+    }
+    return next
+}
+
+let first = make_counter(10)
+let second = make_counter(100)
+print(first(null))
+print(first(null))
+print(second(null))
+
+fn delayed(offset) {
+    return [1, 2, 3]
+        |> stream
+        |> map { value -> value + offset }
+}
+
+print(delayed(7) |> collect)

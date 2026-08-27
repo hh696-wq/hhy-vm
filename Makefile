@@ -1,6 +1,7 @@
 CC ?= cc
 FUZZ_CC ?= clang
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -Werror -O2
+DEPFLAGS := -MMD -MP
 CPPFLAGS ?= -Iinclude
 VERSION := $(shell cat VERSION)
 CPPFLAGS += -DHHY_VERSION=\"$(VERSION)\"
@@ -52,7 +53,7 @@ $(TARGET): $(OBJECTS)
 
 build/release/%.o: src/%.c
 	@mkdir -p build/release
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 build/release/main.o: VERSION
 
@@ -65,7 +66,7 @@ $(DEBUG_TARGET): $(DEBUG_OBJECTS)
 
 build/debug/%.o: src/%.c
 	@mkdir -p build/debug
-	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 build/debug/main.o: VERSION
 
@@ -132,3 +133,5 @@ clean:
 	rm -rf build
 	$(MAKE) -C extensions/sample clean
 	$(MAKE) -C extensions/database clean
+
+-include $(OBJECTS:.o=.d) $(DEBUG_OBJECTS:.o=.d)

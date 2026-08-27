@@ -208,6 +208,15 @@ gc_flow_output=$("$HHY_BIN" run tests/valid/gc-long-flow.hhy)
 group_hash_scale_output=$("$HHY_BIN" run tests/valid/group-hash-scale.hhy)
 [ "$group_hash_scale_output" = "20000" ] || fail "group_by hash scale test failed"
 
+frame_escape_output=$("$HHY_BIN" run tests/valid/frame-slots-escape.hhy)
+case "$frame_escape_output" in
+    "11
+12
+101
+[8, 9, 10]") ;;
+    *) fail "slot frames did not preserve escaped closure or Stream state: $frame_escape_output" ;;
+esac
+
 set +e
 unbounded_output=$("$HHY_BIN" run tests/invalid-runtime/unbounded-barrier.hhy 2>&1)
 unbounded_status=$?

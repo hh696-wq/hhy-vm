@@ -169,7 +169,14 @@ struct Stream {
 };
 
 typedef struct { const char *name; size_t name_length; Value value; bool mutable; } Binding;
-struct Env { Env *parent; Binding *items; size_t count; size_t capacity; };
+struct Env {
+    Env *parent;
+    Binding *items;
+    size_t count;
+    size_t capacity;
+    bool escaped;
+    Env *free_next;
+};
 struct Module {
     char *path;
     HhySource source;
@@ -192,6 +199,7 @@ struct Runtime {
     uint32_t error_line;
     uint32_t error_column;
     Env *core;
+    Env *free_call_frames;
     Module *modules;
     bool dry_run;
     bool effect_allowed;
@@ -679,6 +687,32 @@ static Env *env_new_with_capacity(Runtime *rt, Env *parent, size_t capacity) {
 
 static Env *env_new(Runtime *rt, Env *parent) { return env_new_with_capacity(rt, parent, 0); }
 
+static void env_mark_escaped(Env *env) {
+    for (; env != NULL && !env->escaped; env = env->parent) env->escaped = true;
+}
+
+static Env *call_frame_acquire(Runtime *rt, Env *parent, size_t capacity) {
+    Env **link = &rt->free_call_frames;
+    while (*link != NULL && (*link)->capacity < capacity) link = &(*link)->free_next;
+    Env *env = *link;
+    if (env == NULL) return env_new_with_capacity(rt, parent, capacity);
+    *link = env->free_next;
+    env->parent = parent;
+    env->count = 0;
+    env->escaped = false;
+    env->free_next = NULL;
+    return env;
+}
+
+static void call_frame_release(Runtime *rt, Env *env) {
+    if (env->escaped) return;
+    if (env->items != NULL) memset(env->items, 0, env->capacity * sizeof(*env->items));
+    env->parent = NULL;
+    env->count = 0;
+    env->free_next = rt->free_call_frames;
+    rt->free_call_frames = env;
+}
+
 static Binding *env_local_n(Env *env, const char *name, size_t name_length) {
     for (size_t i = 0; i < env->count; i++)
         if (env->items[i].name_length == name_length &&
@@ -694,6 +728,43 @@ static Binding *env_find_n(Env *env, const char *name, size_t name_length) {
     for (Env *scope = env; scope != NULL; scope = scope->parent) {
         Binding *binding = env_local_n(scope, name, name_length);
         if (binding != NULL) return binding;
+    }
+    return NULL;
+}
+
+static Binding *env_find_node(Env *env, const HhyNode *node) {
+    if (node->local_slot_resolved) {
+        Env *scope = env;
+        for (size_t depth = 0; scope != NULL && depth < node->local_env_depth; depth++)
+            scope = scope->parent;
+        if (scope != NULL && node->local_binding_slot < scope->count)
+            return &scope->items[node->local_binding_slot];
+    }
+    HhyNode *mutable_node = (HhyNode *)node;
+    if (node->binding_cache_valid) {
+        Env *scope = env;
+        for (size_t depth = 0; scope != NULL && depth < node->cached_env_depth; depth++)
+            scope = scope->parent;
+        if (scope != NULL && node->cached_binding_slot < scope->count) {
+            Binding *binding = &scope->items[node->cached_binding_slot];
+            if (binding->name_length == node->token.length &&
+                memcmp(binding->name, node->token.start, node->token.length) == 0)
+                return binding;
+        }
+        mutable_node->binding_cache_valid = false;
+    }
+    size_t depth = 0;
+    for (Env *scope = env; scope != NULL; scope = scope->parent, depth++) {
+        for (size_t slot = 0; slot < scope->count; slot++) {
+            Binding *binding = &scope->items[slot];
+            if (binding->name_length == node->token.length &&
+                memcmp(binding->name, node->token.start, node->token.length) == 0) {
+                mutable_node->cached_env_depth = depth;
+                mutable_node->cached_binding_slot = slot;
+                mutable_node->binding_cache_valid = true;
+                return binding;
+            }
+        }
     }
     return NULL;
 }
@@ -1503,6 +1574,7 @@ static bool value_read(Runtime *rt, FILE *file, Value *out, size_t depth) {
 
 static Value stream_value(Runtime *rt, StreamKind kind, Value source,
                           Value function, Env *env) {
+    env_mark_escaped(env);
     Stream *stream = rt_alloc(rt, sizeof(*stream));
     stream->kind = kind;
     stream->source = source;
@@ -3714,7 +3786,9 @@ static Value call_function(Runtime *rt, const HhyNode *site, Value callee,
     const HhyNode *function = callee.as.function.node;
     size_t param_count = function->child_count - 2;
     if (argc != param_count) { runtime_type_error(rt, site, "wrong number of function arguments"); return null_value(); }
-    Env *call_env = env_new_with_capacity(rt, callee.as.function.closure, param_count);
+    Env *call_env = call_frame_acquire(rt, callee.as.function.closure,
+                                      function->frame_slot_count > param_count
+                                          ? function->frame_slot_count : param_count);
     for (size_t i = 0; i < param_count; i++) {
         env_define_token(rt, call_env, site, function->children[i + 1]->token, argv[i], false);
     }
@@ -3722,6 +3796,7 @@ static Value call_function(Runtime *rt, const HhyNode *site, Value callee,
     Value result = body->kind == HHY_N_BLOCK
         ? exec_block_contents(rt, call_env, body) : exec_node(rt, call_env, body);
     if (rt->signal == SIGNAL_RETURN) { result = rt->signal_value; rt->signal = SIGNAL_NONE; }
+    call_frame_release(rt, call_env);
     return result;
 }
 
@@ -3730,7 +3805,9 @@ static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
     const HhyNode *closure = callee.as.function.node;
     bool explicit_param = closure->child_count > 0 && closure->children[0]->kind == HHY_N_IDENTIFIER;
     if (argc != 1) { runtime_type_error(rt, site, "closure requires one argument"); return null_value(); }
-    Env *call_env = env_new_with_capacity(rt, callee.as.function.closure, 1);
+    Env *call_env = call_frame_acquire(rt, callee.as.function.closure,
+                                      closure->frame_slot_count > 1
+                                          ? closure->frame_slot_count : 1);
     const char *name = "it";
     size_t body_start = 0;
     if (explicit_param) {
@@ -3741,6 +3818,7 @@ static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
     for (size_t i = body_start; i < closure->child_count && !rt->failed && rt->signal == SIGNAL_NONE; i++)
         result = exec_node(rt, call_env, closure->children[i]);
     if (rt->signal == SIGNAL_RETURN) { result = rt->signal_value; rt->signal = SIGNAL_NONE; }
+    call_frame_release(rt, call_env);
     return result;
 }
 
@@ -4967,7 +5045,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
     switch (node->kind) {
         case HHY_N_LITERAL: return literal(rt, node);
         case HHY_N_IDENTIFIER: {
-            Binding *binding = env_find_n(env, node->token.start, node->token.length);
+            Binding *binding = env_find_node(env, node);
             if (binding != NULL) return binding->value;
             char *name = token_text(rt, node->token);
             if (strcmp(name, "processes") == 0)
@@ -5104,6 +5182,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
         case HHY_N_CALL: return eval_call(rt, env, node, NULL);
         case HHY_N_CLOSURE: {
             Value value = {.kind = V_FUNCTION}; value.as.function.node = node;
+            env_mark_escaped(env);
             value.as.function.closure = env; value.as.function.source = rt->source;
             value.as.function.is_closure = true; return value;
         }
@@ -5129,7 +5208,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
         case HHY_N_ASSIGN: {
             const HhyNode *target = node->children[0];
             if (target->kind != HHY_N_IDENTIFIER) { runtime_check_error(rt, node, "assignment target must be a variable"); return null_value(); }
-            Binding *binding = env_find_n(env, target->token.start, target->token.length);
+            Binding *binding = env_find_node(env, target);
             if (binding == NULL) { runtime_check_error(rt, node, "assignment to undeclared variable"); return null_value(); }
             if (!binding->mutable) { runtime_check_error(rt, node, "cannot assign to immutable binding"); return null_value(); }
             binding->value = eval(rt, env, node->children[1]); return binding->value;
@@ -5160,7 +5239,7 @@ static Value exec_block_contents(Runtime *rt, Env *env, const HhyNode *node) {
 }
 
 static Value exec_block(Runtime *rt, Env *parent, const HhyNode *node) {
-    return exec_block_contents(rt, env_new(rt, parent), node);
+    return exec_block_contents(rt, env_new_with_capacity(rt, parent, node->frame_slot_count), node);
 }
 
 static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
@@ -5182,6 +5261,7 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
         }
         case HHY_N_FN_DECL: {
             Value value = {.kind = V_FUNCTION}; value.as.function.node = node;
+            env_mark_escaped(env);
             value.as.function.closure = env; value.as.function.source = rt->source;
             env_define_token(rt, env, node, node->children[0]->token, value, false); return value;
         }
@@ -5315,6 +5395,7 @@ static Module *module_load(Runtime *rt, const HhyNode *site, const char *request
     }
     HhyParseResult parsed = hhy_parse(&module->source, &module->tokens, &module->program);
     if (!parsed.ok) { rt->failed = true; rt->exit_code = 2; return NULL; }
+    hhy_resolve_slots(module->program);
     module->environment = env_new(rt, rt->core);
     const HhySource *previous_source = rt->source;
     rt->source = &module->source;
@@ -5631,6 +5712,7 @@ int hhy_repl(void) {
         HhyParseResult parsed = {.ok = false};
         if (ok) parsed = hhy_parse(&chunk->source, &chunk->tokens, &chunk->program);
         if (ok && parsed.ok) {
+            hhy_resolve_slots(chunk->program);
             rt.source = &chunk->source; rt.failed = false; rt.exit_code = 0; rt.signal = SIGNAL_NONE;
             Value result = exec_node(&rt, session, chunk->program);
             if (rt.failed) {
@@ -5664,6 +5746,7 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
         return failed;
     }
     GC_INIT();
+    hhy_resolve_slots((HhyNode *)program);
     Runtime *rt = hhy_alloc(sizeof(*rt));
     rt->source = source;
     rt->dry_run = dry_run;

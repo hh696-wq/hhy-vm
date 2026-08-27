@@ -43,6 +43,13 @@ struct HhyNode {
     HhyNode **children;
     size_t child_count;
     size_t child_capacity;
+    size_t cached_env_depth;
+    size_t cached_binding_slot;
+    bool binding_cache_valid;
+    size_t local_env_depth;
+    size_t local_binding_slot;
+    bool local_slot_resolved;
+    size_t frame_slot_count;
 };
 
 HhyNode *hhy_node_new(HhyNodeKind kind, HhyToken token);
@@ -50,5 +57,6 @@ void hhy_node_add(HhyNode *parent, HhyNode *child);
 void hhy_node_free(HhyNode *node);
 const char *hhy_node_kind_name(HhyNodeKind kind);
 void hhy_ast_print(const HhyNode *node);
+void hhy_resolve_slots(HhyNode *program);
 
 #endif
