@@ -81,38 +81,34 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                 const released: Array<{ version: string; date: string; title: string; detail: string; icon: ElementType }> = lang === "zh"
                   ? [
                     { version: "v1.0.0", date: "2026-08-25", title: "核心语义冻结", detail: "Pipe / Value / Stream / Error、94 个核心 callable、三平台发布验证", icon: Code },
-                    { version: "v1.1.0", date: "2026-08-26", title: "本地进程扩展", detail: "install/list/remove、Protocol 1、database 0.2.0、三平台发布验证", icon: PuzzlePiece }
+                    { version: "v1.1.0", date: "2026-08-26", title: "本地进程扩展", detail: "install/list/remove、Protocol 1、database 0.2.0、三平台发布验证", icon: PuzzlePiece },
+                    { version: "v1.1.1", date: "2026-08-27", title: "性能与临界稳定性", detail: "hhy profile、解释器热点优化、资源临界值压力测试与稳定错误", icon: ShieldCheck }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
-                    { version: "v1.1.0", date: "2026-08-26", title: "Local process extensions", detail: "install/list/remove, Protocol 1, database 0.2.0, and three-platform release evidence", icon: PuzzlePiece }
+                    { version: "v1.1.0", date: "2026-08-26", title: "Local process extensions", detail: "install/list/remove, Protocol 1, database 0.2.0, and three-platform release evidence", icon: PuzzlePiece },
+                    { version: "v1.1.1", date: "2026-08-27", title: "Performance and boundary stability", detail: "hhy profile, interpreter hotspot optimization, resource-boundary stress tests, and stable errors", icon: ShieldCheck }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
-                    { version: "v1.2", window: "2026 Q4–2027 Q1", title: "协议补全与 Office 验证", items: ["Stream / cancel / handle 生命周期", "官方 Office 扩展压力验证", "capability 与资源清理闭环"], icon: PuzzlePiece },
-                    { version: "v1.3", window: "2027 Q2", title: "数据库资源模型", items: ["连接 handle 与连接池", "流式查询与背压", "数据库类型映射和事务稳定化"], icon: Database },
-                    { version: "v1.4", window: "2027 Q3", title: "包分发与工具链", items: ["签名与发布者验证", "依赖解析和远程索引", "离线锁定与可复现安装"], icon: Handshake },
-                    { version: "v1.5", window: "2027 Q4–2028 Q1", title: "Runtime 长期稳定化", items: ["trace / profile / debug hooks", "性能基线与兼容矩阵", "fuzz、故障注入与压力测试"], icon: ShieldCheck },
-                    { version: "v2.0", window: "最早 2028 H2", title: "生态开放与 ABI 决策", items: ["以真实集成测量协议边界", "评估 embedding / FFI", "仅在必要时发布 Native ABI"], icon: RocketLaunch }
+                    { version: "v1.2", window: "v1.1.1 验收后", title: "官方扩展包分发与工具链", items: ["官方扩展签名与发布者验证", "依赖解析和远程索引", "离线锁定、可复现安装与回滚"], icon: Handshake },
+                    { version: "v2.0", window: "生态证据充分后", title: "生态开放与 ABI 决策", items: ["以真实集成测量进程协议边界", "评估 embedding / FFI", "仅在必要时发布 Native ABI"], icon: RocketLaunch }
                   ]
                   : [
-                    { version: "v1.2", window: "2026 Q4–2027 Q1", title: "Protocol and Office validation", items: ["Stream / cancel / handle lifecycle", "Official Office extension stress validation", "Capability and cleanup closure"], icon: PuzzlePiece },
-                    { version: "v1.3", window: "2027 Q2", title: "Database resource model", items: ["Connection handles and pools", "Streaming queries with backpressure", "Type mapping and transaction hardening"], icon: Database },
-                    { version: "v1.4", window: "2027 Q3", title: "Package distribution and tooling", items: ["Signature and publisher verification", "Dependency resolution and remote index", "Offline lock and reproducible install"], icon: Handshake },
-                    { version: "v1.5", window: "2027 Q4–2028 Q1", title: "Long-term Runtime hardening", items: ["Trace / profile / debug hooks", "Performance baseline and compatibility matrix", "Fuzzing, fault injection, and stress tests"], icon: ShieldCheck },
-                    { version: "v2.0", window: "2028 H2 at the earliest", title: "Ecosystem and ABI decision", items: ["Measure protocol limits with real integrations", "Evaluate embedding / FFI", "Publish a Native ABI only if necessary"], icon: RocketLaunch }
+                    { version: "v1.2", window: "After v1.1.1 acceptance", title: "Official extension distribution and tooling", items: ["Official extension signatures and publisher verification", "Dependency resolution and remote index", "Offline lock, reproducible install, and rollback"], icon: Handshake },
+                    { version: "v2.0", window: "After sufficient ecosystem evidence", title: "Ecosystem and ABI decision", items: ["Measure process-protocol limits with real integrations", "Evaluate embedding / FFI", "Publish a Native ABI only if necessary"], icon: RocketLaunch }
                   ];
                 const principles = lang === "zh"
                   ? ["先冻结语义，再开放扩展", "先可用、可测，再做高性能", "扩展通过协议接入，不另造语义", "ABI 只在 Runtime 稳定后评估"]
                   : ["Freeze semantics before opening extensions", "Make it usable and measurable before fast", "Extend through protocol, not a second language model", "Evaluate ABI only after Runtime stability"];
                 return (
                   <figure className="evolution-roadmap" key={index}>
-                    <header><strong>{lang === "zh" ? "语言 / VM 演进路线图" : "Language / VM Evolution Roadmap"}</strong><span>{lang === "zh" ? "五个未来版本 · 建议窗口，不是发布日期承诺" : "Five future releases · recommended windows, not date commitments"}</span></header>
+                    <header><strong>{lang === "zh" ? "语言 / VM 演进路线图" : "Language / VM Evolution Roadmap"}</strong><span>{lang === "zh" ? "当前 v1.1.1 · 后续只保留两个方向" : "Current v1.1.1 · only two future directions"}</span></header>
                     <div className="evolution-released">
-                      <strong>{lang === "zh" ? "已发布基础" : "Released foundation"}</strong>
-                      {released.map(({ version, date, title, detail, icon: Icon }) => <article key={version}><Icon size={42} weight="duotone" aria-hidden /><div><span><b>{version}</b><time>{date}</time><em>{lang === "zh" ? "已发布" : "Released"}</em></span><h3>{title}</h3><p>{detail}</p></div></article>)}
+                      <strong>{lang === "zh" ? "版本基础与当前版本" : "Release foundation and current version"}</strong>
+                      {released.map(({ version, date, title, detail, icon: Icon }) => <article key={version}><Icon size={42} weight="duotone" aria-hidden /><div><span><b>{version}</b><time>{date}</time><em>{version === `v${hhyVersion}` ? (lang === "zh" ? "当前" : "Current") : (lang === "zh" ? "已发布" : "Released")}</em></span><h3>{title}</h3><p>{detail}</p></div></article>)}
                     </div>
-                    <div className="evolution-future-label"><span>{lang === "zh" ? "未来五个版本" : "Five future releases"}</span><small>{lang === "zh" ? "按验收门槛依次进入" : "Enter sequentially through acceptance gates"}</small></div>
+                    <div className="evolution-future-label"><span>{lang === "zh" ? "未来两个版本" : "Two future releases"}</span><small>{lang === "zh" ? "按验收门槛依次进入" : "Enter sequentially through acceptance gates"}</small></div>
                     <div className="evolution-track">
                       {releases.map(({ version, window, title, items, icon: Icon }, releaseIndex) => (
                         <article key={version}>
@@ -127,7 +123,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                       ))}
                     </div>
                     <div className="evolution-principles"><strong><ShieldCheck size={30} weight="duotone" />{lang === "zh" ? "演进原则" : "Evolution principles"}</strong>{principles.map((principle, principleIndex) => <span key={principle}><b>{principleIndex + 1}</b>{principle}</span>)}</div>
-                    <figcaption>{lang === "zh" ? "最佳实践顺序：语义与协议 → 资源模型 → 工具链 → Runtime 稳定化 → 生态与 ABI 决策" : "Best-practice order: semantics and protocol → resource model → tooling → Runtime hardening → ecosystem and ABI decision"}</figcaption>
+                    <figcaption>{lang === "zh" ? "演进顺序：v1.1.1 性能与稳定性 → 官方扩展分发与工具链 → 生态开放与 ABI 决策" : "Evolution order: v1.1.1 performance and stability → official extension distribution and tooling → ecosystem opening and the ABI decision"}</figcaption>
                   </figure>
                 );
               }

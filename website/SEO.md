@@ -10,7 +10,7 @@ The site implements bilingual technical SEO in the application itself:
 - `robots.txt`, `sitemap.xml`, and `manifest.webmanifest`;
 - explicit access for Googlebot, Bingbot, OAI-SearchBot, ChatGPT-User, and GPTBot.
 
-Metadata describes only capabilities implemented by HHY 1.1.0. Do not add
+Metadata describes only capabilities implemented by HHY 1.1.1. Do not add
 keyword-stuffed pages, fake ratings, fake reviews, unsupported platforms, or
 structured data that is not represented by visible page content.
 

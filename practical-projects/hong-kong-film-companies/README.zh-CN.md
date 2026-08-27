@@ -27,7 +27,7 @@
 
 CSV 保留每条数据的维基百科 URL，便于核验与署名。维基百科文本通常依 CC BY-SA 许可提供；公开再发布包含简介的 CSV 前，应遵循对应页面标注的许可与署名要求。
 
-`config/wikipedia.json` 中的 `search_url` 使用已经百分号编码的中文关键词。这是为了兼容 HHY 1.1.0 当前对非 ASCII query Map 值的编码限制；详情请求的 ASCII 参数仍由 HHY query Map 安全构造。
+`config/wikipedia.json` 中的 `search_url` 使用已经百分号编码的中文关键词。这是为了兼容 HHY 1.1.1 当前对非 ASCII query Map 值的编码限制；详情请求的 ASCII 参数仍由 HHY query Map 安全构造。
 
 ## 确定性自测
 

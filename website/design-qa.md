@@ -13,7 +13,7 @@ final result: passed
 The implementation preserves the reference hierarchy, white and light-blue palette,
 two-column hero, branded HHY artwork, bordered code sample, feature cards, learning
 path, release status, and compact language-project footer. Chinese copy and the
-real V1.1.0 examples replace the English concept placeholders. Header and footer
+real V1.1.1 examples replace the English concept placeholders. Header and footer
 navigation were intentionally simplified to remove overlapping destinations.
 
 ## Functional verification
@@ -56,7 +56,7 @@ final result: passed
 - Spacing and layout: six equal horizontal stages, numbered badges, directional arrows, error-return rail, four guarantee cards, and a compact footer caption. Mobile changes to one vertical flow.
 - Colors and tokens: white/light-blue frame, blue-to-violet stage progression, restrained borders, and existing HHY blue tokens preserve both the reference hierarchy and site identity.
 - Image and icon quality: all stage and guarantee symbols use the installed Phosphor vector icon library; there are no emoji, raster placeholders, or handcrafted SVG assets.
-- Copy: Chinese and English labels describe the implemented v1.1.0 database extension lifecycle. The diagram does not claim Stream, opaque-handle, retry, or protocol-cancel support.
+- Copy: Chinese and English labels describe the implemented v1.1.1 database extension lifecycle. The diagram does not claim Stream, opaque-handle, retry, or protocol-cancel support.
 
 ### Comparison history
 
@@ -83,7 +83,7 @@ final result: passed
 - Spacing and layout: centered terminal window inside a pale-blue framed card with a separate explanatory caption, matching the reference structure.
 - Colors and tokens: white terminal surface, restrained blue frame, neutral output text, and macOS traffic-light controls match the reference while retaining HHY site tokens.
 - Image and icon quality: no rasterized terminal text or placeholder imagery; browser-rendered text remains sharp and selectable.
-- Copy: Chinese and English cards show the exact six-line HHY 1.1.0 output, plus accurate source-build, release-archive, and PATH invocation guidance.
+- Copy: Chinese and English cards show the exact six-line HHY 1.1.1 output, plus accurate source-build, release-archive, and PATH invocation guidance.
 
 ### Comparison history
 
@@ -107,12 +107,12 @@ final result: passed
 - Spacing and layout: two released-foundation cards precede a connected five-release timeline; the principle strip and caption mirror the source composition. Mobile uses one vertical timeline.
 - Colors and tokens: white/light-blue surface, blue timeline, blue-to-violet final release, green released badges, and existing HHY tokens maintain release-state semantics.
 - Image and icon quality: all roadmap symbols use the installed Phosphor vector library. No emoji, placeholder raster, or handcrafted SVG is used.
-- Copy: Chinese and English content separates factual v1.0.0/v1.1.0 releases from five non-committed future windows and gives an acceptance gate for every proposed release.
+- Copy: Chinese and English content records v1.0.0/v1.1.0 history, presents v1.1.1 as the current performance and boundary-stability release, and limits future work to two gated directions.
 
 ### Comparison history
 
 1. P1: the Learn manual had no language/VM evolution chapter. Added chapter 18 with a visual roadmap, release table, evolution principles, and explicit non-commitments.
-2. P1: an initial future-only plan lacked release lineage. Added v1.0.0 and v1.1.0 as a separate released foundation using dates from repository tags, without treating them as future work.
+2. P1: release lineage now retains v1.0.0 and v1.1.0, identifies v1.1.1 as current, and separates the two conditional future releases from shipped work.
 3. P2: fixed calendar dates would overstate commitment. Future timing is labeled as recommended windows and each release is gated by measurable acceptance criteria.
 4. Post-fix browser evidence confirms two released cards, five future cards, both languages, chapter-18 navigation from Learn, no console warnings/errors, and no horizontal overflow at 390 px.
 

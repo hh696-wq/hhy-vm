@@ -1,7 +1,7 @@
 # HHY 扩展系统版本路线图
 
 > 状态：规划稿 v0.1  
-> 当前 Core 稳定版本：`1.1.0`（以仓库根目录 `VERSION` 为准）
+> 当前 Core 稳定版本：`1.1.1`（以仓库根目录 `VERSION` 为准）
 > 依赖规范：[HHY Language v1.0 统一规范](HHY_V1.md)  
 > 原则：HHY Core 负责 Flow，扩展负责提供可以流动的新数据。
 
@@ -314,7 +314,7 @@ example.image
 
 v1.1 第一次允许用户安装和运行第三方扩展，但首选独立进程隔离，不开放 Native ABI。
 
-实现状态（`1.1.0`）：本地 `install/list/remove`、manifest/capability 展示、安装与
+实现状态（`1.1.1`）：本地 `install/list/remove`、manifest/capability 展示、安装与
 加载时 SHA-256 校验、进程握手、动态 callable 注册、同步 call/result/error 和
 shutdown 已完成。协议线格式见 [`EXTENSION_PROTOCOL_V1.md`](EXTENSION_PROTOCOL_V1.md)。
 Stream credit、Opaque handle 和跨调用 cancel 保留在后续 v1.x 增量，不属于当前

@@ -1854,7 +1854,7 @@ export const chapters: Chapter[] = [
           { type: "note", text: "维基百科搜索结果和页面内容会变化，因此这是可复现的动态研究样本，不是完整公司注册名录。项目的 self-test 使用本地模拟 API，避免把外部网络变化当成代码回归。" }
         ] },
         { title: "并发、边界与可重复验证", blocks: [
-          { type: "p", text: "默认并发度为 3，每页简介限制为 600 字符，避免不受控响应占用 worker 通道。网络请求具有 10 秒 timeout 和两次 retry；每个详情任务由 attempt 隔离。中文搜索词在配置中的 search_url 已百分号编码，以兼容 HHY 1.1.0 当前非 ASCII query Map 编码限制。" },
+          { type: "p", text: "默认并发度为 3，每页简介限制为 600 字符，避免不受控响应占用 worker 通道。网络请求具有 10 秒 timeout 和两次 retry；每个详情任务由 attempt 隔离。中文搜索词在配置中的 search_url 已百分号编码，以兼容 HHY 1.1.1 当前非 ASCII query Map 编码限制。" },
           { type: "code", language: "sh", code: "sh practical-projects/hong-kong-film-companies/self-test.sh" },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/practical-projects/hong-kong-film-companies/README.zh-CN.md", label: "阅读中文运行说明 ↗", description: "查看输出字段、真实抓取命令、配置限制与确定性测试设计。" }
         ] }
@@ -1876,7 +1876,7 @@ export const chapters: Chapter[] = [
           { type: "note", text: "Wikipedia search results and content change, so this is a reproducible research sample rather than an exhaustive business registry. The self-test uses a local API fixture so external network changes do not become code regressions." }
         ] },
         { title: "Concurrency, limits, and repeatability", blocks: [
-          { type: "p", text: "The default parallelism is three and each introduction is capped at 600 characters, bounding worker results. Requests use a ten-second timeout and two retries; attempt isolates each detail task. The Chinese keyword is percent-encoded in search_url to accommodate HHY 1.1.0's current non-ASCII query Map limitation." },
+          { type: "p", text: "The default parallelism is three and each introduction is capped at 600 characters, bounding worker results. Requests use a ten-second timeout and two retries; attempt isolates each detail task. The Chinese keyword is percent-encoded in search_url to accommodate HHY 1.1.1's current non-ASCII query Map limitation." },
           { type: "code", language: "sh", code: "sh practical-projects/hong-kong-film-companies/self-test.sh" },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/blob/main/practical-projects/hong-kong-film-companies/README.md", label: "Read the English guide ↗", description: "See output fields, the real crawl command, configuration limits, and deterministic test design." }
         ] }
@@ -1935,28 +1935,28 @@ export const chapters: Chapter[] = [
     slug: "extensions-roadmap",
     order: 19,
     title: { zh: "扩展系统", en: "Extension System" },
-    summary: { zh: "面向扩展开发者的 v1.1.0 实现说明：本地包清单、权限声明、进程协议、加载链路和 callable 注册。", en: "The v1.1.0 implementation guide for extension developers: local manifests, capability declarations, the process protocol, load lifecycle, and callable registration." },
+    summary: { zh: "面向扩展开发者的 v1.1.1 实现说明：本地包清单、权限声明、进程协议、加载链路和 callable 注册。", en: "The v1.1.1 implementation guide for extension developers: local manifests, capability declarations, the process protocol, load lifecycle, and callable registration." },
     sections: {
       zh: [
-        { title: "v1.1.0 已实现的边界", blocks: [
+        { title: "v1.1.1 已实现的边界", blocks: [
           { type: "note", text: `${hhyVersionTag} 已实现本地 install/list/remove、manifest 与 SHA-256 校验、隔离进程握手、动态 callable 注册、同步调用、结构化错误和 shutdown。脚本可以直接 import 已安装的扩展包，例如 import database。` },
-          { type: "table", columns: ["能力", "v1.1.0 状态", "边界"], rows: [["本地扩展包", "已实现", "仅本地路径；不从远程仓库下载"], ["进程协议", "已实现", "handshake、register、call、call_result、error、shutdown"], ["值传输", "已实现", "Null、Bool、数字、String、List、Map 的 JSON 协议映射"], ["Stream / handle / cancel", "未实现", "属于后续协议扩展"], ["公开 Native ABI", "未承诺", "只有进程协议无法满足且有性能证据时再评估"]] },
+          { type: "table", columns: ["能力", "v1.1.1 状态", "边界"], rows: [["本地扩展包", "已实现", "仅本地路径；不从远程仓库下载"], ["进程协议", "已实现", "handshake、register、call、call_result、error、shutdown"], ["值传输", "已实现", "Null、Bool、数字、String、List、Map 的 JSON 协议映射"], ["Stream / handle / cancel", "未实现", "属于后续协议扩展"], ["公开 Native ABI", "未承诺", "只有进程协议无法满足且有性能证据时再评估"]] },
           { type: "p", text: "包名就是顶级命名空间。database 包只能注册 database.*；hhy.*、std.*、核心 callable 和其他包名不能被覆盖。导入未安装的包会得到 ModuleNotFoundError。" }
         ] },
         { title: "安装、查看与移除", blocks: [
           { type: "code", language: "sh", code: "make -C extensions/database\n./build/hhy install ./extensions/database\n./build/hhy list\n./build/hhy remove database" },
           { type: "table", columns: ["步骤", "实际行为"], rows: [["install", "读取 hhy.toml；校验包名、作者、requires_hhy、协议、命令和完整性；展示 capability 后由用户确认安装"], ["import / load", "重新校验已安装文件的 SHA-256，启动扩展进程，握手并注册 callable"], ["list", "显示已安装包的名称、版本、作者、协议和声明的 capability"], ["remove", "删除本地包记录和安装目录；之后 import 会失败"]] },
-          { type: "note", text: "capability 是安装时可审查的权限声明。v1.1.0 尚未承诺通用的操作系统级进程沙箱；第三方扩展仍应按原生可执行文件对待，只安装可信来源。" }
+          { type: "note", text: "capability 是安装时可审查的权限声明。v1.1.1 尚未承诺通用的操作系统级进程沙箱；第三方扩展仍应按原生可执行文件对待，只安装可信来源。" }
         ] },
         { title: "真实的 database/hhy.toml", blocks: [
           { type: "p", text: "下面就是仓库中官方 database 0.2.0 扩展使用的清单，不是虚构草案。command 相对包根目录解析；network 同时声明 PostgreSQL 与 MySQL 的本机默认端口。" },
           { type: "code", language: "text", code: "[package]\nname = \"database\"\nversion = \"0.2.0\"\nauthor = \"HHY Official\"\nrequires_hhy = \">=1.1,<2.0\"\n\n[extension]\nkind = \"process\"\ncommand = \"bin/hhy-database\"\nprotocol = \"1\"\n\n[capabilities]\nread = []\nwrite = []\nnetwork = [\"127.0.0.1:5432\", \"127.0.0.1:3306\"]\nprocess = false" },
-          { type: "table", columns: ["字段", "开发者约束"], rows: [["package.name", "唯一顶级命名空间；此处为 database"], ["package.author", "安装与 list 时展示，明确官方或第三方来源"], ["requires_hhy", "安装器检查 Runtime 版本范围"], ["extension.command", "必须是包内可执行文件，不能逃出包目录"], ["extension.protocol", "v1.1.0 只接受协议 1"], ["capabilities", "声明需要审查的文件、网络和子进程访问范围"]] }
+          { type: "table", columns: ["字段", "开发者约束"], rows: [["package.name", "唯一顶级命名空间；此处为 database"], ["package.author", "安装与 list 时展示，明确官方或第三方来源"], ["requires_hhy", "安装器检查 Runtime 版本范围"], ["extension.command", "必须是包内可执行文件，不能逃出包目录"], ["extension.protocol", "v1.1.1 只接受协议 1"], ["capabilities", "声明需要审查的文件、网络和子进程访问范围"]] }
         ] },
         { title: "扩展如何加载", blocks: [
           { type: "extension-flow" },
           { type: "table", columns: ["阶段", "Runtime 与扩展的职责"], rows: [["resolve", "Runtime 根据 import database 定位已安装包，解析清单并校验命令与完整性"], ["spawn", "Runtime 以 --protocol 1 启动独立进程，并建立 stdin/stdout 协议管道"], ["handshake", "双方确认 extension_id=database 与 protocol_version=1.0"], ["register", "database 发送一次注册消息；Runtime 验证命名空间和 contract 后写入 callable registry"], ["call", "Runtime 把可序列化参数发送给扩展；request_id 关联 call 与 call_result"], ["shutdown", "Runtime 发送 shutdown 并回收协议流和子进程"]] },
-          { type: "note", text: "v1.1.0 是同步、逐次调用协议，不提供 Stream、Opaque handle 或协议级 cancel。文档不应把后续设计写成当前已支持能力。" }
+          { type: "note", text: "v1.1.1 是同步、逐次调用协议，不提供 Stream、Opaque handle 或协议级 cancel。文档不应把后续设计写成当前已支持能力。" }
         ] },
         { title: "官方 database 扩展示例", blocks: [
           { type: "p", text: "database 是仓库中真实存在的 C11 进程扩展，支持 PostgreSQL 与 MySQL。它使用数据库原生参数 API，不把参数拼接进 SQL；查询值以 String 或 Null 返回，避免数据库精度在协议转换中丢失。" },
@@ -1965,30 +1965,30 @@ export const chapters: Chapter[] = [
           { type: "note", text: "MySQL 占位符使用 ?；PostgreSQL 使用 $1、$2……。第一版 transaction 明确排除 DDL 和返回结果集的查询。连接 URL 应从 require_env 或受保护的本地配置读取，不要写入源码或提交仓库。" }
         ] },
         { title: "扩展作者需要实现什么", blocks: [
-          { type: "table", columns: ["部分", "v1.1.0 要求"], rows: [["包", "提供 hhy.toml、包内可执行命令和安装器可验证的 SHA-256 完整性信息"], ["启动", "只接受 --protocol 1；协议消息只写 stdout，日志写 stderr"], ["handshake", "验证 extension_id 与 protocol_version，并返回匹配身份"], ["register", "恰好发送一次初始注册；名称必须位于包命名空间且 contract 完整"], ["call", "按 request_id 返回 call_result 或结构化 error，不泄露凭据、SQL 参数或敏感诊断"], ["shutdown", "幂等释放连接、内存和其他扩展资源"], ["测试", "至少覆盖协议身份不匹配、非法参数、扩展退出、数据库失败和资源清理"]] },
+          { type: "table", columns: ["部分", "v1.1.1 要求"], rows: [["包", "提供 hhy.toml、包内可执行命令和安装器可验证的 SHA-256 完整性信息"], ["启动", "只接受 --protocol 1；协议消息只写 stdout，日志写 stderr"], ["handshake", "验证 extension_id 与 protocol_version，并返回匹配身份"], ["register", "恰好发送一次初始注册；名称必须位于包命名空间且 contract 完整"], ["call", "按 request_id 返回 call_result 或结构化 error，不泄露凭据、SQL 参数或敏感诊断"], ["shutdown", "幂等释放连接、内存和其他扩展资源"], ["测试", "至少覆盖协议身份不匹配、非法参数、扩展退出、数据库失败和资源清理"]] },
           { type: "p", text: "扩展进程不会继承完整宿主环境；Runtime 只通过协议传递脚本显式提供的参数。开发者应让错误可定位但不包含密码、连接 URL、SQL 参数或数据库敏感诊断。" }
         ] }
       ],
       en: [
-        { title: "The implemented v1.1.0 boundary", blocks: [
+        { title: "The implemented v1.1.1 boundary", blocks: [
           { type: "note", text: `${hhyVersionTag} implements local install/list/remove, manifest and SHA-256 validation, isolated-process handshakes, dynamic callable registration, synchronous calls, structured errors, and shutdown. Scripts can directly import an installed package, for example import database.` },
-          { type: "table", columns: ["Capability", "v1.1.0 status", "Boundary"], rows: [["Local extension packages", "Implemented", "Local paths only; no remote registry download"], ["Process protocol", "Implemented", "handshake, register, call, call_result, error, shutdown"], ["Value transport", "Implemented", "JSON protocol mapping for Null, Bool, numbers, String, List, and Map"], ["Stream / handle / cancel", "Not implemented", "Reserved for a future protocol extension"], ["Public Native ABI", "Not committed", "Evaluate only if measurements show the process model is insufficient"]] },
+          { type: "table", columns: ["Capability", "v1.1.1 status", "Boundary"], rows: [["Local extension packages", "Implemented", "Local paths only; no remote registry download"], ["Process protocol", "Implemented", "handshake, register, call, call_result, error, shutdown"], ["Value transport", "Implemented", "JSON protocol mapping for Null, Bool, numbers, String, List, and Map"], ["Stream / handle / cancel", "Not implemented", "Reserved for a future protocol extension"], ["Public Native ABI", "Not committed", "Evaluate only if measurements show the process model is insufficient"]] },
           { type: "p", text: "The package name is its top-level namespace. The database package may register only database.*; hhy.*, std.*, core callables, and other package names cannot be replaced. Importing a package that is not installed raises ModuleNotFoundError." }
         ] },
         { title: "Install, list, and remove", blocks: [
           { type: "code", language: "sh", code: "make -C extensions/database\n./build/hhy install ./extensions/database\n./build/hhy list\n./build/hhy remove database" },
           { type: "table", columns: ["Step", "Actual behavior"], rows: [["install", "Read hhy.toml; validate package name, author, requires_hhy, protocol, command, and integrity; display capabilities and ask the user to confirm"], ["import / load", "Recheck installed SHA-256 data, start the extension process, handshake, and register callables"], ["list", "Display each installed package's name, version, author, protocol, and declared capabilities"], ["remove", "Delete the local package record and installation directory; subsequent imports fail"]] },
-          { type: "note", text: "Capabilities are reviewable declarations shown during installation. v1.1.0 does not promise a general operating-system process sandbox; treat a third-party extension as a native executable and install only trusted packages." }
+          { type: "note", text: "Capabilities are reviewable declarations shown during installation. v1.1.1 does not promise a general operating-system process sandbox; treat a third-party extension as a native executable and install only trusted packages." }
         ] },
         { title: "The real database/hhy.toml", blocks: [
           { type: "p", text: "This is the manifest used by the official database 0.2.0 package in the repository, not a hypothetical draft. command resolves from the package root; network declares the local default ports for PostgreSQL and MySQL." },
           { type: "code", language: "text", code: "[package]\nname = \"database\"\nversion = \"0.2.0\"\nauthor = \"HHY Official\"\nrequires_hhy = \">=1.1,<2.0\"\n\n[extension]\nkind = \"process\"\ncommand = \"bin/hhy-database\"\nprotocol = \"1\"\n\n[capabilities]\nread = []\nwrite = []\nnetwork = [\"127.0.0.1:5432\", \"127.0.0.1:3306\"]\nprocess = false" },
-          { type: "table", columns: ["Field", "Developer constraint"], rows: [["package.name", "Unique top-level namespace; database here"], ["package.author", "Shown during install and list to identify official or third-party provenance"], ["requires_hhy", "Runtime version range checked by the installer"], ["extension.command", "Must be an executable inside the package and cannot escape its root"], ["extension.protocol", "v1.1.0 accepts protocol 1"], ["capabilities", "Declares file, network, and subprocess access for review"]] }
+          { type: "table", columns: ["Field", "Developer constraint"], rows: [["package.name", "Unique top-level namespace; database here"], ["package.author", "Shown during install and list to identify official or third-party provenance"], ["requires_hhy", "Runtime version range checked by the installer"], ["extension.command", "Must be an executable inside the package and cannot escape its root"], ["extension.protocol", "v1.1.1 accepts protocol 1"], ["capabilities", "Declares file, network, and subprocess access for review"]] }
         ] },
         { title: "How an extension loads", blocks: [
           { type: "extension-flow" },
           { type: "table", columns: ["Stage", "Runtime and extension responsibility"], rows: [["resolve", "Runtime resolves import database to an installed package, parses its manifest, and validates command integrity"], ["spawn", "Runtime starts a separate process with --protocol 1 and opens stdin/stdout protocol pipes"], ["handshake", "Both sides confirm extension_id=database and protocol_version=1.0"], ["register", "database sends one registration message; Runtime validates the namespace and contracts before updating its callable registry"], ["call", "Runtime sends serializable arguments; request_id correlates each call and call_result"], ["shutdown", "Runtime sends shutdown and reaps protocol streams and the child process"]] },
-          { type: "note", text: "v1.1.0 is a synchronous, one-call-at-a-time protocol. Stream transport, opaque handles, and protocol-level cancellation are not supported and must not be documented as current behavior." }
+          { type: "note", text: "v1.1.1 is a synchronous, one-call-at-a-time protocol. Stream transport, opaque handles, and protocol-level cancellation are not supported and must not be documented as current behavior." }
         ] },
         { title: "Official database extension example", blocks: [
           { type: "p", text: "database is a real C11 process extension in the repository with PostgreSQL and MySQL support. It uses each driver's native parameter API and never concatenates parameters into SQL. Query values return as String or Null so protocol conversion does not lose database precision." },
@@ -1997,7 +1997,7 @@ export const chapters: Chapter[] = [
           { type: "note", text: "MySQL placeholders are ?; PostgreSQL placeholders are $1, $2, and so on. The first transaction API deliberately excludes DDL and result-returning queries. Read connection URLs from require_env or protected local configuration—never hard-code or commit credentials." }
         ] },
         { title: "What an extension author must implement", blocks: [
-          { type: "table", columns: ["Part", "v1.1.0 requirement"], rows: [["Package", "Provide hhy.toml, an in-package executable command, and SHA-256 integrity data verifiable by the installer"], ["Startup", "Accept only --protocol 1; write protocol messages only to stdout and logs to stderr"], ["Handshake", "Validate extension_id and protocol_version and return matching identity"], ["Register", "Send exactly one initial registration; every name must stay in the package namespace and provide a valid contract"], ["Call", "Return call_result or structured error for each request_id without exposing credentials, SQL parameters, or sensitive diagnostics"], ["Shutdown", "Idempotently release connections, memory, and other extension resources"], ["Tests", "Cover identity mismatch, invalid arguments, extension exit, database failure, and resource cleanup"]] },
+          { type: "table", columns: ["Part", "v1.1.1 requirement"], rows: [["Package", "Provide hhy.toml, an in-package executable command, and SHA-256 integrity data verifiable by the installer"], ["Startup", "Accept only --protocol 1; write protocol messages only to stdout and logs to stderr"], ["Handshake", "Validate extension_id and protocol_version and return matching identity"], ["Register", "Send exactly one initial registration; every name must stay in the package namespace and provide a valid contract"], ["Call", "Return call_result or structured error for each request_id without exposing credentials, SQL parameters, or sensitive diagnostics"], ["Shutdown", "Idempotently release connections, memory, and other extension resources"], ["Tests", "Cover identity mismatch, invalid arguments, extension exit, database failure, and resource cleanup"]] },
           { type: "p", text: "The extension process does not receive a copy of the complete host environment; Runtime passes only arguments explicitly supplied by the script over the protocol. Errors should remain actionable without including passwords, connection URLs, SQL parameters, or sensitive database diagnostics." }
         ] }
       ]
@@ -2075,22 +2075,20 @@ export const chapters: Chapter[] = [
     slug: "language-vm-roadmap",
     order: 21,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "从 v1.2 到 v2.0 的五版本演进顺序、建议时间窗口、交付边界与进入条件。", en: "Five releases from v1.2 to v2.0, with recommended windows, delivery boundaries, and entry gates." },
+    summary: { zh: "v1.1.1 聚焦性能与临界稳定性；未来只保留扩展工具链和生态 ABI 两个方向。", en: "v1.1.1 focuses on performance and boundary stability, followed by only two directions: extension tooling and the ecosystem ABI decision." },
     sections: {
       zh: [
-        { title: "五版本演进总览", blocks: [
-          { type: "note", text: "以下时间是基于依赖顺序、验证成本和兼容性风险给出的最佳实践窗口，不是发布日期承诺。每个版本只有在上一阶段验收条件通过后才进入冻结。" },
+        { title: "当前版本与后续两阶段", blocks: [
+          { type: "note", text: "v1.1.1 是当前性能与稳定性版本。后续只列两个方向，不承诺发布日期；每个版本只有在上一阶段的验收条件通过后才进入冻结。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
           { type: "table", columns: ["版本", "建议窗口（非承诺）", "核心交付", "进入下一阶段前必须满足"], rows: [
             ["v1.0.0 · 已发布", "2026-08-25", "核心语言与 VM 语义冻结", "Pipe、Value、Stream、Error、核心标准库和三平台发行证据完成"],
             ["v1.1.0 · 已发布", "2026-08-26", "本地进程扩展与官方数据库扩展", "安装/加载完整性、Protocol 1 同步调用、database 0.2.0 和三平台发行证据完成"],
-            ["v1.2", "2026 Q4–2027 Q1", "扩展协议补全与官方 Office 验证", "Stream credit、cancel、Opaque handle 生命周期和 capability 路径通过大工作簿压力测试"],
-            ["v1.3", "2027 Q2", "数据库资源模型", "连接 handle/池、流式查询、类型映射和事务在 PostgreSQL/MySQL 上具有稳定资源上限与回归测试"],
-            ["v1.4", "2027 Q3", "包分发与工程工具链", "签名校验、依赖解析、远程索引、离线锁定和可复现安装具备安全审计与回滚方案"],
-            ["v1.5", "2027 Q4–2028 Q1", "Runtime 可观测性与长期稳定化", "trace/profile/debug hooks、性能基线、模糊测试、故障注入和兼容矩阵持续通过"],
-            ["v2.0", "最早 2028 H2", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
+            ["v1.1.1 · 当前", "2026-08-27", "性能优化与临界资源稳定性", "hhy profile、解释器热点基线、GC/内存/递归/集合边界压力测试完成；越界产生稳定错误而非 Runtime 崩溃"],
+            ["v1.2 · 规划", "完成 v1.1.1 验收后", "官方扩展包分发与工具链", "官方扩展具备签名验证、依赖解析、远程索引、离线锁定、可复现安装以及安全回滚"],
+            ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] }
         ] },
         { title: "演进原则", blocks: [
@@ -2102,19 +2100,17 @@ export const chapters: Chapter[] = [
         ] }
       ],
       en: [
-        { title: "Five-release evolution overview", blocks: [
-          { type: "note", text: "These dates are best-practice windows derived from dependency order, validation cost, and compatibility risk—not release-date commitments. A release enters freeze only after the previous stage passes its acceptance gate." },
+        { title: "Current release and two future stages", blocks: [
+          { type: "note", text: "v1.1.1 is the current performance and stability release. Only two future directions are listed, without committed dates; each enters freeze only after the previous stage passes its acceptance gate." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
           { type: "table", columns: ["Release", "Recommended window (not committed)", "Primary delivery", "Required before the next stage"], rows: [
             ["v1.0.0 · Released", "2026-08-25", "Core language and VM semantics frozen", "Pipe, Value, Stream, Error, the core standard library, and three-platform release evidence completed"],
             ["v1.1.0 · Released", "2026-08-26", "Local process extensions and the official database extension", "Install/load integrity, synchronous Protocol 1 calls, database 0.2.0, and three-platform release evidence completed"],
-            ["v1.2", "2026 Q4–2027 Q1", "Protocol completion and official Office validation", "Stream credit, cancellation, opaque-handle lifecycle, and capability paths survive large-workbook stress tests"],
-            ["v1.3", "2027 Q2", "Database resource model", "Connection handles/pools, streaming queries, type mapping, and transactions have bounded resources and regression coverage on PostgreSQL and MySQL"],
-            ["v1.4", "2027 Q3", "Package distribution and engineering toolchain", "Signature verification, dependency resolution, remote index, offline lock, and reproducible installation have a security review and rollback design"],
-            ["v1.5", "2027 Q4–2028 Q1", "Runtime observability and long-term hardening", "Trace/profile/debug hooks, performance baselines, fuzzing, fault injection, and the compatibility matrix pass continuously"],
-            ["v2.0", "2028 H2 at the earliest", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
+            ["v1.1.1 · Current", "2026-08-27", "Performance optimization and resource-boundary stability", "hhy profile, interpreter hotspot baselines, and GC/memory/recursion/collection boundary stress tests complete; limit breaches return stable errors instead of crashing the Runtime"],
+            ["v1.2 · Planned", "After v1.1.1 acceptance", "Official extension package distribution and tooling", "Official extensions have publisher signatures, dependency resolution, a remote index, offline locking, reproducible installation, and safe rollback"],
+            ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] }
         ] },
         { title: "Evolution principles", blocks: [

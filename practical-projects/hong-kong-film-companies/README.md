@@ -20,7 +20,7 @@ The result is a dynamic research sample rather than an exhaustive company regist
 
 Every CSV row retains its Wikipedia URL for verification and attribution. Wikipedia text is generally available under CC BY-SA; follow the license and attribution notices on the relevant pages before redistributing a CSV that contains extracts.
 
-The Chinese keyword in `config/wikipedia.json` is percent-encoded in `search_url` to work around HHY 1.1.0's current non-ASCII query Map encoding limitation. ASCII detail-request parameters are still constructed through HHY's query Map.
+The Chinese keyword in `config/wikipedia.json` is percent-encoded in `search_url` to work around HHY 1.1.1's current non-ASCII query Map encoding limitation. ASCII detail-request parameters are still constructed through HHY's query Map.
 
 ## Deterministic self-test
 

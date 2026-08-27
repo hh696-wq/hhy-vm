@@ -9,7 +9,7 @@
 
   [Website](https://hhylang.dev) · [Language Specification](docs/HHY_V1.md) · [Examples](examples/README.md) · [Known Limitations](docs/KNOWN_LIMITATIONS.md)
 
-  [![Version](https://img.shields.io/badge/version-1.1.0-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.1.1-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -42,7 +42,7 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前稳定版本是 **V1.1.0**（`1.1.0`），正式支持 macOS arm64、Linux arm64 和
+当前稳定版本是 **V1.1.1**（`1.1.1`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64。
 
 ### 从源码构建
@@ -154,8 +154,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.1.0-PLATFORM-ARCH.tar.gz
-cd hhy-1.1.0-PLATFORM-ARCH
+tar -xzf hhy-1.1.1-PLATFORM-ARCH.tar.gz
+cd hhy-1.1.1-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -228,9 +228,11 @@ PostgreSQL 使用 `$1` 参数，MySQL 使用 `?`。事务第一版在同一连�
 1–100 条 `INSERT`、`UPDATE` 或 `DELETE`，任一失败会整体回滚。完整示例和构建依赖见
 [`extensions/database`](extensions/database/README.md)。
 
-## V1.1.0 状态
+## V1.1.1 状态
 
-V1.0 语言 contract 保持兼容；V1.1 加入本地 Process Extension Protocol。每次主分支提交都会在 macOS arm64、
+V1.0 语言 contract 保持兼容；V1.1.1 聚焦性能定位、解释器热点优化和临界资源稳定性。
+内建 `hhy profile` 提供 CPU 与托管 Heap 分析；内存、递归、集合及运行时上限通过
+压力测试确保越界返回稳定错误而不是使 Runtime 崩溃。每次主分支提交都会在 macOS arm64、
 Linux arm64 和 Linux x86_64 上执行严格编译、sanitizer、完整测试、fuzz、
 文档验证、发行包内容检查和 SHA-256 校验。
 
