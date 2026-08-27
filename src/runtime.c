@@ -3360,13 +3360,15 @@ static int hhy_curl_progress(void *context, curl_off_t download_total,
 static Value map_with_entries(Runtime *rt, ValueKind kind, size_t count,
                               const char **keys, Value *values) {
     Value result = {.kind = kind}; result.as.map.count = count;
+    /* Root pointer-bearing input Values before allocating key metadata. Callers
+       commonly pass a short stack array containing freshly allocated strings. */
+    result.as.map.values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
+    if (count) memcpy(result.as.map.values, values, count * sizeof(Value));
     result.as.map.keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
     result.as.map.key_lengths = count ? rt_alloc(rt, count * sizeof(size_t)) : NULL;
-    result.as.map.values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
     for (size_t i = 0; i < count; i++) {
         result.as.map.keys[i] = rt_strndup(rt, keys[i], strlen(keys[i]));
         result.as.map.key_lengths[i] = strlen(keys[i]);
-        result.as.map.values[i] = values[i];
     }
     return result;
 }
