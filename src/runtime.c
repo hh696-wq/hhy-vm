@@ -168,7 +168,7 @@ struct Stream {
     Stream *runtime_next;
 };
 
-typedef struct { char *name; Value value; bool mutable; } Binding;
+typedef struct { const char *name; size_t name_length; Value value; bool mutable; } Binding;
 struct Env { Env *parent; Binding *items; size_t count; size_t capacity; };
 struct Module {
     char *path;
@@ -666,29 +666,46 @@ static bool runtime_wait_ns(Runtime *rt, const HhyNode *node, uint64_t nanosecon
     return !runtime_check_cancel(rt, node);
 }
 
-static Env *env_new(Runtime *rt, Env *parent) {
-    Env *env = rt_alloc(rt, sizeof(*env));
+static Env *env_new_with_capacity(Runtime *rt, Env *parent, size_t capacity) {
+    if (capacity > (SIZE_MAX - sizeof(Env)) / sizeof(Binding)) runtime_memory_limit(rt);
+    Env *env = rt_alloc(rt, sizeof(*env) + capacity * sizeof(Binding));
     env->parent = parent;
+    if (capacity > 0) {
+        env->items = (Binding *)(env + 1);
+        env->capacity = capacity;
+    }
     return env;
 }
 
-static Binding *env_local(Env *env, const char *name) {
+static Env *env_new(Runtime *rt, Env *parent) { return env_new_with_capacity(rt, parent, 0); }
+
+static Binding *env_local_n(Env *env, const char *name, size_t name_length) {
     for (size_t i = 0; i < env->count; i++)
-        if (strcmp(env->items[i].name, name) == 0) return &env->items[i];
+        if (env->items[i].name_length == name_length &&
+            memcmp(env->items[i].name, name, name_length) == 0) return &env->items[i];
     return NULL;
 }
 
-static Binding *env_find(Env *env, const char *name) {
+static Binding *env_local(Env *env, const char *name) {
+    return env_local_n(env, name, strlen(name));
+}
+
+static Binding *env_find_n(Env *env, const char *name, size_t name_length) {
     for (Env *scope = env; scope != NULL; scope = scope->parent) {
-        Binding *binding = env_local(scope, name);
+        Binding *binding = env_local_n(scope, name, name_length);
         if (binding != NULL) return binding;
     }
     return NULL;
 }
 
-static bool env_define(Runtime *rt, Env *env, const HhyNode *node,
-                       const char *name, Value value, bool mutable) {
-    if (env_local(env, name) != NULL) {
+static Binding *env_find(Env *env, const char *name) {
+    return env_find_n(env, name, strlen(name));
+}
+
+static bool env_define_n(Runtime *rt, Env *env, const HhyNode *node,
+                         const char *name, size_t name_length, bool copy_name,
+                         Value value, bool mutable) {
+    if (env_local_n(env, name, name_length) != NULL) {
         runtime_check_error(rt, node, "name is already declared in this scope");
         return false;
     }
@@ -700,10 +717,21 @@ static bool env_define(Runtime *rt, Env *env, const HhyNode *node,
         env->capacity = capacity;
     }
     Binding *binding = &env->items[env->count++];
-    binding->name = rt_strndup(rt, name, strlen(name));
+    binding->name = copy_name ? rt_strndup(rt, name, name_length) : name;
+    binding->name_length = name_length;
     binding->value = value;
     binding->mutable = mutable;
     return true;
+}
+
+static bool env_define(Runtime *rt, Env *env, const HhyNode *node,
+                       const char *name, Value value, bool mutable) {
+    return env_define_n(rt, env, node, name, strlen(name), true, value, mutable);
+}
+
+static bool env_define_token(Runtime *rt, Env *env, const HhyNode *node,
+                             HhyToken token, Value value, bool mutable) {
+    return env_define_n(rt, env, node, token.start, token.length, false, value, mutable);
 }
 
 static char *token_text(Runtime *rt, HhyToken token) { return rt_strndup(rt, token.start, token.length); }
@@ -860,6 +888,7 @@ static bool json_encode_value(FILE *stream, Value value, bool pretty, int depth)
 
 static Value eval(Runtime *rt, Env *env, const HhyNode *node);
 static Value exec_node(Runtime *rt, Env *env, const HhyNode *node);
+static Value exec_block_contents(Runtime *rt, Env *env, const HhyNode *node);
 static Value import_module(Runtime *rt, Env *target, const HhyNode *node);
 
 static Value decode_string(Runtime *rt, HhyToken token) {
@@ -970,7 +999,13 @@ static Value literal(Runtime *rt, const HhyNode *node) {
         }
         return value;
     }
-    char *text = token_text(rt, token);
+    char inline_text[128];
+    char *text;
+    if (token.length < sizeof(inline_text)) {
+        memcpy(inline_text, token.start, token.length);
+        inline_text[token.length] = '\0';
+        text = inline_text;
+    } else text = token_text(rt, token);
     if (token.kind == HHY_T_INT) {
         int64_t number;
         if (!parse_int64_literal(text, &number)) {
@@ -1060,6 +1095,44 @@ static bool hashable_scalar(Value value) {
     return value.kind == V_NULL || value.kind == V_BOOL || value.kind == V_INT ||
            value.kind == V_FLOAT || value.kind == V_STRING || value.kind == V_PATH ||
            value.kind == V_BYTES || value.kind == V_DURATION || value.kind == V_PERCENT;
+}
+
+static uint64_t hash_bytes(uint64_t hash, const void *data, size_t length) {
+    const unsigned char *bytes = data;
+    for (size_t i = 0; i < length; i++) {
+        hash ^= bytes[i];
+        hash *= UINT64_C(1099511628211);
+    }
+    return hash;
+}
+
+static uint64_t hash_scalar(Value value) {
+    uint64_t hash = UINT64_C(1469598103934665603);
+    if (numeric(value)) {
+        unsigned char numeric_tag = 0x7f;
+        double number = as_double(value);
+        if (number == 0.0) number = 0.0;
+        uint64_t bits;
+        memcpy(&bits, &number, sizeof(bits));
+        hash = hash_bytes(hash, &numeric_tag, sizeof(numeric_tag));
+        return hash_bytes(hash, &bits, sizeof(bits));
+    }
+    unsigned char kind = (unsigned char)value.kind;
+    hash = hash_bytes(hash, &kind, sizeof(kind));
+    switch (value.kind) {
+        case V_NULL: return hash;
+        case V_BOOL: return hash_bytes(hash, &value.as.boolean, sizeof(value.as.boolean));
+        case V_STRING: case V_PATH:
+            return hash_bytes(hash, value.as.string, value.string_length);
+        case V_BYTES: case V_DURATION: case V_PERCENT: {
+            double number = value.as.number;
+            if (number == 0.0) number = 0.0;
+            uint64_t bits;
+            memcpy(&bits, &number, sizeof(bits));
+            return hash_bytes(hash, &bits, sizeof(bits));
+        }
+        default: return hash;
+    }
 }
 
 static bool sortable_scalar(Value value) {
@@ -1956,17 +2029,36 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                 size_t group_count = 0;
                 Value *group_keys = hhy_alloc((count ? count : 1) * sizeof(Value));
                 Value *group_lists = hhy_alloc((count ? count : 1) * sizeof(Value));
+                size_t *group_sizes = hhy_alloc((count ? count : 1) * sizeof(size_t));
+                size_t *item_groups = hhy_alloc((count ? count : 1) * sizeof(size_t));
+                size_t slot_count = 8;
+                while (slot_count < count * 2 && slot_count <= SIZE_MAX / 2) slot_count *= 2;
+                size_t *slots = hhy_alloc(slot_count * sizeof(size_t));
+                for (size_t slot = 0; slot < slot_count; slot++) slots[slot] = SIZE_MAX;
                 for (size_t i = 0; i < count; i++) {
-                    size_t group = 0;
-                    while (group < group_count && !equal_values(group_keys[group], keys[i])) group++;
-                    if (group == group_count) {
+                    size_t slot = (size_t)(hash_scalar(keys[i]) & (uint64_t)(slot_count - 1));
+                    while (slots[slot] != SIZE_MAX &&
+                           !equal_values(group_keys[slots[slot]], keys[i]))
+                        slot = (slot + 1) & (slot_count - 1);
+                    size_t group = slots[slot];
+                    if (group == SIZE_MAX) {
+                        group = group_count;
+                        slots[slot] = group_count;
                         group_keys[group] = keys[i];
-                        group_lists[group] = list_new(rt, count);
-                        group_lists[group].as.list.count = 0;
+                        group_sizes[group] = 0;
                         group_count++;
                     }
-                    Value *target = group_lists[group].as.list.items;
-                    target[group_lists[group].as.list.count++] = items[i];
+                    item_groups[i] = group;
+                    group_sizes[group]++;
+                }
+                free(slots);
+                for (size_t group = 0; group < group_count; group++) {
+                    group_lists[group] = list_new(rt, group_sizes[group]);
+                    group_lists[group].as.list.count = 0;
+                }
+                for (size_t i = 0; i < count; i++) {
+                    Value *target = group_lists[item_groups[i]].as.list.items;
+                    target[group_lists[item_groups[i]].as.list.count++] = items[i];
                 }
                 stream->materialized = list_new(rt, group_count);
                 for (size_t i = 0; i < group_count; i++) {
@@ -1976,6 +2068,7 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                         map_with_entries(rt, V_MAP, 2, group_names, group_values);
                 }
                 free(group_keys); free(group_lists);
+                free(group_sizes); free(item_groups);
             }
             free(items); free(keys);
             if (rt->failed) return false;
@@ -3621,12 +3714,13 @@ static Value call_function(Runtime *rt, const HhyNode *site, Value callee,
     const HhyNode *function = callee.as.function.node;
     size_t param_count = function->child_count - 2;
     if (argc != param_count) { runtime_type_error(rt, site, "wrong number of function arguments"); return null_value(); }
-    Env *call_env = env_new(rt, callee.as.function.closure);
+    Env *call_env = env_new_with_capacity(rt, callee.as.function.closure, param_count);
     for (size_t i = 0; i < param_count; i++) {
-        char *name = token_text(rt, function->children[i + 1]->token);
-        env_define(rt, call_env, site, name, argv[i], false);
+        env_define_token(rt, call_env, site, function->children[i + 1]->token, argv[i], false);
     }
-    Value result = exec_node(rt, call_env, function->children[function->child_count - 1]);
+    const HhyNode *body = function->children[function->child_count - 1];
+    Value result = body->kind == HHY_N_BLOCK
+        ? exec_block_contents(rt, call_env, body) : exec_node(rt, call_env, body);
     if (rt->signal == SIGNAL_RETURN) { result = rt->signal_value; rt->signal = SIGNAL_NONE; }
     return result;
 }
@@ -3636,11 +3730,13 @@ static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
     const HhyNode *closure = callee.as.function.node;
     bool explicit_param = closure->child_count > 0 && closure->children[0]->kind == HHY_N_IDENTIFIER;
     if (argc != 1) { runtime_type_error(rt, site, "closure requires one argument"); return null_value(); }
-    Env *call_env = env_new(rt, callee.as.function.closure);
+    Env *call_env = env_new_with_capacity(rt, callee.as.function.closure, 1);
     const char *name = "it";
     size_t body_start = 0;
-    if (explicit_param) { name = token_text(rt, closure->children[0]->token); body_start = 1; }
-    env_define(rt, call_env, site, name, argv[0], false);
+    if (explicit_param) {
+        env_define_token(rt, call_env, site, closure->children[0]->token, argv[0], false);
+        body_start = 1;
+    } else env_define(rt, call_env, site, name, argv[0], false);
     Value result = null_value();
     for (size_t i = body_start; i < closure->child_count && !rt->failed && rt->signal == SIGNAL_NONE; i++)
         result = exec_node(rt, call_env, closure->children[i]);
@@ -4858,7 +4954,8 @@ static Value eval_call(Runtime *rt, Env *env, const HhyNode *node, Value *inject
     Value callee = eval(rt, env, node->children[0]);
     size_t explicit_count = node->child_count - 1;
     size_t argc = explicit_count + (injected != NULL ? 1 : 0);
-    Value *args = argc == 0 ? NULL : rt_alloc(rt, argc * sizeof(Value));
+    Value inline_args[4];
+    Value *args = argc == 0 ? NULL : argc <= 4 ? inline_args : rt_alloc(rt, argc * sizeof(Value));
     size_t offset = 0;
     if (injected != NULL) args[offset++] = *injected;
     for (size_t i = 0; i < explicit_count && !rt->failed; i++) args[offset + i] = eval(rt, env, node->children[i + 1]);
@@ -4870,9 +4967,9 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
     switch (node->kind) {
         case HHY_N_LITERAL: return literal(rt, node);
         case HHY_N_IDENTIFIER: {
-            char *name = token_text(rt, node->token);
-            Binding *binding = env_find(env, name);
+            Binding *binding = env_find_n(env, node->token.start, node->token.length);
             if (binding != NULL) return binding->value;
+            char *name = token_text(rt, node->token);
             if (strcmp(name, "processes") == 0)
                 return builtin(rt, env, node, "processes", 0, NULL);
             if (hhy_contract_lookup(name) == NULL) {
@@ -5032,7 +5129,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
         case HHY_N_ASSIGN: {
             const HhyNode *target = node->children[0];
             if (target->kind != HHY_N_IDENTIFIER) { runtime_check_error(rt, node, "assignment target must be a variable"); return null_value(); }
-            char *name = token_text(rt, target->token); Binding *binding = env_find(env, name);
+            Binding *binding = env_find_n(env, target->token.start, target->token.length);
             if (binding == NULL) { runtime_check_error(rt, node, "assignment to undeclared variable"); return null_value(); }
             if (!binding->mutable) { runtime_check_error(rt, node, "cannot assign to immutable binding"); return null_value(); }
             binding->value = eval(rt, env, node->children[1]); return binding->value;
@@ -5055,11 +5152,15 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
     }
 }
 
-static Value exec_block(Runtime *rt, Env *parent, const HhyNode *node) {
-    Env *env = env_new(rt, parent); Value result = null_value();
+static Value exec_block_contents(Runtime *rt, Env *env, const HhyNode *node) {
+    Value result = null_value();
     for (size_t i = 0; i < node->child_count && !rt->failed && rt->signal == SIGNAL_NONE; i++)
         result = exec_node(rt, env, node->children[i]);
     return result;
+}
+
+static Value exec_block(Runtime *rt, Env *parent, const HhyNode *node) {
+    return exec_block_contents(rt, env_new(rt, parent), node);
 }
 
 static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
@@ -5075,15 +5176,14 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
         case HHY_N_EXPR_STMT: return eval(rt, env, node->children[0]);
         case HHY_N_LET_DECL: {
             bool mutable = node->child_count == 3; size_t name_index = mutable ? 1 : 0;
-            char *name = token_text(rt, node->children[name_index]->token);
             Value value = eval(rt, env, node->children[name_index + 1]);
-            env_define(rt, env, node, name, value, mutable); return value;
+            env_define_token(rt, env, node, node->children[name_index]->token,
+                             value, mutable); return value;
         }
         case HHY_N_FN_DECL: {
-            char *name = token_text(rt, node->children[0]->token);
             Value value = {.kind = V_FUNCTION}; value.as.function.node = node;
             value.as.function.closure = env; value.as.function.source = rt->source;
-            env_define(rt, env, node, name, value, false); return value;
+            env_define_token(rt, env, node, node->children[0]->token, value, false); return value;
         }
         case HHY_N_IF: {
             Value condition = eval(rt, env, node->children[0]); bool yes;
@@ -5109,7 +5209,7 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
             Value iterable = eval(rt, env, node->children[1]);
             if (iterable.kind == V_RANGE)
                 iterable = stream_value(rt, STREAM_RANGE, iterable, null_value(), env);
-            Value result = null_value(); char *name = token_text(rt,node->children[0]->token);
+            Value result = null_value(); HhyToken name = node->children[0]->token;
             size_t index = 0;
             Value item;
             if (iterable.kind == V_STREAM && !stream_claim(rt, node, iterable)) return null_value();
@@ -5124,7 +5224,8 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
                 } else if (!stream_next(rt, node, iterable.as.stream, &item)) {
                     break;
                 }
-                Env *iteration = env_new(rt, env); env_define(rt, iteration, node, name, item, false);
+                Env *iteration = env_new_with_capacity(rt, env, 1);
+                env_define_token(rt, iteration, node, name, item, false);
                 result = exec_node(rt, iteration, node->children[2]);
                 if (rt->signal == SIGNAL_BREAK) { rt->signal = SIGNAL_NONE; break; }
                 if (rt->signal == SIGNAL_CONTINUE) rt->signal = SIGNAL_NONE;
@@ -5141,8 +5242,8 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
             Value result = exec_node(rt, env, node->children[0]);
             if (!rt->failed) return result;
             Value error = rt->error_value; rt->failed = false; rt->exit_code = 0;
-            Env *catch_env = env_new(rt, env); char *name = token_text(rt,node->children[1]->token);
-            env_define(rt, catch_env, node, name, error, false);
+            Env *catch_env = env_new_with_capacity(rt, env, 1);
+            env_define_token(rt, catch_env, node, node->children[1]->token, error, false);
             return exec_node(rt, catch_env, node->children[2]);
         }
         case HHY_N_IMPORT_DECL:

@@ -205,6 +205,9 @@ esac
 gc_flow_output=$("$HHY_BIN" run tests/valid/gc-long-flow.hhy)
 [ "$gc_flow_output" = "200000" ] || fail "long Flow lost state under GC pressure"
 
+group_hash_scale_output=$("$HHY_BIN" run tests/valid/group-hash-scale.hhy)
+[ "$group_hash_scale_output" = "20000" ] || fail "group_by hash scale test failed"
+
 set +e
 unbounded_output=$("$HHY_BIN" run tests/invalid-runtime/unbounded-barrier.hhy 2>&1)
 unbounded_status=$?
@@ -553,6 +556,12 @@ case "$advanced_output" in
 true
 true') ;;
     *) fail "advanced Flow operators returned unexpected content: $advanced_output" ;;
+esac
+
+group_hash_output=$("$HHY_BIN" run tests/valid/group-hash-semantics.hhy)
+case "$group_hash_output" in
+    '[["Int", 3], ["Int", 2], ["String", 1], ["Path", 1], ["Null", 2], ["Bool", 2]]') ;;
+    *) fail "group_by hash semantics are incorrect: $group_hash_output" ;;
 esac
 
 collections_reduce_output=$("$HHY_BIN" run tests/valid/collections-reduce.hhy)

@@ -1,0 +1,5 @@
+range(0, 20000)
+    |> stream
+    |> group_by { value -> value }
+    |> count
+    |> print
