@@ -1,0 +1,18 @@
+#!/usr/bin/env hhy
+
+# 用 CPU 密集递归演示 hhy profile。输入适合从 20 开始逐步增大。
+
+fn fibonacci(n) {
+    if n < 2 {
+        return n
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+if length(args) != 2 or args[0] != "fibonacci" {
+    print_error("usage: hhy profile examples/09-profile-algorithms.hhy -- fibonacci <n>")
+    exit(3)
+}
+
+let input = to_int(args[1])
+print("fibonacci", fibonacci(input))
