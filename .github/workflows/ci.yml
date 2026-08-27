@@ -49,6 +49,7 @@ jobs:
         run: |
           make clean
           make
+          make extensions
           sh -x tests/run.sh build/hhy
 
       - name: Coverage-guided fuzzing
@@ -107,6 +108,7 @@ jobs:
         run: |
           make clean
           make
+          make extensions
           sh -x tests/run.sh build/hhy
 
       - name: Deterministic fuzz smoke
