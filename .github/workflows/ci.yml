@@ -37,7 +37,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev \
-            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev liblexbor-dev patchelf
+            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev cmake patchelf
+
+      - name: Build pinned Linux HTML dependency
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/lexbor/lexbor/archive/refs/tags/v3.0.0.tar.gz \
+            --output /tmp/lexbor-v3.0.0.tar.gz
+          tar -xzf /tmp/lexbor-v3.0.0.tar.gz -C /tmp
+          cmake -S /tmp/lexbor-3.0.0 -B /tmp/lexbor-build \
+            -DCMAKE_BUILD_TYPE=Release -DLEXBOR_BUILD_TESTS=OFF
+          cmake --build /tmp/lexbor-build --parallel 2
+          sudo cmake --install /tmp/lexbor-build
+          sudo ldconfig
 
       - name: Validate callable contracts
         run: python3 tests/check_contracts.py
