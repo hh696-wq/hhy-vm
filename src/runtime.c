@@ -2063,8 +2063,11 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
         if (!stream->initialized) {
             stream->initialized = true;
             size_t count = 0, capacity = 8;
-            Value *items = hhy_alloc(capacity * sizeof(Value));
-            Value *keys = hhy_alloc(capacity * sizeof(Value));
+            /* These temporary Values can contain GC-managed pointers and remain
+               live across selector/list allocations, so their backing arrays
+               must also be visible to the collector. */
+            Value *items = rt_alloc(rt, capacity * sizeof(Value));
+            Value *keys = rt_alloc(rt, capacity * sizeof(Value));
             Value item;
             while (stream_next(rt, site, stream->source.as.stream, &item)) {
                 if (count >= HHY_MAX_COLLECTION_ITEMS) {
@@ -2074,8 +2077,12 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                 }
                 if (count == capacity) {
                     capacity *= 2;
-                    items = hhy_realloc(items, capacity * sizeof(Value));
-                    keys = hhy_realloc(keys, capacity * sizeof(Value));
+                    Value *grown_items = rt_alloc(rt, capacity * sizeof(Value));
+                    Value *grown_keys = rt_alloc(rt, capacity * sizeof(Value));
+                    memcpy(grown_items, items, count * sizeof(Value));
+                    memcpy(grown_keys, keys, count * sizeof(Value));
+                    items = grown_items;
+                    keys = grown_keys;
                 }
                 items[count] = item;
                 keys[count] = call_value(rt, stream->env, site, stream->function, 1, &item);
@@ -2099,8 +2106,8 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                 }
             } else if (stream->kind == STREAM_GROUP && !rt->failed) {
                 size_t group_count = 0;
-                Value *group_keys = hhy_alloc((count ? count : 1) * sizeof(Value));
-                Value *group_lists = hhy_alloc((count ? count : 1) * sizeof(Value));
+                Value *group_keys = rt_alloc(rt, (count ? count : 1) * sizeof(Value));
+                Value *group_lists = rt_alloc(rt, (count ? count : 1) * sizeof(Value));
                 size_t *group_sizes = hhy_alloc((count ? count : 1) * sizeof(size_t));
                 size_t *item_groups = hhy_alloc((count ? count : 1) * sizeof(size_t));
                 size_t slot_count = 8;
@@ -2139,10 +2146,8 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                     stream->materialized.as.list.items[i] =
                         map_with_entries(rt, V_MAP, 2, group_names, group_values);
                 }
-                free(group_keys); free(group_lists);
                 free(group_sizes); free(item_groups);
             }
-            free(items); free(keys);
             if (rt->failed) return false;
         }
         if (stream->index >= stream->materialized.as.list.count) {

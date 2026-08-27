@@ -46,11 +46,7 @@ jobs:
         run: make test-debug SANITIZERS=${{ matrix.sanitizers }}
 
       - name: Release suite
-        run: |
-          make clean
-          make
-          make extensions
-          sh -x tests/run.sh build/hhy
+        run: make clean && make test
 
       - name: Coverage-guided fuzzing
         run: make fuzz-ci FUZZ_CC=clang
@@ -105,11 +101,7 @@ jobs:
         run: make test-debug
 
       - name: Release suite
-        run: |
-          make clean
-          make
-          make extensions
-          sh -x tests/run.sh build/hhy
+        run: make clean && make test
 
       - name: Deterministic fuzz smoke
         run: make fuzz-smoke
