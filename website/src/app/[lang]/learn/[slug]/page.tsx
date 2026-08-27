@@ -71,7 +71,24 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                 <div className="doc-table-wrap" key={index}>
                   <table className="doc-table">
                     <thead><tr>{block.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-                    <tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td data-label={block.columns[cellIndex]} key={cellIndex}>{cell}</td>)}</tr>)}</tbody>
+                    <tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => {
+                      const isRoadmapVersion = slug === "language-vm-roadmap" && cellIndex === 0 && cell.includes(" · ");
+                      const [version, ...statuses] = isRoadmapVersion ? cell.split(" · ") : [cell];
+                      return <td data-label={block.columns[cellIndex]} key={cellIndex}>{isRoadmapVersion
+                        ? <span className="roadmap-version"><b>{version}</b>{statuses.map((status) => {
+                          const statusKey = status === "已发布" || status === "Released"
+                            ? "released"
+                            : status === "测试中" || status === "Testing"
+                              ? "testing"
+                              : status === "当前" || status === "Current"
+                                ? "current"
+                                : status === "规划" || status === "Planned"
+                                  ? "planned"
+                                  : "conditional";
+                          return <em data-status={statusKey} key={status}>{status}</em>;
+                        })}</span>
+                        : cell}</td>;
+                    })}</tr>)}</tbody>
                   </table>
                 </div>
               );
@@ -82,12 +99,12 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                   ? [
                     { version: "v1.0.0", date: "2026-08-25", title: "核心语义冻结", detail: "Pipe / Value / Stream / Error、94 个核心 callable、三平台发布验证", icon: Code },
                     { version: "v1.1.0", date: "2026-08-26", title: "本地进程扩展", detail: "install/list/remove、Protocol 1、database 0.2.0、三平台发布验证", icon: PuzzlePiece },
-                    { version: "v1.1.1", date: "2026-08-27", title: "性能与临界稳定性", detail: "hhy profile、解释器热点优化、资源临界值压力测试与稳定错误", icon: ShieldCheck }
+                    { version: "v1.1.1", date: "2026-08 ～ 2026-09", title: "性能与临界稳定性", detail: "hhy profile、解释器热点优化、资源临界值压力测试与稳定错误", icon: ShieldCheck }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
                     { version: "v1.1.0", date: "2026-08-26", title: "Local process extensions", detail: "install/list/remove, Protocol 1, database 0.2.0, and three-platform release evidence", icon: PuzzlePiece },
-                    { version: "v1.1.1", date: "2026-08-27", title: "Performance and boundary stability", detail: "hhy profile, interpreter hotspot optimization, resource-boundary stress tests, and stable errors", icon: ShieldCheck }
+                    { version: "v1.1.1", date: "2026-08 to 2026-09", title: "Performance and boundary stability", detail: "hhy profile, interpreter hotspot optimization, resource-boundary stress tests, and stable errors", icon: ShieldCheck }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
@@ -103,10 +120,10 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                   : ["Freeze semantics before opening extensions", "Make it usable and measurable before fast", "Extend through protocol, not a second language model", "Evaluate ABI only after Runtime stability"];
                 return (
                   <figure className="evolution-roadmap" key={index}>
-                    <header><strong>{lang === "zh" ? "语言 / VM 演进路线图" : "Language / VM Evolution Roadmap"}</strong><span>{lang === "zh" ? "当前 v1.1.1 · 后续只保留两个方向" : "Current v1.1.1 · only two future directions"}</span></header>
+                    <header><strong>{lang === "zh" ? "语言 / VM 演进路线图" : "Language / VM Evolution Roadmap"}</strong><span>{lang === "zh" ? "当前 v1.1.1 · 测试中 · 后续只保留两个方向" : "Current v1.1.1 · testing · only two future directions"}</span></header>
                     <div className="evolution-released">
                       <strong>{lang === "zh" ? "版本基础与当前版本" : "Release foundation and current version"}</strong>
-                      {released.map(({ version, date, title, detail, icon: Icon }) => <article key={version}><Icon size={42} weight="duotone" aria-hidden /><div><span><b>{version}</b><time>{date}</time><em>{version === `v${hhyVersion}` ? (lang === "zh" ? "当前" : "Current") : (lang === "zh" ? "已发布" : "Released")}</em></span><h3>{title}</h3><p>{detail}</p></div></article>)}
+                      {released.map(({ version, date, title, detail, icon: Icon }) => <article key={version}><Icon size={42} weight="duotone" aria-hidden /><div><span><b>{version}</b><time>{date}</time><em data-status={version === `v${hhyVersion}` ? "testing" : "released"}>{version === `v${hhyVersion}` ? (lang === "zh" ? "当前 · 测试中" : "Current · Testing") : (lang === "zh" ? "已发布" : "Released")}</em></span><h3>{title}</h3><p>{detail}</p></div></article>)}
                     </div>
                     <div className="evolution-future-label"><span>{lang === "zh" ? "未来两个版本" : "Two future releases"}</span><small>{lang === "zh" ? "按验收门槛依次进入" : "Enter sequentially through acceptance gates"}</small></div>
                     <div className="evolution-track">

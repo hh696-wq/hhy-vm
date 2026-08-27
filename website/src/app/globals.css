@@ -236,6 +236,14 @@ button, input { font: inherit; }
 .doc-table th { padding: 12px 15px; color: var(--ink); background: #f5f8fd; font-size: 13px; text-align: left; }
 .doc-table td { padding: 13px 15px; color: var(--ink-soft); line-height: 1.55; border-top: 1px solid var(--line); vertical-align: top; }
 .doc-table th:first-child, .doc-table td:first-child { white-space: nowrap; font-family: var(--font-mono), monospace; }
+.roadmap-version { display: inline-flex; align-items: center; gap: 8px; }
+.roadmap-version b { color: #203e71; font-size: 13px; font-weight: 700; }
+.roadmap-version em { padding: 4px 8px; border-radius: 999px; font: 750 10px/1 var(--font-sans), sans-serif; font-style: normal; letter-spacing: .01em; }
+.roadmap-version em[data-status="released"] { color: #13734a; background: #e6f7ee; }
+.roadmap-version em[data-status="testing"] { color: #9a5410; background: #fff0d5; }
+.roadmap-version em[data-status="current"] { color: #1659a8; background: #e8f1ff; }
+.roadmap-version em[data-status="planned"] { color: #1859a9; background: #e8f1ff; }
+.roadmap-version em[data-status="conditional"] { color: #6641b5; background: #f0eaff; }
 .evolution-roadmap { margin: 24px 0 34px; padding: 30px; overflow: hidden; border: 1px solid #d7e2f4; border-radius: 5px; background: #fbfdff; box-shadow: 0 16px 44px rgba(19, 48, 103, .08); }
 .evolution-roadmap > header { padding: 0 6px 26px; }
 .evolution-roadmap > header strong, .evolution-roadmap > header span { display: block; }
@@ -251,6 +259,7 @@ button, input { font: inherit; }
 .evolution-released article span b { grid-column: 1; grid-row: 1; color: #164797; font-size: 12px; white-space: nowrap; }
 .evolution-released article time { grid-column: 1 / -1; grid-row: 2; color: #7182a1; font: 600 9px/1 var(--font-mono), monospace; letter-spacing: .01em; white-space: nowrap; }
 .evolution-released article em { grid-column: 2; grid-row: 1; justify-self: end; padding: 3px 7px; color: #14734a; border-radius: 999px; background: #e8f8ef; font-size: 9px; font-style: normal; font-weight: 750; line-height: 1; white-space: nowrap; }
+.evolution-released article em[data-status="testing"] { color: #9a5410; background: #fff0d5; }
 .evolution-released article h3 { margin: 5px 0 3px; color: #183564; font-size: 13px; }
 .evolution-released article p { margin: 0; color: #607393; font-size: 10px; line-height: 1.45; }
 .evolution-future-label { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 6px 2px; }

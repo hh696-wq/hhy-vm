@@ -2079,17 +2079,18 @@ export const chapters: Chapter[] = [
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.1.1 是当前性能与稳定性版本。后续只列两个方向，不承诺发布日期；每个版本只有在上一阶段的验收条件通过后才进入冻结。" },
+          { type: "note", text: "v1.1.1 是当前测试中的性能与稳定性版本。后续只列两个方向，不承诺发布日期；每个版本只有在上一阶段的验收条件通过后才进入冻结。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
-          { type: "table", columns: ["版本", "建议窗口（非承诺）", "核心交付", "进入下一阶段前必须满足"], rows: [
+          { type: "table", columns: ["版本", "建议窗口", "核心交付", "进入下一阶段前必须满足"], rows: [
             ["v1.0.0 · 已发布", "2026-08-25", "核心语言与 VM 语义冻结", "Pipe、Value、Stream、Error、核心标准库和三平台发行证据完成"],
             ["v1.1.0 · 已发布", "2026-08-26", "本地进程扩展与官方数据库扩展", "安装/加载完整性、Protocol 1 同步调用、database 0.2.0 和三平台发行证据完成"],
-            ["v1.1.1 · 当前", "2026-08-27", "性能优化与临界资源稳定性", "hhy profile、解释器热点基线、GC/内存/递归/集合边界压力测试完成；越界产生稳定错误而非 Runtime 崩溃"],
+            ["v1.1.1 · 当前 · 测试中", "2026-08 ～ 2026-09", "性能优化与临界资源稳定性", "hhy profile、解释器热点基线、GC/内存/递归/集合边界压力测试完成；越界产生稳定错误而非 Runtime 崩溃"],
             ["v1.2 · 规划", "完成 v1.1.1 验收后", "官方扩展包分发与工具链", "官方扩展具备签名验证、依赖解析、远程索引、离线锁定、可复现安装以及安全回滚"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
-          ] }
+          ] },
+          { type: "p", text: "说明：以上时间为建议窗口，不构成发布承诺。" }
         ] },
         { title: "演进原则", blocks: [
           { type: "table", columns: ["原则", "约束"], rows: [["语义先冻结", "Pipe、Value、Stream、Error 与取消语义先稳定，再扩展生态表面"], ["可用、可测先于高性能", "每项能力先具备确定错误、资源上限和跨平台测试，再进行优化"], ["协议优先", "第三方能力优先通过 Process Extension Protocol 接入，不并行发明第二套语言语义"], ["ABI 有条件开放", "Native ABI 只有在 Runtime 足够稳定且测量证明必要时才评估；不开放也是有效结论"]] },
@@ -2101,17 +2102,18 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.1.1 is the current performance and stability release. Only two future directions are listed, without committed dates; each enters freeze only after the previous stage passes its acceptance gate." },
+          { type: "note", text: "v1.1.1 is the current performance and stability release under testing. Only two future directions are listed, without committed dates; each enters freeze only after the previous stage passes its acceptance gate." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
-          { type: "table", columns: ["Release", "Recommended window (not committed)", "Primary delivery", "Required before the next stage"], rows: [
+          { type: "table", columns: ["Release", "Recommended window", "Primary delivery", "Required before the next stage"], rows: [
             ["v1.0.0 · Released", "2026-08-25", "Core language and VM semantics frozen", "Pipe, Value, Stream, Error, the core standard library, and three-platform release evidence completed"],
             ["v1.1.0 · Released", "2026-08-26", "Local process extensions and the official database extension", "Install/load integrity, synchronous Protocol 1 calls, database 0.2.0, and three-platform release evidence completed"],
-            ["v1.1.1 · Current", "2026-08-27", "Performance optimization and resource-boundary stability", "hhy profile, interpreter hotspot baselines, and GC/memory/recursion/collection boundary stress tests complete; limit breaches return stable errors instead of crashing the Runtime"],
+            ["v1.1.1 · Current · Testing", "2026-08 to 2026-09", "Performance optimization and resource-boundary stability", "hhy profile, interpreter hotspot baselines, and GC/memory/recursion/collection boundary stress tests complete; limit breaches return stable errors instead of crashing the Runtime"],
             ["v1.2 · Planned", "After v1.1.1 acceptance", "Official extension package distribution and tooling", "Official extensions have publisher signatures, dependency resolution, a remote index, offline locking, reproducible installation, and safe rollback"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
-          ] }
+          ] },
+          { type: "p", text: "Note: these dates are recommended windows, not release commitments." }
         ] },
         { title: "Evolution principles", blocks: [
           { type: "table", columns: ["Principle", "Constraint"], rows: [["Freeze semantics first", "Stabilize Pipe, Value, Stream, Error, and cancellation semantics before broadening the ecosystem surface"], ["Usable and measurable before fast", "Every capability needs deterministic errors, resource bounds, and cross-platform tests before optimization"], ["Protocol first", "Integrate third-party capability through the Process Extension Protocol instead of inventing a second language model"], ["ABI only when justified", "Evaluate a Native ABI only after Runtime stabilization and measured need; choosing not to publish one is a valid result"]] },
