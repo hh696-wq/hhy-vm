@@ -5032,17 +5032,10 @@ static Value eval_call(Runtime *rt, Env *env, const HhyNode *node, Value *inject
     Value callee = eval(rt, env, node->children[0]);
     size_t explicit_count = node->child_count - 1;
     size_t argc = explicit_count + (injected != NULL ? 1 : 0);
-    Value inline_args[4];
-    /* Native builtins and extensions may allocate while they are running. Keep
-       their arguments in GC-managed memory so pointer-valued arguments remain
-       visible even when an optimizing compiler no longer preserves stack roots.
-       The inline fast path remains available for small HHY function calls. */
-    bool inline_safe = callee.kind == V_FUNCTION &&
-                       callee.as.function.builtin == NULL &&
-                       !callee.as.function.is_closure;
-    Value *args = argc == 0 ? NULL : argc <= 4 && inline_safe
-                                      ? inline_args
-                                      : rt_alloc(rt, argc * sizeof(Value));
+    /* Calls can allocate before every argument has been consumed. Keep argument
+       arrays in GC-managed memory: optimized native builds are not required to
+       retain every pointer-bearing Value in a conservatively scanned stack slot. */
+    Value *args = argc == 0 ? NULL : rt_alloc(rt, argc * sizeof(Value));
     size_t offset = 0;
     if (injected != NULL) args[offset++] = *injected;
     for (size_t i = 0; i < explicit_count && !rt->failed; i++) args[offset + i] = eval(rt, env, node->children[i + 1]);
