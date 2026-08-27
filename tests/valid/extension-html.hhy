@@ -1,0 +1,11 @@
+import html
+
+let source = "<main><article class=\"item\"><h2> HHY &amp; Flow </h2><a href=\"/docs\">Read</a></article><article class=\"item\"><h2>Second</h2></article></main>"
+
+print(html.text(source, "h2"))
+print(html.attr(source, "a", "href"))
+print(html.exists(source, "article.item"))
+html.extract(source, "article.item", {
+        title: { selector: "h2", value: "text" },
+        url: { selector: "a", value: "attr", name: "href" }
+}) |> encode_json |> print

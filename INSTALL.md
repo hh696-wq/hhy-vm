@@ -66,6 +66,18 @@ sudo apt-get install libpq-dev default-libmysqlclient-dev
 make -C extensions/database
 ```
 
+Building the bundled `html` process extension additionally requires Lexbor:
+
+```sh
+# macOS
+brew install lexbor
+make -C extensions/html
+
+# Ubuntu/Debian: install the distribution's Lexbor development package,
+# or build Lexbor from its official source release before running:
+make -C extensions/html
+```
+
 For an isolated installation, set `DESTDIR`; for a Homebrew prefix use
 `make install PREFIX="$(brew --prefix)"`. Release archives include a SHA-256
 file. Verify it with `shasum -a 256 -c FILE.sha256` on macOS or

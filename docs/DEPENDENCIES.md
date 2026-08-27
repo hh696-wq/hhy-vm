@@ -13,10 +13,12 @@ HHY 核心运行时保持小依赖面，只在协议、安全或 Unicode 语义�
 | OpenSSL libcrypto | 本地扩展包 SHA-256 完整性校验 | Apache 2.0 | EVP API 与 `libcrypto` | [OpenSSL](https://www.openssl.org/) |
 | libpq（database 扩展） | PostgreSQL 参数化查询 | PostgreSQL License | `libpq-fe.h` 与 `libpq` | [PostgreSQL](https://www.postgresql.org/) |
 | MySQL Client（database 扩展） | MySQL prepared statement | GPL-2.0 with FOSS exception | `mysql.h` 与 `libmysqlclient` | [MySQL](https://www.mysql.com/) |
+| Lexbor（html 扩展） | HTML Living Standard 解析、DOM 与 CSS Selector | Apache-2.0 | `lexbor/html/html.h` 与 `liblexbor` | [Lexbor](https://lexbor.com/) |
 | LLVM clang/libFuzzer（仅开发测试） | 覆盖引导 Lexer、Parser、JSON、CSV 与 Regex fuzz | Apache-2.0 with LLVM exceptions | 不进入 HHY 发行二进制 | [LLVM releases](https://releases.llvm.org/) |
 
 依赖由操作系统或包管理器提供，不把动态库复制进源码仓库。macOS 可执行
-`brew install curl pcre2 bdw-gc jansson openssl@3`；database 扩展另需 `libpq mysql`。
+`brew install curl pcre2 bdw-gc jansson openssl@3`；database 扩展另需 `libpq mysql`，
+html 扩展另需 `lexbor`。
 Linux 使用发行版对应的开发包。
 正式发布包通过 `BUILD_INFO.txt` 记录实际链接版本、编译器与目标平台，通过
 `THIRD_PARTY_NOTICES.md` 附带许可证文本，并为归档文件生成 SHA-256 校验值。

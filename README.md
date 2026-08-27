@@ -228,6 +228,25 @@ PostgreSQL 使用 `$1` 参数，MySQL 使用 `?`。事务第一版在同一连�
 1–100 条 `INSERT`、`UPDATE` 或 `DELETE`，任一失败会整体回滚。完整示例和构建依赖见
 [`extensions/database`](extensions/database/README.md)。
 
+HTML 扩展使用 Lexbor 对不可信 HTML 进行 HTML5 容错解析和 CSS Selector 查询，
+自身不访问网络；抓取仍由 Runtime 的 HTTP、timeout、retry、TLS 与 dry-run 负责：
+
+```sh
+make -C extensions/html
+./build/hhy install ./extensions/html
+```
+
+```hhy-snippet
+import html
+
+html.extract(body, "article.product", {
+    title: { selector: "h2", value: "text" },
+    url: { selector: "a", value: "attr", name: "href" }
+})
+```
+
+API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
+
 ## V1.1.1 状态
 
 V1.0 语言 contract 保持兼容；V1.1.1 聚焦性能定位、解释器热点优化和临界资源稳定性。

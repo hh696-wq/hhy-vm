@@ -1,0 +1,41 @@
+#!/usr/bin/env hhy
+
+import { crawl, records, failures } from "./lib/engine.hhy"
+
+if length(args) != 4 {
+    print_error("usage: hhy run crawler.hhy <config.json> <records.json> <report.json> <failures.json>")
+    exit(3)
+}
+try {
+    let config = read_text(path(args[0])) |> parse_json
+    let results = crawl(config)
+    let items = records(results)
+    let failed = failures(results)
+    let successful_pages = results |> stream |> where { result -> result.ok == true } |> count
+    let report = {
+        tool: "HHY Collector Framework",
+        version: "1.0.0",
+        project: config.project,
+        ok: length(failed) == 0,
+        stats: {
+            requested_pages: length(config.seeds),
+            successful_pages: successful_pages,
+            failed_pages: length(failed),
+            records: length(items)
+        }
+    }
+
+    items |> encode_json({ pretty: true }) |> save_text(path(args[1]), { atomic: true, create_parents: true })
+    report |> encode_json({ pretty: true }) |> save_text(path(args[2]), { atomic: true, create_parents: true })
+    failed |> encode_json({ pretty: true }) |> save_text(path(args[3]), { atomic: true, create_parents: true })
+
+    print("HHY Collector Framework", config.project)
+    print("Pages", successful_pages, "/", length(config.seeds), "Records", length(items), "Failures", length(failed))
+    print("Records", path(args[1]))
+    print("Report", path(args[2]))
+    print("Failures", path(args[3]))
+    if not report.ok { exit(1) }
+} catch err {
+    print_error(err)
+    exit(1)
+}

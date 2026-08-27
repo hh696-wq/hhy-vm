@@ -75,6 +75,7 @@ debug: $(DEBUG_TARGET)
 extensions:
 	$(MAKE) -C extensions/sample
 	$(MAKE) -C extensions/database
+	$(MAKE) -C extensions/html
 
 test: $(TARGET) extensions
 	sh tests/run.sh $(TARGET)
@@ -109,7 +110,8 @@ dist:
 	$(MAKE) all extensions
 	rm -rf build/$(PACKAGE)
 	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/lib build/$(PACKAGE)/docs build/$(PACKAGE)/examples \
-		build/$(PACKAGE)/extensions/sample/bin build/$(PACKAGE)/extensions/database/bin dist
+		build/$(PACKAGE)/extensions/sample/bin build/$(PACKAGE)/extensions/database/bin \
+		build/$(PACKAGE)/extensions/html/bin dist
 	cp $(TARGET) build/$(PACKAGE)/bin/hhy
 	cp README.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
 	cp docs/HHY_V1.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md docs/EXTENSION_PROTOCOL_V1.md docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md build/$(PACKAGE)/docs/
@@ -120,6 +122,8 @@ dist:
 	mv build/$(PACKAGE)/extensions/sample/hhy-sample build/$(PACKAGE)/extensions/sample/bin/
 	cp extensions/database/hhy.toml extensions/database/bin/hhy-database build/$(PACKAGE)/extensions/database/
 	mv build/$(PACKAGE)/extensions/database/hhy-database build/$(PACKAGE)/extensions/database/bin/
+	cp extensions/html/hhy.toml extensions/html/bin/hhy-html build/$(PACKAGE)/extensions/html/
+	mv build/$(PACKAGE)/extensions/html/hhy-html build/$(PACKAGE)/extensions/html/bin/
 	sh scripts/bundle-runtime.sh build/$(PACKAGE)
 	COPYFILE_DISABLE=1 tar -C build -czf dist/$(PACKAGE).tar.gz $(PACKAGE)
 	@if command -v sha256sum >/dev/null 2>&1; then \
@@ -133,5 +137,6 @@ clean:
 	rm -rf build
 	$(MAKE) -C extensions/sample clean
 	$(MAKE) -C extensions/database clean
+	$(MAKE) -C extensions/html clean
 
 -include $(OBJECTS:.o=.d) $(DEBUG_OBJECTS:.o=.d)

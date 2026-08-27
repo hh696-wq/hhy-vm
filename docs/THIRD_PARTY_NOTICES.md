@@ -7,6 +7,10 @@ The separately built `database` reference extension also links against libpq and
 the MySQL client library. Those libraries are supplied by the platform and are not
 copied into this source repository.
 
+The separately built `html` extension links against Lexbor, which is distributed
+under the Apache License 2.0. Lexbor is supplied by the platform and is not copied
+into this source repository.
+
 ## Jansson
 
 Copyright (c) 2009-2024 Petri Lehtinen. Jansson is distributed under the MIT
@@ -17,6 +21,12 @@ in the upstream distribution.
 
 OpenSSL is distributed under the Apache License 2.0. The platform OpenSSL library is
 used only through the EVP digest API for installed-package SHA-256 verification.
+
+## Lexbor
+
+Copyright (C) Alexander Borisov and Lexbor contributors. Lexbor is distributed
+under the Apache License 2.0. The HHY html extension uses its HTML Living Standard
+parser, DOM implementation, and CSS selector engine.
 
 ## PostgreSQL libpq and MySQL client
 

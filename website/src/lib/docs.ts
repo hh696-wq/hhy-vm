@@ -20,6 +20,7 @@ export type ChapterSlug =
   | "standard-library"
   | "extensions-roadmap"
   | "database-extension"
+  | "html-crawler-framework"
   | "language-vm-roadmap"
   | "practical-recipes"
   | "cli-reference";
@@ -2083,8 +2084,58 @@ export const chapters: Chapter[] = [
     }
   },
   {
-    slug: "language-vm-roadmap",
+    slug: "html-crawler-framework",
     order: 21,
+    title: { zh: "HTML 扩展与抓取框架", en: "HTML Extension and Crawler Framework" },
+    summary: { zh: "用官方 HTML 扩展和 my-crawler 完成一次真实、可审计、有边界的静态页面采集。", en: "Use the official HTML extension and my-crawler for a real, auditable, bounded static-page collection task." },
+    sections: {
+      zh: [
+        { title: "为什么先做静态文档采集", blocks: [
+          { type: "p", text: "HHY 已经拥有 HTTP、timeout、retry、parallel、结构化错误和原子文件输出。缺失的一环是 DOM 解析，所以第一版不把 Runtime 变成浏览器，而是增加一个无网络、无文件权限的 html 进程扩展：HHY 负责抓取与调度，Lexbor 负责解析不可信 HTML 和执行 CSS Selector。" },
+          { type: "note", text: "当前定位是 Flow-first data collection for APIs and static documents。它不执行 JavaScript，也不用于绕过 robots.txt、登录、验证码或反爬策略。只采集你有权访问的站点，并保持可识别 User-Agent 与保守并发。" }
+        ] },
+        { title: "构建与安装 HTML 扩展", blocks: [
+          { type: "code", language: "sh", code: "brew install jansson lexbor\nmake -C extensions/html\n./build/hhy install ./extensions/html\n./build/hhy list" },
+          { type: "table", columns: ["Callable", "结果", "用途"], rows: [["html.text / text_all", "String / List", "读取一个或多个节点的规范化文本"], ["html.attr / attr_all", "String / List", "读取一个或多个属性"], ["html.exists", "Bool", "判断 Selector 是否命中"], ["html.extract", "List<Map>", "一次解析文档，并按 schema 投影重复记录"]] },
+          { type: "p", text: "扩展把输入限制在 768 KiB，集合默认最多返回 1000 项、硬上限 10000 项，以便协议消息始终有界。它不返回 DOM handle：Protocol 1 只运输 JSON 可表达的值，因此 html.extract 在扩展内一次完成解析和字段投影。" }
+        ] },
+        { title: "初始化 my-crawler", blocks: [
+          { type: "code", language: "sh", code: "make\n./practical-projects/my-crawler/init.sh\n./practical-projects/my-crawler/self-test.sh\n./practical-projects/my-crawler/run.sh" },
+          { type: "p", text: "init.sh 把 html 扩展安装在项目自己的 .hhy-extensions 中，不污染用户级扩展目录，并创建被 Git 忽略的 output。self-test.sh 使用本机 fixture server 验证完整 HTTP → DOM → JSON 链路；run.sh 默认执行真实的 hhylang.dev 文档抓取。" },
+          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"parallelism\": 2,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": {\n    \"title\": { \"selector\": \"\", \"value\": \"text\" },\n    \"anchor\": { \"selector\": \"\", \"value\": \"attr\", \"name\": \"id\" }\n  }\n}" }
+        ] },
+        { title: "真实运行结果与边界", blocks: [
+          { type: "terminal", command: "./practical-projects/my-crawler/run.sh", output: "HHY Collector Framework HHY Documentation Crawler\nPages 1 / 1 Records 6 Failures 0\nRecords practical-projects/my-crawler/output/records.json\nReport practical-projects/my-crawler/output/report.json" },
+          { type: "table", columns: ["层", "职责"], rows: [["Crawler", "种子去重、有界并发、timeout/retry、逐页失败归档"], ["HTML extension", "Lexbor DOM、CSS Selector、文本/属性/schema 抽取"], ["Output", "records、report、failures 三份原子 JSON"], ["当前边界", "响应体完整缓冲；不支持 JS 渲染、浏览器自动化和无限流"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/my-crawler", label: "查看 my-crawler 完整源码", description: "包含中英文说明、真实任务配置、初始化脚本、本机 fixture server 和确定性端到端测试。" }
+        ] }
+      ],
+      en: [
+        { title: "Why static-document collection comes first", blocks: [
+          { type: "p", text: "HHY already has HTTP, timeout, retry, parallel, structured errors, and atomic file output. DOM parsing was the missing piece. The first version therefore does not turn Runtime into a browser; it adds a process extension with no network or file capabilities. HHY owns fetching and scheduling, while Lexbor parses untrusted HTML and evaluates CSS selectors." },
+          { type: "note", text: "The scope is Flow-first data collection for APIs and static documents. It does not execute JavaScript or bypass robots.txt, authentication, CAPTCHAs, or anti-bot controls. Crawl only sites you are authorized to access, identify the client, and keep concurrency conservative." }
+        ] },
+        { title: "Build and install the HTML extension", blocks: [
+          { type: "code", language: "sh", code: "brew install jansson lexbor\nmake -C extensions/html\n./build/hhy install ./extensions/html\n./build/hhy list" },
+          { type: "table", columns: ["Callable", "Result", "Purpose"], rows: [["html.text / text_all", "String / List", "Read normalized text from one or many nodes"], ["html.attr / attr_all", "String / List", "Read one or many attributes"], ["html.exists", "Bool", "Test whether a selector matches"], ["html.extract", "List<Map>", "Parse once and project repeated records through a schema"]] },
+          { type: "p", text: "The extension limits input to 768 KiB. Collections default to 1000 results with a hard limit of 10000, keeping protocol messages bounded. It does not return DOM handles: Protocol 1 transports only JSON-shaped values, so html.extract performs parsing and projection inside one extension call." }
+        ] },
+        { title: "Initialize my-crawler", blocks: [
+          { type: "code", language: "sh", code: "make\n./practical-projects/my-crawler/init.sh\n./practical-projects/my-crawler/self-test.sh\n./practical-projects/my-crawler/run.sh" },
+          { type: "p", text: "init.sh installs html into the project's own .hhy-extensions directory without touching the user-level extension home, then creates the Git-ignored output directory. self-test.sh verifies the complete HTTP → DOM → JSON path against a local fixture server; run.sh performs the real hhylang.dev documentation crawl." },
+          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"parallelism\": 2,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": {\n    \"title\": { \"selector\": \"\", \"value\": \"text\" },\n    \"anchor\": { \"selector\": \"\", \"value\": \"attr\", \"name\": \"id\" }\n  }\n}" }
+        ] },
+        { title: "Real run and explicit boundaries", blocks: [
+          { type: "terminal", command: "./practical-projects/my-crawler/run.sh", output: "HHY Collector Framework HHY Documentation Crawler\nPages 1 / 1 Records 6 Failures 0\nRecords practical-projects/my-crawler/output/records.json\nReport practical-projects/my-crawler/output/report.json" },
+          { type: "table", columns: ["Layer", "Responsibility"], rows: [["Crawler", "Seed deduplication, bounded parallelism, timeout/retry, per-page failure archive"], ["HTML extension", "Lexbor DOM, CSS selectors, text/attribute/schema extraction"], ["Output", "Three atomic JSON files: records, report, and failures"], ["Current boundary", "Buffered response bodies; no JS rendering, browser automation, or unbounded streams"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/my-crawler", label: "Read the complete my-crawler source", description: "Includes bilingual documentation, a real task configuration, initialization, a local fixture server, and deterministic end-to-end verification." }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "language-vm-roadmap",
+    order: 22,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
     summary: { zh: "v1.1.1 聚焦性能与临界稳定性；未来只保留扩展工具链和生态 ABI 两个方向。", en: "v1.1.1 focuses on performance and boundary stability, followed by only two directions: extension tooling and the ecosystem ABI decision." },
     sections: {
@@ -2144,7 +2195,7 @@ export function getChapter(slug: string): Chapter | undefined {
 
 export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" {
   if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project" || chapter.slug === "multi-api-data-collector-project") return "project";
-  if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension") return "extension";
+  if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension" || chapter.slug === "html-crawler-framework") return "extension";
   if (chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"
     ? "reference"

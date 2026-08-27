@@ -1,0 +1,8 @@
+import html
+
+let source = "<main><article class=\"item\"><h2> HHY &amp; Flow </h2><a href=\"/docs\">Read</a></article></main>"
+
+html.extract(source, "article.item", {
+    title: { selector: "h2", value: "text" },
+    url: { selector: "a", value: "attr", name: "href" }
+}) |> print

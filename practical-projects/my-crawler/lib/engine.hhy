@@ -1,0 +1,56 @@
+import html
+
+fn fetch_page(url, user_agent) {
+    return http.get(url, { headers: { "User-Agent": user_agent } })
+        |> timeout(10s)
+        |> retry({ count: 2, backoff: 500ms })
+        |> send
+        |> response_body
+}
+fn crawl_seed(url, user_agent, root_selector, schema, max_results) {
+    let fetched = attempt { fetch_page(url, user_agent) }
+    if fetched.ok != true {
+        return { ok: false, url: url, records: [], error: fetched.error.message }
+    }
+
+    let parsed = attempt { html.extract(fetched.value, root_selector, schema, { max_results: max_results }) }
+    if parsed.ok != true {
+        return { ok: false, url: url, records: [], error: parsed.error.message }
+    }
+
+    let records = parsed.value
+        |> stream
+        |> map { record -> put(record, "source_url", url) }
+        |> collect
+    return { ok: true, url: url, records: records, error: null }
+}
+
+export fn crawl(config) {
+    let user_agent = config.user_agent
+    let root_selector = config.root_selector
+    let schema = config.schema
+    let max_results = config.max_results
+    return config.seeds
+        |> stream
+        |> distinct
+        |> parallel(config.parallelism) { url ->
+        crawl_seed(url, user_agent, root_selector, schema, max_results)
+    }
+        |> collect
+}
+
+export fn records(results) {
+    return results
+        |> stream
+        |> where { result -> result.ok == true }
+        |> flat_map { result -> result.records |> stream }
+        |> collect
+}
+
+export fn failures(results) {
+    return results
+        |> stream
+        |> where { result -> result.ok != true }
+        |> map { result -> { url: result.url, error: result.error } }
+        |> collect
+}

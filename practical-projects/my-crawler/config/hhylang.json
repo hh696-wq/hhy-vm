@@ -1,0 +1,14 @@
+{
+  "project": "HHY Documentation Crawler",
+  "seeds": [
+    "https://hhylang.dev/zh/learn/cli-reference"
+  ],
+  "parallelism": 2,
+  "user_agent": "HHY-Collector/1.0 (+https://hhylang.dev)",
+  "root_selector": "main article h2",
+  "max_results": 100,
+  "schema": {
+    "title": { "selector": "", "value": "text" },
+    "anchor": { "selector": "", "value": "attr", "name": "id" }
+  }
+}

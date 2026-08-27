@@ -6,6 +6,7 @@ extension_test_home=$(mktemp -d)
 trap 'rm -rf "$extension_test_home"' EXIT INT TERM
 HHY_EXTENSION_HOME="$extension_test_home" "$HHY_BIN" install --yes extensions/sample >/dev/null
 HHY_EXTENSION_HOME="$extension_test_home" "$HHY_BIN" install --yes extensions/database >/dev/null
+HHY_EXTENSION_HOME="$extension_test_home" "$HHY_BIN" install --yes extensions/html >/dev/null
 export HHY_EXTENSION_HOME="$extension_test_home"
 
 # Generated test artifacts are intentionally ignored by Git. A clean checkout
@@ -101,16 +102,30 @@ DATABASE_OPERATION_FAILED') ;;
     *) fail "database extension error did not cross the protocol safely: $database_error_output" ;;
 esac
 
+html_output=$($HHY_BIN run tests/valid/extension-html.hhy)
+case "$html_output" in
+    'HHY & Flow
+/docs
+true
+[{"title": "HHY & Flow", "url": "/docs"}, {"title": "Second", "url": null}]') ;;
+    *) fail "html extension returned unexpected output: $html_output" ;;
+esac
+
 printf 'tamper' >> "$extension_test_home/sample/bin/hhy-sample"
 if $HHY_BIN check tests/valid/extension-sample.hhy >/dev/null 2>&1; then
     fail "extension loader accepted a modified executable"
 fi
 $HHY_BIN remove sample >/dev/null
 $HHY_BIN remove database >/dev/null
+$HHY_BIN remove html >/dev/null
 [ -z "$($HHY_BIN list)" ] || fail "removed extensions remain installed"
 case "$extension_list" in
     *"database 0.2.0"*"Author"*"HHY Official"*"Protocol"*"1"*"Permissions"*) ;;
     *) fail "database extension was not listed: $extension_list" ;;
+esac
+case "$extension_list" in
+    *"html 0.1.0"*"Author"*"HHY Official"*"Protocol"*"1"*"Permissions"*) ;;
+    *) fail "html extension was not listed: $extension_list" ;;
 esac
 
 cp tests/fixtures/unformatted.hhy.txt tests/output/formatted.hhy

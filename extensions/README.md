@@ -12,6 +12,7 @@ HHY Runtime 私有的 C Value 内存布局。
 | 目录 | 命名空间 | 用途 | 状态 |
 | --- | --- | --- | --- |
 | [`database`](database/) | `database.*` | PostgreSQL/MySQL 参数化查询、写入与事务 | 可安装使用 |
+| [`html`](html/) | `html.*` | HTML5 容错解析、CSS Selector 与结构化字段抽取 | 可安装使用 |
 | [`sample`](sample/) | `sample.*` | Protocol v1 握手、注册、调用和错误传播测试 | 参考扩展 |
 
 ## 本地安装
