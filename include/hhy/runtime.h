@@ -2,6 +2,7 @@
 #define HHY_RUNTIME_H
 
 #include "hhy/ast.h"
+#include "hhy/profiler.h"
 
 typedef struct {
     bool ok;
@@ -24,6 +25,10 @@ HhyRuntimeLimits hhy_runtime_limits_default(void);
 HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
                              int argc, char **argv, bool dry_run,
                              const HhyRuntimeLimits *limits);
+HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program,
+                                 int argc, char **argv, bool dry_run,
+                                 const HhyRuntimeLimits *limits,
+                                 const HhyProfileOptions *profile);
 int hhy_repl(void);
 
 #endif

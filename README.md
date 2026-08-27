@@ -168,6 +168,7 @@ cd hhy-1.1.0-PLATFORM-ARCH
 | 命令 | 用途 |
 |---|---|
 | `hhy run <script.hhy> [args...]` | 运行脚本并传递参数 |
+| `hhy profile <script.hhy> [args...]` | 分析脚本 CPU 热点、调用次数和托管 Heap 分配 |
 | `hhy repl` | 启动交互式环境 |
 | `hhy check <file.hhy>...` | 检查语法和核心语义 |
 | `hhy fmt <file.hhy>...` | 格式化源码 |
@@ -179,6 +180,18 @@ cd hhy-1.1.0-PLATFORM-ARCH
 | `hhy remove <package>` | 移除扩展包 |
 
 运行 `hhy --help` 查看完整参数和资源限制选项。
+
+性能分析默认把报告写入 stderr，保持脚本 stdout 不变：
+
+```sh
+hhy profile script.hhy -- input
+hhy profile --cpu script.hhy
+hhy profile --heap --format json --output profile.json script.hhy
+```
+
+CPU 数据以 1ms 进程 CPU 时间采样，阻塞等待不会被算作 CPU 热点；很短的脚本可能
+没有足够样本。Heap 数据统计 HHY 托管内存的累计申请、观察峰值和 GC 后占用，
+不包含扩展进程以及 libcurl 等原生库自行管理的内存。
 
 ## 本地进程扩展
 

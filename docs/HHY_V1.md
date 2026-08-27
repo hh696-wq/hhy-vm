@@ -1094,6 +1094,7 @@ hhy fmt script.hhy
 hhy fmt --check
 hhy check script.hhy
 hhy run --dry-run script.hhy
+hhy profile [--cpu|--heap] [--format text|json] [--output path] script.hhy [args...]
 hhy --version
 hhy --help
 ```
@@ -1105,6 +1106,10 @@ hhy --help
 - `check` 检查语法、作用域、模块、不可发送捕获和已知标准库调用，不承诺完整静态类型检查。
 - 非交互输出稳定，支持 `NO_COLOR`。
 - `--dry-run` 拦截文件写动作、进程启动和 HTTP send。
+- `profile` 执行脚本并报告逻辑函数和 builtin 的 CPU 样本、调用次数与托管 Heap
+  分配；报告默认写入 stderr，脚本 stdout 和退出码保持运行语义。
+- `profile` 默认同时采集 CPU 和 Heap；单独指定 `--cpu` 或 `--heap` 时只采集选中
+  类别。`--format json` 提供机器可读报告，`--output` 将报告写入文件。
 
 退出码：
 

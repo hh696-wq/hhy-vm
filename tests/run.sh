@@ -147,6 +147,35 @@ case "$run_output" in
     *) fail "unexpected pipeline runtime output: $run_output" ;;
 esac
 
+profile_output=$("$HHY_BIN" profile tests/valid/basic.hhy 2>tests/output/basic.profile.txt)
+[ "$profile_output" = "$run_output" ] || fail "profile changed script stdout"
+grep -F 'HHY profile: tests/valid/basic.hhy' tests/output/basic.profile.txt >/dev/null ||
+    fail "profile text report omitted its source"
+grep -F 'CPU hotspots' tests/output/basic.profile.txt >/dev/null ||
+    fail "profile text report omitted CPU hotspots"
+grep -F 'Allocation hotspots' tests/output/basic.profile.txt >/dev/null ||
+    fail "profile text report omitted allocation hotspots"
+grep -F '<top-level>' tests/output/basic.profile.txt >/dev/null ||
+    fail "profile did not account for top-level execution"
+
+profile_json_output=$("$HHY_BIN" profile --heap --format json \
+    --output tests/output/basic.profile.json tests/valid/basic.hhy)
+[ "$profile_json_output" = "$run_output" ] || fail "JSON profile changed script stdout"
+grep -F '"allocated_bytes"' tests/output/basic.profile.json >/dev/null ||
+    fail "JSON profile omitted allocation data"
+grep -F '"name": "<top-level>"' tests/output/basic.profile.json >/dev/null ||
+    fail "JSON profile omitted top-level execution"
+if command -v python3 >/dev/null 2>&1; then
+    python3 -m json.tool tests/output/basic.profile.json >/dev/null ||
+        fail "profile JSON is invalid"
+fi
+
+set +e
+"$HHY_BIN" profile --format yaml tests/valid/basic.hhy >/dev/null 2>&1
+profile_option_status=$?
+set -e
+[ "$profile_option_status" -eq 3 ] || fail "invalid profile format used the wrong exit status"
+
 bounded_event_output=$("$HHY_BIN" run tests/valid/bounded-event-stream.hhy)
 [ "$bounded_event_output" = "2" ] || fail "take did not bound an event Stream"
 

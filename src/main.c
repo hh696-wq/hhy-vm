@@ -23,6 +23,7 @@ typedef enum {
     COMMAND_AST,
     COMMAND_TOKENS,
     COMMAND_FMT,
+    COMMAND_PROFILE,
     COMMAND_RUN
 } Command;
 
@@ -43,6 +44,10 @@ static void usage(FILE *stream) {
         "  hhy run <file.hhy> [args] Execute an HHY script\n"
         "  hhy run --dry-run <file>   Plan without external side effects\n"
         "  hhy run --limit NAME=VALUE <file>  Override a RuntimeLimit\n"
+        "  hhy profile [options] <file.hhy> [args]  Analyze CPU and heap usage\n"
+        "    --cpu | --heap       Collect only the selected profile\n"
+        "    --format text|json   Select report format (default: text)\n"
+        "    --output <path>      Write the report to a file\n"
         "  hhy --version             Print version\n"
         "  hhy --help                Print this help\n\n"
         "Flow-first system scripting language runtime.\n",
@@ -72,7 +77,8 @@ static bool write_formatted(const char *path, const char *text, size_t length) {
 
 static int process_file(const char *path, Command command, bool quiet_success,
                         int script_argc, char **script_argv, bool dry_run,
-                        const HhyRuntimeLimits *limits) {
+                        const HhyRuntimeLimits *limits,
+                        const HhyProfileOptions *profile) {
     HhySource source = {0};
     HhyTokenList tokens = {0};
     HhyNode *program = NULL;
@@ -115,6 +121,12 @@ static int process_file(const char *path, Command command, bool quiet_success,
     if (ok && command == COMMAND_RUN) {
         HhyRunResult run = hhy_run_program(&source, program, script_argc, script_argv,
                                            dry_run, limits);
+        ok = run.ok;
+        run_exit = run.exit_code;
+    }
+    if (ok && command == COMMAND_PROFILE) {
+        HhyRunResult run = hhy_profile_program(&source, program, script_argc, script_argv,
+                                               dry_run, limits, profile);
         ok = run.ok;
         run_exit = run.exit_code;
     }
@@ -223,19 +235,23 @@ int main(int argc, char **argv) {
     Command command;
     int source_index = 2;
     bool dry_run = false;
+    bool profile_cpu = false, profile_heap = false, profile_selection = false;
+    bool profile_json = false;
+    const char *profile_output_path = NULL;
     HhyRuntimeLimits limits = hhy_runtime_limits_default();
     if (has_hhy_suffix(argv[1])) { command = COMMAND_RUN; source_index = 1; }
     else if (strcmp(argv[1], "check") == 0) command = COMMAND_CHECK;
     else if (strcmp(argv[1], "ast") == 0) command = COMMAND_AST;
     else if (strcmp(argv[1], "tokens") == 0) command = COMMAND_TOKENS;
     else if (strcmp(argv[1], "fmt") == 0) command = COMMAND_FMT;
+    else if (strcmp(argv[1], "profile") == 0) command = COMMAND_PROFILE;
     else if (strcmp(argv[1], "run") == 0) command = COMMAND_RUN;
     else {
         fprintf(stderr, "hhy: unknown command `%s`\n", argv[1]);
         usage(stderr);
         return 3;
     }
-    if (command == COMMAND_RUN && source_index == 2) {
+    if ((command == COMMAND_RUN || command == COMMAND_PROFILE) && source_index == 2) {
         while (source_index < argc) {
             if (strcmp(argv[source_index], "--dry-run") == 0) {
                 dry_run = true; source_index++; continue;
@@ -244,6 +260,28 @@ int main(int argc, char **argv) {
                 if (source_index + 1 >= argc || !parse_limit(argv[source_index + 1], &limits)) {
                     fputs("hhy: --limit expects a valid NAME=VALUE\n", stderr); return 3;
                 }
+                source_index += 2; continue;
+            }
+            if (command == COMMAND_PROFILE && strcmp(argv[source_index], "--cpu") == 0) {
+                profile_selection = true; profile_cpu = true; source_index++; continue;
+            }
+            if (command == COMMAND_PROFILE && strcmp(argv[source_index], "--heap") == 0) {
+                profile_selection = true; profile_heap = true; source_index++; continue;
+            }
+            if (command == COMMAND_PROFILE && strcmp(argv[source_index], "--format") == 0) {
+                if (source_index + 1 >= argc ||
+                    (strcmp(argv[source_index + 1], "text") != 0 &&
+                     strcmp(argv[source_index + 1], "json") != 0)) {
+                    fputs("hhy: --format expects text or json\n", stderr); return 3;
+                }
+                profile_json = strcmp(argv[source_index + 1], "json") == 0;
+                source_index += 2; continue;
+            }
+            if (command == COMMAND_PROFILE && strcmp(argv[source_index], "--output") == 0) {
+                if (source_index + 1 >= argc || argv[source_index + 1][0] == '\0') {
+                    fputs("hhy: --output expects a path\n", stderr); return 3;
+                }
+                profile_output_path = argv[source_index + 1];
                 source_index += 2; continue;
             }
             break;
@@ -260,23 +298,47 @@ int main(int argc, char **argv) {
         return 3;
     }
     if (command != COMMAND_CHECK && command != COMMAND_FMT && command != COMMAND_RUN &&
+        command != COMMAND_PROFILE &&
         argc != source_index + 1) {
         fprintf(stderr, "hhy: `%s` accepts exactly one source file\n", argv[1]);
         return 3;
     }
 
     int result = 0;
-    int end = command == COMMAND_RUN ? source_index + 1 : argc;
+    int end = (command == COMMAND_RUN || command == COMMAND_PROFILE) ? source_index + 1 : argc;
     int script_start = source_index + 1;
-    if (command == COMMAND_RUN && script_start < argc && strcmp(argv[script_start], "--") == 0)
+    if ((command == COMMAND_RUN || command == COMMAND_PROFILE) && script_start < argc &&
+        strcmp(argv[script_start], "--") == 0)
         script_start++;
+    FILE *profile_output = NULL;
+    HhyProfileOptions profile_options = {0};
+    if (command == COMMAND_PROFILE) {
+        if (!profile_selection) profile_cpu = profile_heap = true;
+        if (profile_output_path != NULL) {
+            profile_output = fopen(profile_output_path, "wb");
+            if (profile_output == NULL) {
+                fprintf(stderr, "hhy: cannot open profile output %s\n", profile_output_path);
+                return 4;
+            }
+        }
+        profile_options = (HhyProfileOptions){
+            .cpu = profile_cpu, .heap = profile_heap, .json = profile_json,
+            .output = profile_output == NULL ? stderr : profile_output
+        };
+    }
     for (int i = source_index; i < end; i++) {
         int file_result = process_file(argv[i], command, false,
-                                       command == COMMAND_RUN ? argc - script_start : 0,
-                                       command == COMMAND_RUN ? argv + script_start : NULL,
-                                       dry_run, command == COMMAND_RUN ? &limits : NULL);
+                                       (command == COMMAND_RUN || command == COMMAND_PROFILE)
+                                           ? argc - script_start : 0,
+                                       (command == COMMAND_RUN || command == COMMAND_PROFILE)
+                                           ? argv + script_start : NULL,
+                                       dry_run,
+                                       (command == COMMAND_RUN || command == COMMAND_PROFILE)
+                                           ? &limits : NULL,
+                                       command == COMMAND_PROFILE ? &profile_options : NULL);
         if (file_result != 0) result = file_result;
     }
+    if (profile_output != NULL && fclose(profile_output) != 0 && result == 0) result = 4;
     hhy_extensions_shutdown();
     return result;
 }

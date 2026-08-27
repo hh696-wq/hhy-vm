@@ -6,6 +6,7 @@
 #include "hhy/extensions.h"
 #include "hhy/parser.h"
 #include "hhy/platform_watch.h"
+#include "hhy/profiler.h"
 #include "hhy/fuzz.h"
 #include <jansson.h>
 
@@ -89,6 +90,7 @@ typedef struct {
     const char *builtin;
     const HhyNode *node;
     Env *closure;
+    const HhySource *source;
     bool is_closure;
 } Function;
 
@@ -208,6 +210,7 @@ struct Runtime {
     Value emergency_error_values[8];
     RuntimeCleanup *cleanups;
     const HhyCallableContract *current_contract;
+    HhyProfiler *profiler;
 };
 
 HhyRuntimeLimits hhy_runtime_limits_default(void) {
@@ -363,6 +366,8 @@ static void *rt_alloc(Runtime *rt, size_t size) {
     void *pointer = GC_malloc(requested);
     if (pointer == NULL) runtime_memory_limit(rt);
     if (!runtime_memory_available(rt, 0)) runtime_memory_limit(rt);
+    if (rt->profiler != NULL)
+        hhy_profiler_allocation(rt->profiler, requested, GC_get_memory_use());
     memset(pointer, 0, size);
     return pointer;
 }
@@ -373,6 +378,8 @@ static void *rt_alloc_atomic(Runtime *rt, size_t size) {
     void *pointer = GC_malloc_atomic(requested);
     if (pointer == NULL) runtime_memory_limit(rt);
     if (!runtime_memory_available(rt, 0)) runtime_memory_limit(rt);
+    if (rt->profiler != NULL)
+        hhy_profiler_allocation(rt->profiler, requested, GC_get_memory_use());
     memset(pointer, 0, size);
     return pointer;
 }
@@ -4691,8 +4698,8 @@ static bool effect_dispatch(Runtime *rt, const HhyCallableContract *contract) {
               contract->effect == HHY_EFFECT_NETWORK));
 }
 
-static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee,
-                        size_t argc, Value *argv) {
+static Value call_value_impl(Runtime *rt, Env *env, const HhyNode *site, Value callee,
+                             size_t argc, Value *argv) {
     if (callee.kind != V_FUNCTION) { runtime_type_error(rt, site, "value is not callable"); return null_value(); }
     if (callee.as.function.builtin != NULL) {
         const HhyCallableContract *contract = hhy_contract_lookup(callee.as.function.builtin);
@@ -4750,6 +4757,30 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
         ? call_closure(rt, site, callee, argc, argv)
         : call_function(rt, site, callee, argc, argv);
     rt->call_depth--;
+    return result;
+}
+
+static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee,
+                        size_t argc, Value *argv) {
+    if (rt->profiler == NULL || callee.kind != V_FUNCTION)
+        return call_value_impl(rt, env, site, callee, argc, argv);
+    const char *name = callee.as.function.builtin;
+    const HhySource *source = rt->source;
+    uint32_t line = site->token.line, column = site->token.column;
+    if (name == NULL && callee.as.function.node != NULL) {
+        const HhyNode *function = callee.as.function.node;
+        source = callee.as.function.source == NULL ? rt->source : callee.as.function.source;
+        if (callee.as.function.is_closure) name = "<closure>";
+        else if (function->child_count > 0) {
+            name = token_text(rt, function->children[0]->token);
+            line = function->token.line; column = function->token.column;
+        }
+    }
+    if (name == NULL) name = "<call>";
+    const char *path = source == NULL || source->path == NULL ? "<runtime>" : source->path;
+    size_t previous = hhy_profiler_enter(rt->profiler, name, path, line, column);
+    Value result = call_value_impl(rt, env, site, callee, argc, argv);
+    hhy_profiler_leave(rt->profiler, previous);
     return result;
 }
 
@@ -4906,7 +4937,8 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
         case HHY_N_CALL: return eval_call(rt, env, node, NULL);
         case HHY_N_CLOSURE: {
             Value value = {.kind = V_FUNCTION}; value.as.function.node = node;
-            value.as.function.closure = env; value.as.function.is_closure = true; return value;
+            value.as.function.closure = env; value.as.function.source = rt->source;
+            value.as.function.is_closure = true; return value;
         }
         case HHY_N_PIPE: {
             const HhyNode *stage = node->children[1];
@@ -4979,7 +5011,8 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node) {
         }
         case HHY_N_FN_DECL: {
             char *name = token_text(rt, node->children[0]->token);
-            Value value = {.kind = V_FUNCTION}; value.as.function.node = node; value.as.function.closure = env;
+            Value value = {.kind = V_FUNCTION}; value.as.function.node = node;
+            value.as.function.closure = env; value.as.function.source = rt->source;
             env_define(rt, env, node, name, value, false); return value;
         }
         case HHY_N_IF: {
@@ -5448,9 +5481,10 @@ int hhy_repl(void) {
     return 0;
 }
 
-HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
-                             int argc, char **argv, bool dry_run,
-                             const HhyRuntimeLimits *limits) {
+HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program,
+                                 int argc, char **argv, bool dry_run,
+                                 const HhyRuntimeLimits *limits,
+                                 const HhyProfileOptions *profile) {
     if (!hhy_contract_registry_valid()) {
         HhyRunResult failed = {.ok = false, .exit_code = 1};
         fputs("hhy: invalid internal callable registry\n", stderr);
@@ -5465,10 +5499,19 @@ HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
     clock_gettime(CLOCK_MONOTONIC, &rt->started_at);
     GC_gcollect();
     rt->memory_baseline = GC_get_memory_use();
+    if (profile != NULL) {
+        rt->profiler = hhy_profiler_start(profile, source->path, rt->memory_baseline);
+        if (rt->profiler == NULL) {
+            HhyRunResult failed = {.ok = false, .exit_code = 4};
+            fputs("hhy: cannot initialize profiler\n", stderr);
+            free(rt);
+            return failed;
+        }
+    }
     if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
         HhyRunResult failed = {.ok = false, .exit_code = 4};
         fputs("hhy: cannot initialize HTTP runtime\n", stderr);
-        free(rt);
+        hhy_profiler_free(rt->profiler); free(rt);
         return failed;
     }
     hhy_interrupt_requested = 0;
@@ -5478,12 +5521,15 @@ HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
     sigaction(SIGINT, &action, &previous_interrupt);
     rt->memory_jump_ready = true;
     if (setjmp(rt->memory_jump) == 0) {
+        size_t profile_previous = hhy_profiler_enter(rt->profiler, "<top-level>",
+                                                     source->path, 1, 1);
         Env *global = runtime_core_environment(rt, program, argc, argv);
         Env *main_environment = env_new(rt, global);
         exec_node(rt, main_environment, program);
         if (rt->signal == SIGNAL_BREAK || rt->signal == SIGNAL_CONTINUE)
             runtime_check_error(rt, program, "loop control used outside a loop");
         if (rt->signal == SIGNAL_RETURN) rt->signal = SIGNAL_NONE;
+        hhy_profiler_leave(rt->profiler, profile_previous);
     }
     rt->memory_jump_ready = false;
     if (rt->failed) {
@@ -5494,11 +5540,23 @@ HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
     }
     HhyRunResult result = {.ok = !rt->failed,
         .exit_code = rt->failed ? (rt->exit_code ? rt->exit_code : 1) : rt->exit_code};
+    if (rt->profiler != NULL) {
+        GC_gcollect();
+        hhy_profiler_stop(rt->profiler, GC_get_memory_use());
+        hhy_profiler_free(rt->profiler);
+        rt->profiler = NULL;
+    }
     runtime_release(rt);
     curl_global_cleanup();
     sigaction(SIGINT, &previous_interrupt, NULL);
     free(rt);
     return result;
+}
+
+HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
+                             int argc, char **argv, bool dry_run,
+                             const HhyRuntimeLimits *limits) {
+    return hhy_profile_program(source, program, argc, argv, dry_run, limits, NULL);
 }
 
 void hhy_fuzz_runtime_input(const uint8_t *data, size_t size, unsigned mode) {
