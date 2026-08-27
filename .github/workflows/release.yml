@@ -9,7 +9,7 @@ on:
       tag:
         description: "Semantic release tag (must match VERSION)"
         required: true
-        default: "v1.1.0"
+        default: "v1.1.2"
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -52,14 +52,14 @@ jobs:
 
       - name: Install macOS build dependencies
         if: runner.os == 'macOS'
-        run: brew install pcre2 bdw-gc jansson openssl@3 libpq mysql
+        run: brew install pcre2 bdw-gc jansson openssl@3 libpq mysql lexbor
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev \
-            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev patchelf
+            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev liblexbor-dev patchelf
 
       - name: Test release source
         run: |
@@ -88,7 +88,10 @@ jobs:
           extension_home="$verify_dir/extensions-home"
           HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy install --yes \
             "$verify_dir"/hhy-*/extensions/sample
-          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'HHY Official'
+          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy install --yes \
+            "$verify_dir"/hhy-*/extensions/html
+          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'sample 0.1.0'
+          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'html 0.1.0'
 
       - name: Attest release archives
         uses: actions/attest@v4
