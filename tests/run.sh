@@ -39,14 +39,17 @@ if command -v python3 >/dev/null 2>&1; then
     python3 tests/check_contracts.py >/dev/null
 fi
 
-# Deterministic GC pressure: every managed allocation triggers a collection.
-# These paths retain managed Values/strings in growable aggregation buffers.
-for gc_case in tests/valid/advanced-flow.hhy tests/valid/json-flow.hhy tests/valid/csv-flow.hhy; do
-    gc_expected=$("$HHY_BIN" run "$gc_case")
-    gc_actual=$(HHY_GC_STRESS=1 "$HHY_BIN" run "$gc_case")
-    [ "$gc_actual" = "$gc_expected" ] ||
-        fail "GC stress changed output for $gc_case"
-done
+# Deterministic GC pressure runs in the Release suite. ASan uses a fake stack
+# on some architectures, which is intentionally incompatible with using a
+# conservative collector's forced collection as a root-reachability oracle.
+if [ "${HHY_SKIP_GC_STRESS:-0}" != 1 ]; then
+    for gc_case in tests/valid/advanced-flow.hhy tests/valid/json-flow.hhy tests/valid/csv-flow.hhy; do
+        gc_expected=$("$HHY_BIN" run "$gc_case")
+        gc_actual=$(HHY_GC_STRESS=1 "$HHY_BIN" run "$gc_case")
+        [ "$gc_actual" = "$gc_expected" ] ||
+            fail "GC stress changed output for $gc_case"
+    done
+fi
 
 for source in tests/invalid/*.hhy; do
     if "$HHY_BIN" check "$source" >/dev/null 2>&1; then

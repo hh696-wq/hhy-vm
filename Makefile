@@ -81,7 +81,7 @@ test: $(TARGET) extensions
 	sh tests/run.sh $(TARGET)
 
 test-debug: $(DEBUG_TARGET) extensions
-	sh tests/run.sh $(DEBUG_TARGET)
+	HHY_SKIP_GC_STRESS=1 sh tests/run.sh $(DEBUG_TARGET)
 
 fuzz:
 	@mkdir -p build
