@@ -12,7 +12,7 @@ the Linux server so generated files match the target host.
 ## First deployment
 
 ```sh
-unzip -o hhylang.dev-v1.1.2_YYYYMMDD.zip
+unzip -o hhylang.dev-v1.1.3_YYYYMMDD.zip
 cd hhylang-website
 npm ci
 npm run build
@@ -23,7 +23,7 @@ pm2 save
 ## Update
 
 ```sh
-unzip -o hhylang.dev-v1.1.2_YYYYMMDD.zip
+unzip -o hhylang.dev-v1.1.3_YYYYMMDD.zip
 cd hhylang-website
 npm ci
 npm run build

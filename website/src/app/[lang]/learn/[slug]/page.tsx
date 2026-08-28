@@ -134,21 +134,23 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.0.0", date: "2026-08-25", title: "核心语义冻结", detail: "Pipe / Value / Stream / Error、94 个核心 callable、三平台发布验证", icon: Code },
                     { version: "v1.1.0", date: "2026-08-26", title: "本地进程扩展", detail: "install/list/remove、Protocol 1、database 0.2.0、三平台发布验证", icon: PuzzlePiece },
                     { version: "v1.1.1", date: "2026-08-27", title: "性能与临界稳定性", detail: "hhy profile、解释器热点优化、资源临界值压力测试与稳定错误", icon: ShieldCheck },
-                    { version: "v1.1.2", date: "2026-08-27", title: "HTML 扩展与静态采集", detail: "CSS Selector、结构化抽取、my-crawler 与真实抓取验收", icon: ShieldCheck }
+                    { version: "v1.1.2", date: "2026-08-27", title: "HTML 扩展与静态采集", detail: "CSS Selector、结构化抽取、my-crawler 与真实抓取验收", icon: ShieldCheck },
+                    { version: "v1.1.3", date: "2026-08-28", title: "Runtime 正确性与性能加固", detail: "GC 根生命周期、哈希索引、进程诊断、Profiler 质量标记与三平台验证", icon: ShieldCheck }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
                     { version: "v1.1.0", date: "2026-08-26", title: "Local process extensions", detail: "install/list/remove, Protocol 1, database 0.2.0, and three-platform release evidence", icon: PuzzlePiece },
                     { version: "v1.1.1", date: "2026-08-27", title: "Performance and boundary stability", detail: "hhy profile, interpreter hotspot optimization, resource-boundary stress tests, and stable errors", icon: ShieldCheck },
-                    { version: "v1.1.2", date: "2026-08-27", title: "HTML extension and static collection", detail: "CSS selectors, structured extraction, my-crawler, and a real crawl acceptance run", icon: ShieldCheck }
+                    { version: "v1.1.2", date: "2026-08-27", title: "HTML extension and static collection", detail: "CSS selectors, structured extraction, my-crawler, and a real crawl acceptance run", icon: ShieldCheck },
+                    { version: "v1.1.3", date: "2026-08-28", title: "Runtime correctness and performance hardening", detail: "GC root lifetimes, hash indexes, process diagnostics, profiler quality metadata, and three-platform evidence", icon: ShieldCheck }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
-                    { version: "v1.2", window: "v1.1.2 验收后", title: "官方扩展包分发与工具链", items: ["官方扩展签名与发布者验证", "依赖解析和远程索引", "离线锁定、可复现安装与回滚"], icon: Handshake },
+                    { version: "v1.2", window: "v1.1.3 验收后", title: "官方扩展包分发与工具链", items: ["官方扩展签名与发布者验证", "依赖解析和远程索引", "离线锁定、可复现安装与回滚"], icon: Handshake },
                     { version: "v2.0", window: "生态证据充分后", title: "生态开放与 ABI 决策", items: ["以真实集成测量进程协议边界", "评估 embedding / FFI", "仅在必要时发布 Native ABI"], icon: RocketLaunch }
                   ]
                   : [
-                    { version: "v1.2", window: "After v1.1.2 acceptance", title: "Official extension distribution and tooling", items: ["Official extension signatures and publisher verification", "Dependency resolution and remote index", "Offline lock, reproducible install, and rollback"], icon: Handshake },
+                    { version: "v1.2", window: "After v1.1.3 acceptance", title: "Official extension distribution and tooling", items: ["Official extension signatures and publisher verification", "Dependency resolution and remote index", "Offline lock, reproducible install, and rollback"], icon: Handshake },
                     { version: "v2.0", window: "After sufficient ecosystem evidence", title: "Ecosystem and ABI decision", items: ["Measure process-protocol limits with real integrations", "Evaluate embedding / FFI", "Publish a Native ABI only if necessary"], icon: RocketLaunch }
                   ];
                 const principles = lang === "zh"
@@ -156,7 +158,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                   : ["Freeze semantics before opening extensions", "Make it usable and measurable before fast", "Extend through protocol, not a second language model", "Evaluate ABI only after Runtime stability"];
                 return (
                   <figure className="evolution-roadmap" key={index}>
-                    <header><strong>{lang === "zh" ? "语言 / VM 演进路线图" : "Language / VM Evolution Roadmap"}</strong><span>{lang === "zh" ? "当前 v1.1.2 · 后续只保留两个方向" : "Current v1.1.2 · only two future directions"}</span></header>
+                    <header><strong>{lang === "zh" ? "语言 / VM 演进路线图" : "Language / VM Evolution Roadmap"}</strong><span>{lang === "zh" ? "当前 v1.1.3 · 后续只保留两个方向" : "Current v1.1.3 · only two future directions"}</span></header>
                     <div className="evolution-released">
                       <strong>{lang === "zh" ? "版本基础与当前版本" : "Release foundation and current version"}</strong>
                       {released.map(({ version, date, title, detail, icon: Icon }) => <article key={version}><Icon size={42} weight="duotone" aria-hidden /><div><span><b>{version}</b><time>{date}</time><em data-status={version === `v${hhyVersion}` ? "testing" : "released"}>{version === `v${hhyVersion}` ? (lang === "zh" ? "当前 · 测试中" : "Current · Testing") : (lang === "zh" ? "已发布" : "Released")}</em></span><h3>{title}</h3><p>{detail}</p></div></article>)}
@@ -176,7 +178,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                       ))}
                     </div>
                     <div className="evolution-principles"><strong><ShieldCheck size={30} weight="duotone" />{lang === "zh" ? "演进原则" : "Evolution principles"}</strong>{principles.map((principle, principleIndex) => <span key={principle}><b>{principleIndex + 1}</b>{principle}</span>)}</div>
-                    <figcaption>{lang === "zh" ? "演进顺序：v1.1.1 性能与稳定性 → v1.1.2 HTML 与采集 → 官方扩展工具链 → 生态 ABI 决策" : "Evolution order: v1.1.1 performance and stability → v1.1.2 HTML and collection → official extension tooling → ecosystem ABI decision"}</figcaption>
+                    <figcaption>{lang === "zh" ? "演进顺序：v1.1.2 HTML 与采集 → v1.1.3 Runtime 加固 → 官方扩展工具链 → 生态 ABI 决策" : "Evolution order: v1.1.2 HTML and collection → v1.1.3 Runtime hardening → official extension tooling → ecosystem ABI decision"}</figcaption>
                   </figure>
                 );
               }

@@ -2137,11 +2137,11 @@ export const chapters: Chapter[] = [
     slug: "language-vm-roadmap",
     order: 22,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "v1.1.2 加入 HTML 扩展与静态采集框架；未来只保留扩展工具链和生态 ABI 两个方向。", en: "v1.1.2 adds the HTML extension and static collector, followed by only two directions: extension tooling and the ecosystem ABI decision." },
+    summary: { zh: "v1.1.3 完成 Runtime 正确性与性能加固；未来只保留扩展工具链和生态 ABI 两个方向。", en: "v1.1.3 completes Runtime correctness and performance hardening, followed by only two directions: extension tooling and the ecosystem ABI decision." },
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.1.2 是当前 HTML 扩展与静态采集版本，并继承 v1.1.1 的性能与稳定性工作。后续只列两个方向，不承诺发布日期；每个版本只有在上一阶段的验收条件通过后才进入冻结。" },
+          { type: "note", text: "v1.1.3 是当前 Runtime 正确性与性能加固版本，继续包含 v1.1.2 的 HTML 扩展与静态采集能力。后续只列两个方向，不承诺发布日期；每个版本只有在上一阶段的验收条件通过后才进入冻结。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2149,8 +2149,9 @@ export const chapters: Chapter[] = [
             ["v1.0.0 · 已发布", "2026-08-25", "核心语言与 VM 语义冻结", "Pipe、Value、Stream、Error、核心标准库和三平台发行证据完成"],
             ["v1.1.0 · 已发布", "2026-08-26", "本地进程扩展与官方数据库扩展", "安装/加载完整性、Protocol 1 同步调用、database 0.2.0 和三平台发行证据完成"],
             ["v1.1.1 · 已发布", "2026-08-27", "性能优化与临界资源稳定性", "hhy profile、解释器热点基线和 Runtime 资源边界完成"],
-            ["v1.1.2 · 当前", "2026-08-27", "HTML 扩展与静态采集框架", "三平台 CI、扩展协议测试、本机 fixture 与真实 hhylang.dev 抓取完成"],
-            ["v1.2 · 规划", "完成 v1.1.2 验收后", "官方扩展包分发与工具链", "官方扩展具备签名验证、依赖解析、远程索引、离线锁定、可复现安装以及安全回滚"],
+            ["v1.1.2 · 已发布", "2026-08-27", "HTML 扩展与静态采集框架", "三平台 CI、扩展协议测试、本机 fixture 与真实 hhylang.dev 抓取完成"],
+            ["v1.1.3 · 当前", "2026-08-28", "Runtime 正确性与性能加固", "GC 压力回归、sanitizer、哈希索引、稳定诊断与三平台发布证据完成"],
+            ["v1.2 · 规划", "完成 v1.1.3 验收后", "官方扩展包分发与工具链", "官方扩展具备签名验证、依赖解析、远程索引、离线锁定、可复现安装以及安全回滚"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
           { type: "p", text: "说明：以上时间为建议窗口，不构成发布承诺。" }
@@ -2165,7 +2166,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.1.2 is the current HTML-extension and static-collection release and carries forward the v1.1.1 performance and stability work. Only two future directions are listed, without committed dates; each enters freeze only after the previous stage passes its acceptance gate." },
+          { type: "note", text: "v1.1.3 is the current Runtime correctness and performance hardening release and retains the HTML extension and static collection capabilities from v1.1.2. Only two future directions are listed, without committed dates; each enters freeze only after the previous stage passes its acceptance gate." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
@@ -2173,8 +2174,9 @@ export const chapters: Chapter[] = [
             ["v1.0.0 · Released", "2026-08-25", "Core language and VM semantics frozen", "Pipe, Value, Stream, Error, the core standard library, and three-platform release evidence completed"],
             ["v1.1.0 · Released", "2026-08-26", "Local process extensions and the official database extension", "Install/load integrity, synchronous Protocol 1 calls, database 0.2.0, and three-platform release evidence completed"],
             ["v1.1.1 · Released", "2026-08-27", "Performance optimization and resource-boundary stability", "hhy profile, interpreter hotspot baselines, and Runtime resource boundaries completed"],
-            ["v1.1.2 · Current", "2026-08-27", "HTML extension and static collector framework", "Three-platform CI, protocol tests, local fixtures, and the real hhylang.dev crawl completed"],
-            ["v1.2 · Planned", "After v1.1.2 acceptance", "Official extension package distribution and tooling", "Official extensions have publisher signatures, dependency resolution, a remote index, offline locking, reproducible installation, and safe rollback"],
+            ["v1.1.2 · Released", "2026-08-27", "HTML extension and static collector framework", "Three-platform CI, protocol tests, local fixtures, and the real hhylang.dev crawl completed"],
+            ["v1.1.3 · Current", "2026-08-28", "Runtime correctness and performance hardening", "GC pressure regression, sanitizers, hash indexes, stable diagnostics, and three-platform release evidence completed"],
+            ["v1.2 · Planned", "After v1.1.3 acceptance", "Official extension package distribution and tooling", "Official extensions have publisher signatures, dependency resolution, a remote index, offline locking, reproducible installation, and safe rollback"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },
           { type: "p", text: "Note: these dates are recommended windows, not release commitments." }

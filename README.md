@@ -9,7 +9,7 @@
 
   [Website](https://hhylang.dev) · [Language Specification](docs/HHY_V1.md) · [Examples](examples/README.md) · [Known Limitations](docs/KNOWN_LIMITATIONS.md)
 
-  [![Version](https://img.shields.io/badge/version-1.1.2-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.1.3-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -42,7 +42,7 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前稳定版本是 **V1.1.2**（`1.1.2`），正式支持 macOS arm64、Linux arm64 和
+当前稳定版本是 **V1.1.3**（`1.1.3`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64。
 
 ### 从源码构建
@@ -154,8 +154,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.1.2-PLATFORM-ARCH.tar.gz
-cd hhy-1.1.2-PLATFORM-ARCH
+tar -xzf hhy-1.1.3-PLATFORM-ARCH.tar.gz
+cd hhy-1.1.3-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -247,10 +247,11 @@ html.extract(body, "article.product", {
 
 API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
 
-## V1.1.2 状态
+## V1.1.3 状态
 
-V1.0 语言 contract 保持兼容；V1.1.2 新增官方 HTML 扩展与可运行的静态文档采集框架，
-并保留 V1.1.1 的性能定位、解释器热点优化和临界资源稳定性能力。
+V1.0 语言 contract 保持兼容；V1.1.3 完成 GC 引用缓冲、Stream 去重状态、Map/JSON
+哈希索引、进程快照诊断和 Profiler 数据质量标记的技术评审修复，并继续包含 V1.1.2
+的官方 HTML 扩展与静态文档采集框架。
 内建 `hhy profile` 提供 CPU 与托管 Heap 分析；内存、递归、集合及运行时上限通过
 压力测试确保越界返回稳定错误而不是使 Runtime 崩溃。每次主分支提交都会在 macOS arm64、
 Linux arm64 和 Linux x86_64 上执行严格编译、sanitizer、完整测试、fuzz、
