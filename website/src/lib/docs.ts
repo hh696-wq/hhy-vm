@@ -2061,61 +2061,61 @@ export const chapters: Chapter[] = [
     summary: { zh: "安装官方 database 0.2.0 扩展，通过 JSON 配置连接 MySQL/PostgreSQL，并完成查询、写入与事务。", en: "Install the official database 0.2.0 extension, configure MySQL/PostgreSQL with JSON, and run queries, writes, and transactions." },
     sections: {
       zh: [
-        { title: "当前支持范围", blocks: [
+        { title: "database 扩展是什么", blocks: [
           { type: "note", text: "database 0.2.0 随 HHY v1.1.0 发布，是仓库中真实可运行的 C11 进程扩展。当前支持 MySQL、PostgreSQL、参数化查询、参数化写入和第一版事务；连接 handle、连接池、流式查询与完整数据库类型映射属于后续版本。" },
           { type: "table", columns: ["Callable", "用途", "当前边界"], rows: [["database.ping(url)", "验证连接并返回数据库信息", "每次调用建立短连接"], ["database.query(url, sql, params, max_rows?)", "执行有界参数化查询", "结果包含 columns 与 rows"], ["database.execute(url, sql, params)", "执行参数化写入或受控 DDL", "返回受影响行数"], ["database.transaction(url, statements)", "原子执行 1–100 条写语句", "仅 INSERT/UPDATE/DELETE；失败整体回滚"]] }
         ] },
-        { title: "构建并安装扩展", blocks: [
+        { title: "安装扩展与四个 callable", blocks: [
           { type: "code", language: "sh", code: "make -C extensions/database\n./build/hhy install ./extensions/database\n./build/hhy list" },
           { type: "p", text: "install 会校验 hhy.toml、HHY 版本范围、扩展命令和 SHA-256 完整性，并在安装前展示网络 capability。安装成功后，脚本中的 import database 会启动隔离扩展进程、完成 Protocol 1 握手并注册四个 callable。" }
         ] },
-        { title: "使用 JSON 配置数据库地址", blocks: [
+        { title: "连接配置与凭据安全", blocks: [
           { type: "code", language: "sh", code: "cd extensions/database/examples/hhy_extension_test\ncp config.example.json config.local.json\nchmod 600 config.local.json" },
           { type: "code", language: "text", filename: "config.local.json", code: "{\n  \"url\": \"mysql://root:CHANGE_ME@127.0.0.1:3306/hhy_extension_test\",\n  \"database\": \"hhy_extension_test\",\n  \"max_rows\": 1000\n}" },
           { type: "table", columns: ["驱动", "连接 URL 示例", "参数占位符"], rows: [["MySQL", "mysql://user:password@127.0.0.1:3306/hhy_extension_test", "?"], ["PostgreSQL", "postgresql://user:password@127.0.0.1:5432/hhy_extension_test", "$1、$2……"]] },
           { type: "note", text: "把 CHANGE_ME 替换为本机密码。config.local.json 已加入示例目录的 .gitignore；不要把真实密码写进 .hhy 源码、文档或 Git。示例脚本还会强制检查 database 必须是 hhy_extension_test，避免误操作业务库。" }
         ] },
-        { title: "查询测试库有多少张表", blocks: [
+        { title: "实战一：只读检查测试库", blocks: [
           { type: "code", language: "sh", code: "./build/hhy run \\\n  extensions/database/examples/hhy_extension_test/read.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json" },
           { type: "code", language: "hhy", filename: "read.hhy", code: "import database\nimport { load_database_config } from \"./lib/config.hhy\"\n\nlet config = load_database_config(args[0])\nlet result = database.query(\n    config.url,\n    \"SELECT COUNT(*) AS table_count FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'\",\n    [config.database],\n    1\n)\n\nprint(\"Database\", config.database)\nprint(\"Table count\", result.rows[0].table_count)" },
           { type: "p", text: "仓库中的完整 read.hhy 还会列出每张表的名称、存储引擎和估算行数。SQL 值通过 params 传给驱动的 prepared statement，不会拼接进查询文本。" }
         ] },
-        { title: "写入与事务", blocks: [
+        { title: "实战二：受控写入与事务", blocks: [
           { type: "code", language: "sh", code: "./build/hhy run extensions/database/examples/hhy_extension_test/write-demo.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json --write\n\n./build/hhy run extensions/database/examples/hhy_extension_test/transaction.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json --write" },
           { type: "code", language: "hhy", filename: "transaction-example.hhy", code: "database.transaction(config.url, [\n    { sql: \"INSERT INTO _hhy_transaction_test (id, message) VALUES (?, ?)\", params: [1, \"created\"] },\n    { sql: \"UPDATE _hhy_transaction_test SET message = ? WHERE id = ?\", params: [\"committed\", 1] }\n]) |> print" },
           { type: "note", text: "两个写示例都要求显式 --write，并且只操作 hhy_extension_test 中的专用临时表。transaction 不接受 SELECT 或 DDL；任一语句失败时扩展会回滚整个事务。" }
         ] },
-        { title: "错误排查与完整资料", blocks: [
+        { title: "当前边界与错误排查", blocks: [
           { type: "table", columns: ["现象", "检查项"], rows: [["ModuleNotFoundError", "先执行 install，并用 hhy list 确认 database 0.2.0 已安装"], ["cannot open .../read.hhy", "从仓库根目录运行完整路径，目录名是 hhy_extension_test"], ["连接失败", "检查服务、端口、用户名、密码、库名及 hhy.toml 声明的本机网络范围"], ["SQL 参数错误", "MySQL 使用 ?；PostgreSQL 使用 $1、$2……；标识符不能作为值参数"]] },
           { type: "link", href: "/zh/learn/extensions-roadmap", label: "继续阅读扩展系统原理", description: "了解清单校验、权限声明、进程加载、Protocol 1 握手和扩展开发者约束。" }
         ] }
       ],
       en: [
-        { title: "Current support", blocks: [
+        { title: "What the database extension is", blocks: [
           { type: "note", text: "database 0.2.0 ships with HHY v1.1.0 and is a real C11 process extension in the repository. It currently supports MySQL, PostgreSQL, parameterized reads, parameterized writes, and the first transaction API. Connection handles, pooling, streaming queries, and complete database type mapping are future work." },
           { type: "table", columns: ["Callable", "Purpose", "Current boundary"], rows: [["database.ping(url)", "Validate connectivity and return database information", "Creates a short-lived connection per call"], ["database.query(url, sql, params, max_rows?)", "Run a bounded parameterized query", "Result contains columns and rows"], ["database.execute(url, sql, params)", "Run a parameterized write or controlled DDL", "Returns affected-row information"], ["database.transaction(url, statements)", "Atomically run 1–100 writes", "INSERT/UPDATE/DELETE only; rolls back on failure"]] }
         ] },
-        { title: "Build and install", blocks: [
+        { title: "Install the extension and its four callables", blocks: [
           { type: "code", language: "sh", code: "make -C extensions/database\n./build/hhy install ./extensions/database\n./build/hhy list" },
           { type: "p", text: "install validates hhy.toml, the HHY version range, the extension command, and SHA-256 integrity, then displays network capabilities before confirmation. After installation, import database starts the isolated extension process, completes the Protocol 1 handshake, and registers all four callables." }
         ] },
-        { title: "Configure the database URL with JSON", blocks: [
+        { title: "Connection configuration and credential safety", blocks: [
           { type: "code", language: "sh", code: "cd extensions/database/examples/hhy_extension_test\ncp config.example.json config.local.json\nchmod 600 config.local.json" },
           { type: "code", language: "text", filename: "config.local.json", code: "{\n  \"url\": \"mysql://root:CHANGE_ME@127.0.0.1:3306/hhy_extension_test\",\n  \"database\": \"hhy_extension_test\",\n  \"max_rows\": 1000\n}" },
           { type: "table", columns: ["Driver", "Connection URL example", "Parameter placeholder"], rows: [["MySQL", "mysql://user:password@127.0.0.1:3306/hhy_extension_test", "?"], ["PostgreSQL", "postgresql://user:password@127.0.0.1:5432/hhy_extension_test", "$1, $2, …"]] },
           { type: "note", text: "Replace CHANGE_ME with the local password. config.local.json is ignored by Git in the example directory; never put real credentials in .hhy source, documentation, or Git. The examples also require the database field to equal hhy_extension_test so they cannot target an application database accidentally." }
         ] },
-        { title: "Count the tables in the test database", blocks: [
+        { title: "Project one: inspect the test database read-only", blocks: [
           { type: "code", language: "sh", code: "./build/hhy run \\\n  extensions/database/examples/hhy_extension_test/read.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json" },
           { type: "code", language: "hhy", filename: "read.hhy", code: "import database\nimport { load_database_config } from \"./lib/config.hhy\"\n\nlet config = load_database_config(args[0])\nlet result = database.query(\n    config.url,\n    \"SELECT COUNT(*) AS table_count FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'\",\n    [config.database],\n    1\n)\n\nprint(\"Database\", config.database)\nprint(\"Table count\", result.rows[0].table_count)" },
           { type: "p", text: "The complete read.hhy in the repository also lists every table's name, storage engine, and estimated row count. SQL values go through the driver's prepared-statement parameter API and are never concatenated into the query text." }
         ] },
-        { title: "Writes and transactions", blocks: [
+        { title: "Project two: controlled writes and transactions", blocks: [
           { type: "code", language: "sh", code: "./build/hhy run extensions/database/examples/hhy_extension_test/write-demo.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json --write\n\n./build/hhy run extensions/database/examples/hhy_extension_test/transaction.hhy \\\n  extensions/database/examples/hhy_extension_test/config.local.json --write" },
           { type: "code", language: "hhy", filename: "transaction-example.hhy", code: "database.transaction(config.url, [\n    { sql: \"INSERT INTO _hhy_transaction_test (id, message) VALUES (?, ?)\", params: [1, \"created\"] },\n    { sql: \"UPDATE _hhy_transaction_test SET message = ? WHERE id = ?\", params: [\"committed\", 1] }\n]) |> print" },
           { type: "note", text: "Both write examples require an explicit --write flag and touch only dedicated temporary tables inside hhy_extension_test. transaction rejects SELECT and DDL; if any statement fails, the extension rolls back the entire transaction." }
         ] },
-        { title: "Troubleshooting and complete reference", blocks: [
+        { title: "Current boundaries and troubleshooting", blocks: [
           { type: "table", columns: ["Symptom", "Check"], rows: [["ModuleNotFoundError", "Run install first and use hhy list to confirm database 0.2.0 is installed"], ["cannot open .../read.hhy", "Run the complete path from the repository root; the directory is named hhy_extension_test"], ["Connection failure", "Check the service, port, user, password, database name, and local network scope declared by hhy.toml"], ["SQL parameter error", "MySQL uses ?; PostgreSQL uses $1, $2, …; identifiers cannot be value parameters"]] },
           { type: "link", href: "/en/learn/extensions-roadmap", label: "Continue with the extension system internals", description: "Learn about manifest validation, capability declarations, process loading, the Protocol 1 handshake, and extension-author constraints." }
         ] }
@@ -2129,9 +2129,9 @@ export const chapters: Chapter[] = [
     summary: { zh: "用官方 HTML 扩展和安全 Frontier 完成 URL 规范化、链接发现、递归去重及有界静态抓取。", en: "Combine the official HTML extension with a safe frontier for URL normalization, discovery, recursive deduplication, and bounded static crawling." },
     sections: {
       zh: [
-        { title: "为什么先做静态文档采集", blocks: [
-          { type: "p", text: "HHY 现在把静态抓取补成了最小 Spider 闭环：Runtime 的 url_resolve 规范化和解析相对 URL；HTML 扩展发现链接；按深度推进的 Frontier 在入队前检查域名、路径、页面数、队列大小和请求指纹；HTTP 网络层在实际连接地址上阻止 SSRF。Lexbor 仍只负责解析不可信 HTML 和执行 CSS Selector。" },
-          { type: "note", text: "当前定位是 Flow-first data collection for APIs and static documents。它不执行 JavaScript，也不用于绕过 robots.txt、登录、验证码或反爬策略。只采集你有权访问的站点，并保持可识别 User-Agent 与保守并发。" }
+        { title: "HTML 扩展是什么", blocks: [
+          { type: "p", text: "官方 html 0.1.0 是一个无网络、无文件副作用的进程扩展。它用 Lexbor 解析不可信 HTML、执行 CSS Selector，并把文本、属性或重复记录转换成 HHY 可直接处理的 String、Bool、List 和 Map。" },
+          { type: "note", text: "HTML 扩展只负责解析和抽取，不下载 URL、不调度页面，也不返回 DOM handle。HTTP、TLS、超时、重试和安全策略由 HHY Runtime 与上层爬虫框架负责。" }
         ] },
         { title: "构建与安装 HTML 扩展", blocks: [
           { type: "code", language: "sh", code: "brew install jansson lexbor\nmake -C extensions/html\n./build/hhy install ./extensions/html\n./build/hhy list" },
@@ -2139,23 +2139,31 @@ export const chapters: Chapter[] = [
           { type: "table", columns: ["选项", "适用方法", "行为"], rows: [["trim: Bool", "text、text_all、attr、attr_all", "是否清理首尾空白，默认开启"], ["max_results: Int", "text_all、attr_all、extract", "默认 1000，硬上限 10000"]] },
           { type: "p", text: "扩展把输入限制在 768 KiB，以便协议消息始终有界。extract 的 schema 字段使用 { selector, value: \"text\" } 或 { selector, value: \"attr\", name }；空 selector 表示读取当前 root。它不返回 DOM handle：Protocol 1 只运输 JSON 可表达的值，因此 html.extract 在扩展内一次完成解析和字段投影。" }
         ] },
-        { title: "初始化 my-crawler", blocks: [
-          { type: "code", language: "sh", code: "make\n./practical-projects/my-crawler/init.sh\n./practical-projects/my-crawler/self-test.sh\n./practical-projects/my-crawler/run.sh" },
-          { type: "p", text: "init.sh 默认复用 HHY 统一的用户级扩展目录 ~/.hhy/extensions，并创建被 Git 忽略的 output；项目内不保存扩展二进制。CI 与 self-test.sh 通过临时 HHY_EXTENSION_HOME 隔离安装并在测试后清理。self-test.sh 使用本机 fixture server 验证完整 HTTP → DOM → JSON 链路；run.sh 默认执行真实的 hhylang.dev 文档抓取。" },
-          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"allowed_domains\": [\"hhylang.dev\"],\n  \"allowed_path_prefixes\": [\"/zh/learn/\"],\n  \"follow_selector\": \"main article a[href]\",\n  \"parallelism\": 2,\n  \"max_depth\": 2,\n  \"max_pages\": 50,\n  \"max_frontier\": 100,\n  \"max_links_per_page\": 200,\n  \"allow_private_networks\": false,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": { \"title\": { \"selector\": \"\", \"value\": \"text\" } }\n}" }
+        { title: "从 HTML 扩展到安全爬虫框架", blocks: [
+          { type: "p", text: "静态 Spider 把多个职责组合成闭环：Runtime 的 url_resolve 规范化并解析相对 URL；HTML 扩展发现链接；按深度推进的 Frontier 在入队前检查域名、路径、页面数、队列大小和请求指纹；HTTP 网络层在实际连接地址上阻止 SSRF。" },
+          { type: "table", columns: ["能力", "当前实现程度"], rows: [["url_resolve(url, base?)", "返回 url、scheme、host、port、path、query 与稳定 fingerprint"], ["链接发现", "follow_selector 提取 href，逐层加入 Frontier"], ["Frontier 与去重", "按深度、有界并发；规范 URL 指纹在入队前去重"], ["边界限制", "allowed_domains、path prefixes、max_depth/pages/frontier/links"], ["SSRF 防护", "在每次实际 socket 连接时阻止 loopback、私网及 link-local，覆盖重定向"]] }
         ] },
-        { title: "真实运行结果与边界", blocks: [
+        { title: "项目一：my-crawler 基础闭环", blocks: [
+          { type: "code", language: "sh", code: "make\n./practical-projects/my-crawler/init.sh\n./practical-projects/my-crawler/self-test.sh\n./practical-projects/my-crawler/run.sh" },
+          { type: "p", text: "my-crawler 是最小可运行 Spider：读取 JSON 配置，递归发现链接，按边界抓取并输出 records、report 和 failures。init.sh 默认复用 ~/.hhy/extensions；CI 与自测使用临时 HHY_EXTENSION_HOME。" },
+          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"allowed_domains\": [\"hhylang.dev\"],\n  \"allowed_path_prefixes\": [\"/zh/learn/\"],\n  \"follow_selector\": \"main article a[href]\",\n  \"parallelism\": 2,\n  \"max_depth\": 2,\n  \"max_pages\": 50,\n  \"max_frontier\": 100,\n  \"max_links_per_page\": 200,\n  \"allow_private_networks\": false,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": { \"title\": { \"selector\": \"\", \"value\": \"text\" } }\n}" },
           { type: "terminal", command: "./practical-projects/my-crawler/self-test.sh", output: "HHY Collector Framework Crawler Fixture\nPages 3 / 3 Records 3 Failures 0\nHHY Collector Framework self-test passed" },
-          { type: "table", columns: ["能力", "当前实现程度"], rows: [["url_resolve(url, base?)", "返回 url、scheme、host、port、path、query 与稳定 fingerprint；处理相对地址、点路径、fragment、host 大小写和默认端口"], ["链接发现", "follow_selector 提取 href，逐层加入 Frontier"], ["Frontier 与去重", "按深度、有界并发；规范 URL 指纹在入队前去重"], ["边界限制", "allowed_domains、path prefixes、max_depth/pages/frontier/links"], ["SSRF 防护", "生产默认关闭私网连接；在每次实际 socket 连接时阻止 loopback、私网及 link-local，覆盖重定向"], ["当前边界", "静态 HTML、内存 Frontier、完整缓冲；暂不支持 JS 渲染、持久队列和断点恢复"]] },
-          { type: "table", columns: ["框架输出", "内容"], rows: [["inventory.json", "页面 metadata、主标题和来源 URL"], ["graph.json", "规范化链接边、fingerprint、允许状态与拒绝原因"], ["report.json", "页面、边、重复、限制、错误、warning 与 findings"], ["failures.json", "失败 URL、深度和稳定错误"]] },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/my-crawler", label: "查看 my-crawler 完整源码", description: "包含中英文说明、真实任务配置、初始化脚本、本机 fixture server 和确定性端到端测试。" },
-          { type: "link", href: "/zh/learn/sitegraph-auditor-project", label: "继续：SiteGraph Auditor 挑战项目", description: "用完整安全 Spider 闭环构建页面 inventory、规范链接图、metadata 审计和 CI 质量门禁。" }
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/my-crawler", label: "查看 my-crawler 完整源码", description: "适合先理解配置、递归抓取、结构化抽取、失败归档和确定性自测。" }
+        ] },
+        { title: "项目二：SiteGraph Auditor 挑战项目", blocks: [
+          { type: "p", text: "SiteGraph Auditor 在基础 Spider 上增加页面 inventory、规范化链接图、metadata 审计和 CI 质量门禁，同时运行健康站点与风险站点双场景。" },
+          { type: "table", columns: ["输出", "内容"], rows: [["inventory.json", "页面 metadata、主标题和来源 URL"], ["graph.json", "规范化链接边、fingerprint、允许状态与拒绝原因"], ["report.json", "页面、边、重复、限制、错误、warning 与 findings"], ["failures.json", "失败 URL、深度和稳定错误"]] },
+          { type: "link", href: "/zh/learn/sitegraph-auditor-project", label: "进入 SiteGraph Auditor 挑战项目", description: "继续完成站点图谱、内容质量审计、SSRF 负例和 CI 门禁。" }
+        ] },
+        { title: "适用范围与明确边界", blocks: [
+          { type: "p", text: "当前适合文档站、博客、知识库和服务端渲染页面的静态采集。实现采用内存 Frontier 和完整响应缓冲，暂不支持 JavaScript 渲染、持久队列或断点恢复。" },
+          { type: "note", text: "不要用它绕过 robots.txt、登录、验证码或反爬策略。只采集你有权访问的站点，并保持可识别 User-Agent、保守并发和明确页面上限。" }
         ] }
       ],
       en: [
-        { title: "Why static-document collection comes first", blocks: [
-          { type: "p", text: "HHY now completes the minimum static-spider loop. Runtime url_resolve normalizes and resolves references; the HTML extension discovers links; a depth frontier checks domain, path, page, queue, and request-fingerprint limits before admission; the HTTP network layer blocks SSRF at the resolved connection address. Lexbor remains responsible only for parsing untrusted HTML and evaluating selectors." },
-          { type: "note", text: "The scope is Flow-first data collection for APIs and static documents. It does not execute JavaScript or bypass robots.txt, authentication, CAPTCHAs, or anti-bot controls. Crawl only sites you are authorized to access, identify the client, and keep concurrency conservative." }
+        { title: "What the HTML extension is", blocks: [
+          { type: "p", text: "The official html 0.1.0 package is a process extension with no network or filesystem effects. Lexbor parses untrusted HTML, evaluates CSS selectors, and returns String, Bool, List, and Map values directly usable by HHY." },
+          { type: "note", text: "The extension parses and extracts only. It does not fetch URLs, schedule pages, or return DOM handles. HHY Runtime and the crawler layer own HTTP, TLS, timeouts, retries, and security policy." }
         ] },
         { title: "Build and install the HTML extension", blocks: [
           { type: "code", language: "sh", code: "brew install jansson lexbor\nmake -C extensions/html\n./build/hhy install ./extensions/html\n./build/hhy list" },
@@ -2163,17 +2171,25 @@ export const chapters: Chapter[] = [
           { type: "table", columns: ["Option", "Callables", "Behavior"], rows: [["trim: Bool", "text, text_all, attr, attr_all", "Trim surrounding whitespace; enabled by default"], ["max_results: Int", "text_all, attr_all, extract", "Defaults to 1000; hard limit 10000"]] },
           { type: "p", text: "The extension limits input to 768 KiB, keeping protocol messages bounded. extract schema fields use { selector, value: \"text\" } or { selector, value: \"attr\", name }; an empty selector reads the current root. It does not return DOM handles: Protocol 1 transports only JSON-shaped values, so html.extract performs parsing and projection inside one extension call." }
         ] },
-        { title: "Initialize my-crawler", blocks: [
-          { type: "code", language: "sh", code: "make\n./practical-projects/my-crawler/init.sh\n./practical-projects/my-crawler/self-test.sh\n./practical-projects/my-crawler/run.sh" },
-          { type: "p", text: "init.sh reuses HHY's unified user extension home at ~/.hhy/extensions by default, creates the Git-ignored output directory, and keeps extension binaries out of the project. CI and self-test.sh install into a temporary HHY_EXTENSION_HOME that is removed after testing. self-test.sh verifies the complete HTTP → DOM → JSON path against a local fixture server; run.sh performs the real hhylang.dev documentation crawl." },
-          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"allowed_domains\": [\"hhylang.dev\"],\n  \"allowed_path_prefixes\": [\"/zh/learn/\"],\n  \"follow_selector\": \"main article a[href]\",\n  \"parallelism\": 2,\n  \"max_depth\": 2,\n  \"max_pages\": 50,\n  \"max_frontier\": 100,\n  \"max_links_per_page\": 200,\n  \"allow_private_networks\": false,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": { \"title\": { \"selector\": \"\", \"value\": \"text\" } }\n}" }
+        { title: "From HTML extraction to a safe crawler", blocks: [
+          { type: "p", text: "The static spider composes separate responsibilities: Runtime url_resolve normalizes relative references; the HTML extension discovers links; a depth frontier checks domains, paths, page and queue budgets, and fingerprints before admission; the HTTP layer blocks SSRF at the resolved connection address." },
+          { type: "table", columns: ["Capability", "Current implementation"], rows: [["url_resolve(url, base?)", "Returns url, scheme, host, port, path, query, and a stable fingerprint"], ["Link discovery", "follow_selector extracts href values and feeds the next frontier"], ["Frontier and deduplication", "Depth batches with bounded concurrency and pre-admission fingerprint deduplication"], ["Hard boundaries", "Domains, path prefixes, depth, pages, frontier size, and links per page"], ["SSRF protection", "Reject loopback, private, and link-local socket addresses, including redirects"]] }
         ] },
-        { title: "Real run and explicit boundaries", blocks: [
+        { title: "Project one: the my-crawler foundation", blocks: [
+          { type: "code", language: "sh", code: "make\n./practical-projects/my-crawler/init.sh\n./practical-projects/my-crawler/self-test.sh\n./practical-projects/my-crawler/run.sh" },
+          { type: "p", text: "my-crawler is the smallest runnable spider: it reads JSON configuration, recursively discovers authorized links, extracts records, and writes report and failure artifacts. Normal runs reuse ~/.hhy/extensions; CI and self-tests use a temporary HHY_EXTENSION_HOME." },
+          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"allowed_domains\": [\"hhylang.dev\"],\n  \"allowed_path_prefixes\": [\"/zh/learn/\"],\n  \"follow_selector\": \"main article a[href]\",\n  \"parallelism\": 2,\n  \"max_depth\": 2,\n  \"max_pages\": 50,\n  \"max_frontier\": 100,\n  \"max_links_per_page\": 200,\n  \"allow_private_networks\": false,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": { \"title\": { \"selector\": \"\", \"value\": \"text\" } }\n}" },
           { type: "terminal", command: "./practical-projects/my-crawler/self-test.sh", output: "HHY Collector Framework Crawler Fixture\nPages 3 / 3 Records 3 Failures 0\nHHY Collector Framework self-test passed" },
-          { type: "table", columns: ["Capability", "Current implementation"], rows: [["url_resolve(url, base?)", "Returns url, scheme, host, port, path, query, and a stable fingerprint; handles relative references, dot segments, fragments, host case, and default ports"], ["Link discovery", "follow_selector extracts href values and feeds the next frontier"], ["Frontier and deduplication", "Depth batches with bounded concurrency; normalized fingerprints deduplicate before admission"], ["Hard boundaries", "Domains, path prefixes, depth, pages, frontier size, and links per page"], ["SSRF protection", "Production crawler disables private networks; every resolved socket connection rejects loopback, private, and link-local addresses, including redirects"], ["Current boundary", "Static HTML, in-memory frontier, buffered bodies; no JS rendering, persistent queue, or resume yet"]] },
-          { type: "table", columns: ["Framework output", "Content"], rows: [["inventory.json", "Page metadata, primary heading, and source URL"], ["graph.json", "Normalized edges, fingerprints, allowed state, and rejection reason"], ["report.json", "Pages, edges, duplicates, limits, errors, warnings, and findings"], ["failures.json", "Failed URL, depth, and stable error"]] },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/my-crawler", label: "Read the complete my-crawler source", description: "Includes bilingual documentation, a real task configuration, initialization, a local fixture server, and deterministic end-to-end verification." },
-          { type: "link", href: "/en/learn/sitegraph-auditor-project", label: "Continue: the SiteGraph Auditor challenge", description: "Use the complete safe-spider loop to build an inventory, normalized graph, metadata audit, and CI quality gate." }
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/my-crawler", label: "Read the complete my-crawler source", description: "Start here for configuration, recursive crawling, structured extraction, failure archives, and deterministic tests." }
+        ] },
+        { title: "Project two: the SiteGraph Auditor challenge", blocks: [
+          { type: "p", text: "SiteGraph Auditor adds a page inventory, normalized graph, metadata audit, and CI quality gate on top of the foundational spider, with both healthy and risky fixtures." },
+          { type: "table", columns: ["Output", "Content"], rows: [["inventory.json", "Page metadata, primary heading, and source URL"], ["graph.json", "Normalized edges, fingerprints, allowed state, and rejection reason"], ["report.json", "Pages, edges, duplicates, limits, errors, warnings, and findings"], ["failures.json", "Failed URL, depth, and stable error"]] },
+          { type: "link", href: "/en/learn/sitegraph-auditor-project", label: "Open the SiteGraph Auditor challenge", description: "Continue with a site graph, content-quality audit, negative SSRF test, and CI gate." }
+        ] },
+        { title: "Scope and explicit boundaries", blocks: [
+          { type: "p", text: "The current stack fits documentation sites, blogs, knowledge bases, and server-rendered pages. It uses an in-memory frontier and buffered responses; JavaScript rendering, persistent queues, and resume are not implemented." },
+          { type: "note", text: "Do not use it to bypass robots.txt, authentication, CAPTCHAs, or anti-bot controls. Crawl only authorized sites with an identifiable User-Agent, conservative concurrency, and explicit page budgets." }
         ] }
       ]
     }
