@@ -47,6 +47,8 @@ static const HhyCallableContract contracts[] = {
       "List | Map | Record, Int | String", "Value | Null", "main"),
     C("path", 1, 1, HHY_EFFECT_NONE, false, false, true, false,
       "String", "Path", "main"),
+    C("url_resolve", 1, 2, HHY_EFFECT_NONE, false, true, true, false,
+      "String, String?", "Map", "main"),
     C("encode_json", 1, 2, HHY_EFFECT_NONE, false, true, true, false,
       "JsonValue, Map?", "String", "main"),
     C("to_float", 1, 1, HHY_EFFECT_NONE, false, false, true, false,

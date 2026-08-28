@@ -26,6 +26,14 @@ cat > "$workspace/config.json" <<EOF
   "project": "Crawler Fixture",
   "seeds": ["http://127.0.0.1:$port/page"],
   "parallelism": 2,
+  "allowed_domains": ["127.0.0.1"],
+  "allowed_path_prefixes": ["/"],
+  "max_depth": 2,
+  "max_pages": 4,
+  "max_frontier": 10,
+  "max_links_per_page": 20,
+  "allow_private_networks": true,
+  "follow_selector": "a[href]",
   "user_agent": "HHY-Collector-Self-Test/1.0",
   "root_selector": "section.card",
   "max_results": 10,
@@ -40,4 +48,12 @@ HHY_EXTENSION_HOME="$project_dir/.hhy-extensions" "$hhy_bin" check "$project_dir
 HHY_EXTENSION_HOME="$project_dir/.hhy-extensions" "$hhy_bin" run "$project_dir/crawler.hhy" \
     "$workspace/config.json" "$workspace/records.json" "$workspace/report.json" "$workspace/failures.json"
 python3 "$project_dir/test-report.py" "$workspace/records.json" "$workspace/report.json" "$workspace/failures.json"
+cat > "$workspace/ssrf.hhy" <<EOF
+http.get("http://127.0.0.1:$port/page", { allow_private_networks: false }) |> send |> print
+EOF
+if "$hhy_bin" run "$workspace/ssrf.hhy" >"$workspace/ssrf.out" 2>&1; then
+    echo "SSRF guard unexpectedly allowed loopback" >&2
+    exit 1
+fi
+grep "private, loopback, or link-local" "$workspace/ssrf.out" >/dev/null
 echo "HHY Collector Framework self-test passed"

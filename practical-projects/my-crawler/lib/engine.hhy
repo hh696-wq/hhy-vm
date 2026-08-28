@@ -1,56 +1,131 @@
 import html
 
-fn fetch_page(url, user_agent) {
-    return http.get(url, { headers: { "User-Agent": user_agent } })
-        |> timeout(10s)
-        |> retry({ count: 2, backoff: 500ms })
-        |> send
-        |> response_body
+fn path_allowed(path_value, prefixes) {
+    if length(prefixes) == 0 { return true }
+    for prefix in prefixes {
+        if starts_with(path_value, prefix) { return true }
+    }
+    return false
 }
-fn crawl_seed(url, user_agent, root_selector, schema, max_results) {
-    let fetched = attempt { fetch_page(url, user_agent) }
+
+fn candidate(url, base, config) {
+    let resolved = attempt { url_resolve(url, base) }
+    if resolved.ok != true {
+        return { ok: false, reason: "invalid_url", value: null }
+    }
+    let value = resolved.value
+    if not contains(config.allowed_domains, value.host) {
+        return { ok: false, reason: "outside_domain", value: value }
+    }
+    if not path_allowed(value.path, config.allowed_path_prefixes) {
+        return { ok: false, reason: "outside_path", value: value }
+    }
+    return { ok: true, reason: null, value: value }
+}
+
+fn fetch_page(task, config) {
+    let fetched = attempt {
+        http.get(task.url, {
+                headers: { "User-Agent": config.user_agent },
+                allow_private_networks: config.allow_private_networks
+        })
+            |> timeout(10s)
+            |> retry({ count: 2, backoff: 500ms })
+            |> send
+            |> response_body
+    }
     if fetched.ok != true {
-        return { ok: false, url: url, records: [], error: fetched.error.message }
+        return { ok: false, url: task.url, depth: task.depth, records: [], links: [], error: fetched.error.message }
     }
-
-    let parsed = attempt { html.extract(fetched.value, root_selector, schema, { max_results: max_results }) }
+    let parsed = attempt { html.extract(fetched.value, config.root_selector, config.schema, { max_results: config.max_results }) }
     if parsed.ok != true {
-        return { ok: false, url: url, records: [], error: parsed.error.message }
+        return { ok: false, url: task.url, depth: task.depth, records: [], links: [], error: parsed.error.message }
     }
-
-    let records = parsed.value
+    let links = html.attr_all(fetched.value, config.follow_selector, "href", { max_results: config.max_links_per_page })
+    let page_records = parsed.value
         |> stream
-        |> map { record -> put(record, "source_url", url) }
+        |> map { record -> put(record, "source_url", task.url) }
         |> collect
-    return { ok: true, url: url, records: records, error: null }
+    return { ok: true, url: task.url, depth: task.depth, records: page_records, links: links, error: null }
 }
 
 export fn crawl(config) {
-    let user_agent = config.user_agent
-    let root_selector = config.root_selector
-    let schema = config.schema
-    let max_results = config.max_results
-    return config.seeds
-        |> stream
-        |> distinct
-        |> parallel(config.parallelism) { url ->
-        crawl_seed(url, user_agent, root_selector, schema, max_results)
+    let mut frontier = []
+    let mut fingerprints = []
+    let mut pages = []
+    let mut discovered = 0
+    let mut duplicates = 0
+    let mut rejected = 0
+    let mut limited = 0
+
+    for seed in config.seeds {
+        let checked = candidate(seed, seed, config)
+        if checked.ok == true and not contains(fingerprints, checked.value.fingerprint) {
+            frontier = append(frontier, { url: checked.value.url, depth: 0 })
+            fingerprints = append(fingerprints, checked.value.fingerprint)
+            discovered = discovered + 1
+        } else {
+            rejected = rejected + 1
+        }
     }
-        |> collect
+
+    let mut depth = 0
+    while length(frontier) > 0 and depth <= config.max_depth and length(pages) < config.max_pages {
+        let remaining = config.max_pages - length(pages)
+        let batch = frontier
+            |> stream
+            |> take(remaining)
+            |> parallel(config.parallelism) { task -> fetch_page(task, config) }
+            |> collect
+        frontier = []
+        for page in batch {
+            pages = append(pages, page)
+            if page.ok == true and page.depth < config.max_depth {
+                for href in page.links {
+                    let checked = candidate(href, page.url, config)
+                    if checked.ok != true {
+                        rejected = rejected + 1
+                    } else if contains(fingerprints, checked.value.fingerprint) {
+                        duplicates = duplicates + 1
+                    } else if length(pages) + length(frontier) >= config.max_pages {
+                        limited = limited + 1
+                    } else if length(frontier) >= config.max_frontier {
+                        limited = limited + 1
+                    } else {
+                        frontier = append(frontier, { url: checked.value.url, depth: page.depth + 1 })
+                        fingerprints = append(fingerprints, checked.value.fingerprint)
+                        discovered = discovered + 1
+                    }
+                }
+            }
+        }
+        depth = depth + 1
+    }
+    return {
+        pages: pages,
+        stats: {
+            discovered_urls: discovered,
+            unique_fingerprints: length(fingerprints),
+            duplicate_urls: duplicates,
+            rejected_urls: rejected,
+            limited_urls: limited,
+            max_depth_reached: depth - 1
+        }
+    }
 }
 
-export fn records(results) {
-    return results
+export fn records(crawl_result) {
+    return crawl_result.pages
         |> stream
         |> where { result -> result.ok == true }
         |> flat_map { result -> result.records |> stream }
         |> collect
 }
 
-export fn failures(results) {
-    return results
+export fn failures(crawl_result) {
+    return crawl_result.pages
         |> stream
         |> where { result -> result.ok != true }
-        |> map { result -> { url: result.url, error: result.error } }
+        |> map { result -> { url: result.url, depth: result.depth, error: result.error } }
         |> collect
 }

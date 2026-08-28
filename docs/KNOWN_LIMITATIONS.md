@@ -1,6 +1,6 @@
 # HHY v1.1 已知限制
 
-> 当前稳定版本：`1.1.3`；本文描述 v1.1 的公开限制。
+> 当前稳定版本：`1.1.4`；本文描述 v1.1 的公开限制。
 
 本文记录 v1.1 的公开限制。限制不是未实现功能的替代说法；凡属于
 [`HHY_V1.md`](HHY_V1.md) 发布条件的能力仍必须实现和验证。
@@ -26,6 +26,7 @@
 - 文本、源码、路径、环境变量和命令文本必须是有效 UTF-8；任意二进制数据使用 BytesBuffer。
 - HTTP response body 在 v1.0 中有界缓冲，默认上限 16 MiB；超大响应尚不是 streaming body。
 - HTTP 使用 libcurl 和系统 CA，HHY 不提供自定义 TLS 实现。
+- 通用 HTTP 为兼容现有本机自动化默认允许私网；面向不可信 URL 的抓取器必须显式设置 `allow_private_networks: false`，官方 my-crawler 已默认启用该保护。
 - Regex 使用 PCRE2，并受 pattern、subject、match、depth、heap 和 capture 上限约束。
 - CSV 支持流式 record，但 v1.0 不进行 schema 推断或自动数值类型转换。
 - files 默认不跟随目录符号链接；显式开启后仍会检测并跳过目录循环。

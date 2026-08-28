@@ -127,6 +127,19 @@ true
     *) fail "html extension returned unexpected output: $html_output" ;;
 esac
 
+url_output=$($HHY_BIN run tests/valid/url.hhy)
+case "$url_output" in
+    'https://example.com/guide?q=1
+https
+example.com
+/guide
+q=1
+https://example.com/guide?q=1
+false
+false') ;;
+    *) fail "URL normalization and resolution are incorrect: $url_output" ;;
+esac
+
 printf 'tamper' >> "$extension_test_home/sample/bin/hhy-sample"
 if $HHY_BIN check tests/valid/extension-sample.hhy >/dev/null 2>&1; then
     fail "extension loader accepted a modified executable"

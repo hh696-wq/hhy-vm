@@ -8,20 +8,27 @@ if length(args) != 4 {
 }
 try {
     let config = read_text(path(args[0])) |> parse_json
-    let results = crawl(config)
-    let items = records(results)
-    let failed = failures(results)
-    let successful_pages = results |> stream |> where { result -> result.ok == true } |> count
+    let result = crawl(config)
+    let items = records(result)
+    let failed = failures(result)
+    let successful_pages = result.pages |> stream |> where { page -> page.ok == true } |> count
     let report = {
         tool: "HHY Collector Framework",
-        version: "1.0.0",
+        version: "2.0.0",
         project: config.project,
         ok: length(failed) == 0,
         stats: {
-            requested_pages: length(config.seeds),
+            seed_pages: length(config.seeds),
+            requested_pages: length(result.pages),
             successful_pages: successful_pages,
             failed_pages: length(failed),
-            records: length(items)
+            records: length(items),
+            discovered_urls: result.stats.discovered_urls,
+            unique_fingerprints: result.stats.unique_fingerprints,
+            duplicate_urls: result.stats.duplicate_urls,
+            rejected_urls: result.stats.rejected_urls,
+            limited_urls: result.stats.limited_urls,
+            max_depth_reached: result.stats.max_depth_reached
         }
     }
 
@@ -30,7 +37,7 @@ try {
     failed |> encode_json({ pretty: true }) |> save_text(path(args[3]), { atomic: true, create_parents: true })
 
     print("HHY Collector Framework", config.project)
-    print("Pages", successful_pages, "/", length(config.seeds), "Records", length(items), "Failures", length(failed))
+    print("Pages", successful_pages, "/", length(result.pages), "Records", length(items), "Failures", length(failed))
     print("Records", path(args[1]))
     print("Report", path(args[2]))
     print("Failures", path(args[3]))

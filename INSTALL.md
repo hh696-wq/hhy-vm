@@ -1,6 +1,6 @@
 # Installing HHY
 
-Current stable version: `1.1.3` (from the repository `VERSION` file).
+Current stable version: `1.1.4` (from the repository `VERSION` file).
 HHY v1.1 supports macOS arm64 and Linux x86_64/arm64.
 
 ## Install a release binary
@@ -9,8 +9,8 @@ Download the archive for your platform from the
 [GitHub Releases page](https://github.com/hh696-wq/hhy-vm/releases/latest), then:
 
 ```sh
-tar -xzf hhy-1.1.3-PLATFORM-ARCH.tar.gz
-cd hhy-1.1.3-PLATFORM-ARCH
+tar -xzf hhy-1.1.4-PLATFORM-ARCH.tar.gz
+cd hhy-1.1.4-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```

@@ -632,6 +632,7 @@ split(String, String) -> List<String>
 join(List<String>, String) -> String
 regex_match(String, Regex) -> Bool
 regex_captures(String, Regex) -> Map | Null
+url_resolve(String, String?) -> Map
 parse_json(String) -> JsonValue
 encode_json(JsonValue, Map?) -> String
 parse_csv(String | Stream<String>, Map?) -> Stream<Map>
@@ -729,6 +730,7 @@ const callableDescriptions: Record<string, Record<Language, string>> = {
   join: { zh: "用分隔文本连接 List<String>。", en: "Join List<String> with delimiter text." },
   regex_match: { zh: "判断 PCRE2 Regex 是否匹配 String，受正则资源限制。", en: "Test a String against a PCRE2 Regex under regex resource limits." },
   regex_captures: { zh: "返回完整匹配、字节位置、编号和命名捕获；不匹配返回 null。", en: "Return full match, byte positions, numbered and named captures; null when unmatched." },
+  url_resolve: { zh: "解析绝对或相对 HTTP(S) URL，移除 fragment、默认端口与点路径，并返回 host、path 和稳定指纹。", en: "Resolve an absolute or relative HTTP(S) URL, remove fragments, default ports, and dot segments, and return host, path, and a stable fingerprint." },
   parse_json: { zh: "严格解析 JSON String 为普通 HHY 值，错误包含行列。", en: "Strictly parse JSON String into ordinary HHY values with line/column errors." },
   encode_json: { zh: "把可编码普通值转成 JSON；options 可启用 pretty。", en: "Encode supported ordinary values as JSON; options may enable pretty output." },
   parse_csv: { zh: "把 String 或行 Stream 流式解析成 Stream<Map>。", en: "Stream-parse a String or line Stream into Stream<Map>." },
@@ -1183,7 +1185,7 @@ export const chapters: Chapter[] = [
           { type: "p", text: "http.get/post/put/delete(url, options?) 只创建不可变 HttpRequest，不访问网络。timeout(request, duration) 与 retry(request, options) 返回修改策略后的新 Request；send(request) 才产生 network effect 并返回 HttpResponse。这样 dry-run 能完整展示而不执行请求。" }
         ] },
         { title: "请求选项与安全默认值", blocks: [
-          { type: "table", columns: ["选项", "用途"], rows: [["query", "URL 查询参数"], ["headers", "请求 header"], ["body", "请求内容"], ["proxy", "代理地址"], ["redirect", "重定向策略"]] },
+          { type: "table", columns: ["选项", "用途"], rows: [["query", "URL 查询参数"], ["headers", "请求 header"], ["body", "请求内容"], ["proxy", "代理地址"], ["follow_redirects", "重定向策略"], ["allow_private_networks", "设为 false 时在实际连接地址上阻止私网、loopback 与 link-local"]] },
           { type: "p", text: "TLS 验证默认开启。Authorization 和 Cookie 等敏感 header 会在计划、日志和 Error 中脱敏。响应体受 max_http_body 限制。" }
         ] },
         { title: "超时、重试与幂等性", blocks: [
@@ -1202,7 +1204,7 @@ export const chapters: Chapter[] = [
           { type: "p", text: "http.get/post/put/delete(url, options?) only build immutable HttpRequests without network access. timeout(request, duration) and retry(request, options) return new policy-adjusted Requests; send(request) performs the network effect and returns HttpResponse. Dry-run can therefore inspect the full plan without execution." }
         ] },
         { title: "Request options and safe defaults", blocks: [
-          { type: "table", columns: ["Option", "Purpose"], rows: [["query", "URL query parameters"], ["headers", "Request headers"], ["body", "Request content"], ["proxy", "Proxy address"], ["redirect", "Redirect policy"]] },
+          { type: "table", columns: ["Option", "Purpose"], rows: [["query", "URL query parameters"], ["headers", "Request headers"], ["body", "Request content"], ["proxy", "Proxy address"], ["follow_redirects", "Redirect policy"], ["allow_private_networks", "When false, reject private, loopback, and link-local resolved connection addresses"]] },
           { type: "p", text: "TLS verification is enabled by default. Sensitive Authorization and Cookie headers are redacted in plans, logs, and Errors. Response bodies obey max_http_body." }
         ] },
         { title: "Timeout, retries, and idempotency", blocks: [
@@ -1387,11 +1389,11 @@ export const chapters: Chapter[] = [
     slug: "standard-library",
     order: 17,
     title: { zh: "标准库函数索引", en: "Standard Library Function Index" },
-    summary: { zh: `运行时 Registry 中全部 94 个 ${hhyVersionLabel} 核心 callable 的签名与用途。`, en: `Signatures and purposes for all 94 ${hhyVersionLabel} core callables in the runtime Registry.` },
+    summary: { zh: `运行时 Registry 中全部 95 个 ${hhyVersionLabel} 核心 callable 的签名与用途。`, en: `Signatures and purposes for all 95 ${hhyVersionLabel} core callables in the runtime Registry.` },
     sections: {
       zh: [
         { title: "如何阅读签名", blocks: [
-          { type: "p", text: `本页以 ${hhyVersionLabel} Runtime 的 Callable Contract Registry 为权威来源，共 94 个核心 callable；扩展动态注册的 callable 在各扩展文档中说明。T/U 表示泛型占位值，? 表示可选参数或可空结果，Map? 表示可选 options Map。所有函数都可普通调用；在管道中，左侧值会注入为第一个参数。` },
+          { type: "p", text: `本页以 ${hhyVersionLabel} Runtime 的 Callable Contract Registry 为权威来源，共 95 个核心 callable；扩展动态注册的 callable 在各扩展文档中说明。T/U 表示泛型占位值，? 表示可选参数或可空结果，Map? 表示可选 options Map。所有函数都可普通调用；在管道中，左侧值会注入为第一个参数。` },
           { type: "note", text: "这是完整 callable 清单，不含 args、env、system 等只读特殊值，也不把 File.path、HttpResponse.status 等只读字段误列为函数。" }
         ] },
         { title: "核心值、集合、环境与控制（22）", blocks: [callableList("stdCore", "zh")] },
@@ -1415,7 +1417,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Reading the signatures", blocks: [
-          { type: "p", text: `This page is sourced from the ${hhyVersionLabel} Runtime Callable Contract Registry and contains all 94 core callables; dynamically registered callables are documented by their extensions. T/U are generic placeholders, ? marks an optional argument or nullable result, and Map? is an optional options Map. Every function supports ordinary calls; a pipe injects its left value as the first argument.` },
+          { type: "p", text: `This page is sourced from the ${hhyVersionLabel} Runtime Callable Contract Registry and contains all 95 core callables; dynamically registered callables are documented by their extensions. T/U are generic placeholders, ? marks an optional argument or nullable result, and Map? is an optional options Map. Every function supports ordinary calls; a pipe injects its left value as the first argument.` },
           { type: "note", text: "This is the complete callable list. It excludes read-only special values such as args, env, and system, and does not mislabel read-only fields such as File.path or HttpResponse.status as functions." }
         ] },
         { title: "Core values, collections, environment, and control (22)", blocks: [callableList("stdCore", "en")] },
@@ -2087,11 +2089,11 @@ export const chapters: Chapter[] = [
     slug: "html-crawler-framework",
     order: 21,
     title: { zh: "HTML 扩展与抓取框架", en: "HTML Extension and Crawler Framework" },
-    summary: { zh: "用官方 HTML 扩展和 my-crawler 完成一次真实、可审计、有边界的静态页面采集。", en: "Use the official HTML extension and my-crawler for a real, auditable, bounded static-page collection task." },
+    summary: { zh: "用官方 HTML 扩展和安全 Frontier 完成 URL 规范化、链接发现、递归去重及有界静态抓取。", en: "Combine the official HTML extension with a safe frontier for URL normalization, discovery, recursive deduplication, and bounded static crawling." },
     sections: {
       zh: [
         { title: "为什么先做静态文档采集", blocks: [
-          { type: "p", text: "HHY 已经拥有 HTTP、timeout、retry、parallel、结构化错误和原子文件输出。缺失的一环是 DOM 解析，所以第一版不把 Runtime 变成浏览器，而是增加一个无网络、无文件权限的 html 进程扩展：HHY 负责抓取与调度，Lexbor 负责解析不可信 HTML 和执行 CSS Selector。" },
+          { type: "p", text: "HHY 现在把静态抓取补成了最小 Spider 闭环：Runtime 的 url_resolve 规范化和解析相对 URL；HTML 扩展发现链接；按深度推进的 Frontier 在入队前检查域名、路径、页面数、队列大小和请求指纹；HTTP 网络层在实际连接地址上阻止 SSRF。Lexbor 仍只负责解析不可信 HTML 和执行 CSS Selector。" },
           { type: "note", text: "当前定位是 Flow-first data collection for APIs and static documents。它不执行 JavaScript，也不用于绕过 robots.txt、登录、验证码或反爬策略。只采集你有权访问的站点，并保持可识别 User-Agent 与保守并发。" }
         ] },
         { title: "构建与安装 HTML 扩展", blocks: [
@@ -2102,17 +2104,17 @@ export const chapters: Chapter[] = [
         { title: "初始化 my-crawler", blocks: [
           { type: "code", language: "sh", code: "make\n./practical-projects/my-crawler/init.sh\n./practical-projects/my-crawler/self-test.sh\n./practical-projects/my-crawler/run.sh" },
           { type: "p", text: "init.sh 把 html 扩展安装在项目自己的 .hhy-extensions 中，不污染用户级扩展目录，并创建被 Git 忽略的 output。self-test.sh 使用本机 fixture server 验证完整 HTTP → DOM → JSON 链路；run.sh 默认执行真实的 hhylang.dev 文档抓取。" },
-          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"parallelism\": 2,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": {\n    \"title\": { \"selector\": \"\", \"value\": \"text\" },\n    \"anchor\": { \"selector\": \"\", \"value\": \"attr\", \"name\": \"id\" }\n  }\n}" }
+          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"allowed_domains\": [\"hhylang.dev\"],\n  \"allowed_path_prefixes\": [\"/zh/learn/\"],\n  \"follow_selector\": \"main article a[href]\",\n  \"parallelism\": 2,\n  \"max_depth\": 2,\n  \"max_pages\": 50,\n  \"max_frontier\": 100,\n  \"max_links_per_page\": 200,\n  \"allow_private_networks\": false,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": { \"title\": { \"selector\": \"\", \"value\": \"text\" } }\n}" }
         ] },
         { title: "真实运行结果与边界", blocks: [
-          { type: "terminal", command: "./practical-projects/my-crawler/run.sh", output: "HHY Collector Framework HHY Documentation Crawler\nPages 1 / 1 Records 6 Failures 0\nRecords practical-projects/my-crawler/output/records.json\nReport practical-projects/my-crawler/output/report.json" },
-          { type: "table", columns: ["层", "职责"], rows: [["Crawler", "种子去重、有界并发、timeout/retry、逐页失败归档"], ["HTML extension", "Lexbor DOM、CSS Selector、文本/属性/schema 抽取"], ["Output", "records、report、failures 三份原子 JSON"], ["当前边界", "响应体完整缓冲；不支持 JS 渲染、浏览器自动化和无限流"]] },
+          { type: "terminal", command: "./practical-projects/my-crawler/self-test.sh", output: "HHY Collector Framework Crawler Fixture\nPages 3 / 3 Records 3 Failures 0\nHHY Collector Framework self-test passed" },
+          { type: "table", columns: ["能力", "当前实现程度"], rows: [["URL 规范化", "基于 libcurl URL API；相对地址、点路径、fragment、host 大小写、默认端口"], ["链接发现", "follow_selector 提取 href，逐层加入 Frontier"], ["Frontier 与去重", "按深度、有界并发；规范 URL 指纹在入队前去重"], ["边界限制", "allowed_domains、path prefixes、max_depth/pages/frontier/links"], ["SSRF 防护", "生产默认关闭私网连接；在每次实际 socket 连接时阻止 loopback、私网及 link-local，覆盖重定向"], ["当前边界", "静态 HTML、内存 Frontier、完整缓冲；暂不支持 JS 渲染、持久队列和断点恢复"]] },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/my-crawler", label: "查看 my-crawler 完整源码", description: "包含中英文说明、真实任务配置、初始化脚本、本机 fixture server 和确定性端到端测试。" }
         ] }
       ],
       en: [
         { title: "Why static-document collection comes first", blocks: [
-          { type: "p", text: "HHY already has HTTP, timeout, retry, parallel, structured errors, and atomic file output. DOM parsing was the missing piece. The first version therefore does not turn Runtime into a browser; it adds a process extension with no network or file capabilities. HHY owns fetching and scheduling, while Lexbor parses untrusted HTML and evaluates CSS selectors." },
+          { type: "p", text: "HHY now completes the minimum static-spider loop. Runtime url_resolve normalizes and resolves references; the HTML extension discovers links; a depth frontier checks domain, path, page, queue, and request-fingerprint limits before admission; the HTTP network layer blocks SSRF at the resolved connection address. Lexbor remains responsible only for parsing untrusted HTML and evaluating selectors." },
           { type: "note", text: "The scope is Flow-first data collection for APIs and static documents. It does not execute JavaScript or bypass robots.txt, authentication, CAPTCHAs, or anti-bot controls. Crawl only sites you are authorized to access, identify the client, and keep concurrency conservative." }
         ] },
         { title: "Build and install the HTML extension", blocks: [
@@ -2123,11 +2125,11 @@ export const chapters: Chapter[] = [
         { title: "Initialize my-crawler", blocks: [
           { type: "code", language: "sh", code: "make\n./practical-projects/my-crawler/init.sh\n./practical-projects/my-crawler/self-test.sh\n./practical-projects/my-crawler/run.sh" },
           { type: "p", text: "init.sh installs html into the project's own .hhy-extensions directory without touching the user-level extension home, then creates the Git-ignored output directory. self-test.sh verifies the complete HTTP → DOM → JSON path against a local fixture server; run.sh performs the real hhylang.dev documentation crawl." },
-          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"parallelism\": 2,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": {\n    \"title\": { \"selector\": \"\", \"value\": \"text\" },\n    \"anchor\": { \"selector\": \"\", \"value\": \"attr\", \"name\": \"id\" }\n  }\n}" }
+          { type: "code", language: "text", filename: "config/hhylang.json", code: "{\n  \"seeds\": [\"https://hhylang.dev/zh/learn/cli-reference\"],\n  \"allowed_domains\": [\"hhylang.dev\"],\n  \"allowed_path_prefixes\": [\"/zh/learn/\"],\n  \"follow_selector\": \"main article a[href]\",\n  \"parallelism\": 2,\n  \"max_depth\": 2,\n  \"max_pages\": 50,\n  \"max_frontier\": 100,\n  \"max_links_per_page\": 200,\n  \"allow_private_networks\": false,\n  \"root_selector\": \"main article h2\",\n  \"max_results\": 100,\n  \"schema\": { \"title\": { \"selector\": \"\", \"value\": \"text\" } }\n}" }
         ] },
         { title: "Real run and explicit boundaries", blocks: [
-          { type: "terminal", command: "./practical-projects/my-crawler/run.sh", output: "HHY Collector Framework HHY Documentation Crawler\nPages 1 / 1 Records 6 Failures 0\nRecords practical-projects/my-crawler/output/records.json\nReport practical-projects/my-crawler/output/report.json" },
-          { type: "table", columns: ["Layer", "Responsibility"], rows: [["Crawler", "Seed deduplication, bounded parallelism, timeout/retry, per-page failure archive"], ["HTML extension", "Lexbor DOM, CSS selectors, text/attribute/schema extraction"], ["Output", "Three atomic JSON files: records, report, and failures"], ["Current boundary", "Buffered response bodies; no JS rendering, browser automation, or unbounded streams"]] },
+          { type: "terminal", command: "./practical-projects/my-crawler/self-test.sh", output: "HHY Collector Framework Crawler Fixture\nPages 3 / 3 Records 3 Failures 0\nHHY Collector Framework self-test passed" },
+          { type: "table", columns: ["Capability", "Current implementation"], rows: [["URL normalization", "libcurl URL API: relative references, dot segments, fragments, host case, and default ports"], ["Link discovery", "follow_selector extracts href values and feeds the next frontier"], ["Frontier and deduplication", "Depth batches with bounded concurrency; normalized fingerprints deduplicate before admission"], ["Hard boundaries", "Domains, path prefixes, depth, pages, frontier size, and links per page"], ["SSRF protection", "Production crawler disables private networks; every resolved socket connection rejects loopback, private, and link-local addresses, including redirects"], ["Current boundary", "Static HTML, in-memory frontier, buffered bodies; no JS rendering, persistent queue, or resume yet"]] },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/my-crawler", label: "Read the complete my-crawler source", description: "Includes bilingual documentation, a real task configuration, initialization, a local fixture server, and deterministic end-to-end verification." }
         ] }
       ]
@@ -2137,11 +2139,11 @@ export const chapters: Chapter[] = [
     slug: "language-vm-roadmap",
     order: 22,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "v1.1.3 完成 Runtime 正确性与性能加固；未来只保留扩展工具链和生态 ABI 两个方向。", en: "v1.1.3 completes Runtime correctness and performance hardening, followed by only two directions: extension tooling and the ecosystem ABI decision." },
+    summary: { zh: "v1.1.4 完成安全静态 Spider；未来只保留扩展工具链和生态 ABI 两个方向。", en: "v1.1.4 completes the safe static spider, followed by only two directions: extension tooling and the ecosystem ABI decision." },
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.1.3 是当前 Runtime 正确性与性能加固版本，继续包含 v1.1.2 的 HTML 扩展与静态采集能力。后续只列两个方向，不承诺发布日期；每个版本只有在上一阶段的验收条件通过后才进入冻结。" },
+          { type: "note", text: "v1.1.4 是当前安全静态 Spider 版本，在 v1.1.3 Runtime 加固之上补齐 URL、Frontier、去重、边界和 SSRF 防护。后续只列两个方向，不承诺发布日期。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2150,8 +2152,9 @@ export const chapters: Chapter[] = [
             ["v1.1.0 · 已发布", "2026-08-26", "本地进程扩展与官方数据库扩展", "安装/加载完整性、Protocol 1 同步调用、database 0.2.0 和三平台发行证据完成"],
             ["v1.1.1 · 已发布", "2026-08-27", "性能优化与临界资源稳定性", "hhy profile、解释器热点基线和 Runtime 资源边界完成"],
             ["v1.1.2 · 已发布", "2026-08-27", "HTML 扩展与静态采集框架", "三平台 CI、扩展协议测试、本机 fixture 与真实 hhylang.dev 抓取完成"],
-            ["v1.1.3 · 当前", "2026-08-28", "Runtime 正确性与性能加固", "GC 压力回归、sanitizer、哈希索引、稳定诊断与三平台发布证据完成"],
-            ["v1.2 · 规划", "完成 v1.1.3 验收后", "官方扩展包分发与工具链", "官方扩展具备签名验证、依赖解析、远程索引、离线锁定、可复现安装以及安全回滚"],
+            ["v1.1.3 · 已发布", "2026-08-28", "Runtime 正确性与性能加固", "GC 压力回归、sanitizer、哈希索引、稳定诊断与三平台发布证据完成"],
+            ["v1.1.4 · 当前", "2026-08-28", "安全静态 Spider", "URL 规范化、链接发现、Frontier、边界、指纹去重与连接级 SSRF 防护"],
+            ["v1.2 · 规划", "完成 v1.1.4 验收后", "官方扩展包分发与工具链", "官方扩展具备签名验证、依赖解析、远程索引、离线锁定、可复现安装以及安全回滚"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
           { type: "p", text: "说明：以上时间为建议窗口，不构成发布承诺。" }
@@ -2166,7 +2169,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.1.3 is the current Runtime correctness and performance hardening release and retains the HTML extension and static collection capabilities from v1.1.2. Only two future directions are listed, without committed dates; each enters freeze only after the previous stage passes its acceptance gate." },
+          { type: "note", text: "v1.1.4 is the current safe static-spider release, adding URL, frontier, deduplication, boundary, and SSRF controls on top of the v1.1.3 Runtime hardening work. Only two future directions remain." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
@@ -2175,8 +2178,9 @@ export const chapters: Chapter[] = [
             ["v1.1.0 · Released", "2026-08-26", "Local process extensions and the official database extension", "Install/load integrity, synchronous Protocol 1 calls, database 0.2.0, and three-platform release evidence completed"],
             ["v1.1.1 · Released", "2026-08-27", "Performance optimization and resource-boundary stability", "hhy profile, interpreter hotspot baselines, and Runtime resource boundaries completed"],
             ["v1.1.2 · Released", "2026-08-27", "HTML extension and static collector framework", "Three-platform CI, protocol tests, local fixtures, and the real hhylang.dev crawl completed"],
-            ["v1.1.3 · Current", "2026-08-28", "Runtime correctness and performance hardening", "GC pressure regression, sanitizers, hash indexes, stable diagnostics, and three-platform release evidence completed"],
-            ["v1.2 · Planned", "After v1.1.3 acceptance", "Official extension package distribution and tooling", "Official extensions have publisher signatures, dependency resolution, a remote index, offline locking, reproducible installation, and safe rollback"],
+            ["v1.1.3 · Released", "2026-08-28", "Runtime correctness and performance hardening", "GC pressure regression, sanitizers, hash indexes, stable diagnostics, and three-platform release evidence completed"],
+            ["v1.1.4 · Current", "2026-08-28", "Safe static spider", "URL normalization, discovery, frontier, limits, fingerprint deduplication, and connection-level SSRF protection"],
+            ["v1.2 · Planned", "After v1.1.4 acceptance", "Official extension package distribution and tooling", "Official extensions have publisher signatures, dependency resolution, a remote index, offline locking, reproducible installation, and safe rollback"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },
           { type: "p", text: "Note: these dates are recommended windows, not release commitments." }

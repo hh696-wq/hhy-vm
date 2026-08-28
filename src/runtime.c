@@ -19,6 +19,8 @@
 #include <limits.h>
 #include <locale.h>
 #include <math.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
 #include <gc/gc.h>
@@ -3441,6 +3443,45 @@ static Value csv_encode_row(Runtime *rt, const HhyNode *site, Value fields,
 
 typedef struct { char *data; size_t length; size_t maximum; bool too_large; } CurlBuffer;
 typedef struct { Runtime *rt; const HhyNode *site; } CurlProgress;
+typedef struct { bool blocked_private; } CurlNetworkGuard;
+
+static bool private_socket_address(const struct sockaddr *address) {
+    if (address->sa_family == AF_INET) {
+        uint32_t ip = ntohl(((const struct sockaddr_in *)address)->sin_addr.s_addr);
+        return (ip >> 24) == 0 || (ip >> 24) == 10 || (ip >> 24) == 127 ||
+               (ip >> 22) == 0x0191 || (ip >> 16) == 0xa9fe ||
+               (ip >> 20) == 0xac1 || (ip >> 16) == 0xc0a8 ||
+               (ip & 0xfffe0000U) == 0xc6120000U || (ip >> 24) >= 224;
+    }
+    if (address->sa_family == AF_INET6) {
+        const uint8_t *ip = ((const struct sockaddr_in6 *)address)->sin6_addr.s6_addr;
+        bool zero_prefix = true;
+        for (size_t i = 0; i < 15; i++) zero_prefix = zero_prefix && ip[i] == 0;
+        bool mapped_v4 = true;
+        for (size_t i = 0; i < 10; i++) mapped_v4 = mapped_v4 && ip[i] == 0;
+        mapped_v4 = mapped_v4 && ip[10] == 0xff && ip[11] == 0xff;
+        if (mapped_v4) {
+            uint32_t v4 = ((uint32_t)ip[12] << 24) | ((uint32_t)ip[13] << 16) |
+                          ((uint32_t)ip[14] << 8) | ip[15];
+            struct sockaddr_in mapped = {.sin_family = AF_INET, .sin_addr.s_addr = htonl(v4)};
+            return private_socket_address((const struct sockaddr *)&mapped);
+        }
+        return zero_prefix || (ip[0] & 0xfe) == 0xfc ||
+               (ip[0] == 0xfe && (ip[1] & 0xc0) == 0x80) || ip[0] == 0xff;
+    }
+    return false;
+}
+
+static curl_socket_t guarded_open_socket(void *context, curlsocktype purpose,
+                                         struct curl_sockaddr *address) {
+    (void)purpose;
+    CurlNetworkGuard *guard = context;
+    if (private_socket_address(&address->addr)) {
+        guard->blocked_private = true;
+        return CURL_SOCKET_BAD;
+    }
+    return socket(address->family, address->socktype, address->protocol);
+}
 
 static size_t hhy_curl_write(char *data, size_t size, size_t count, void *context) {
     CurlBuffer *buffer = context;
@@ -3640,6 +3681,7 @@ static Value http_request(Runtime *rt, const HhyNode *site, const char *method,
     Value redirects = map_get(options, "follow_redirects");
     Value proxy = map_get(options, "proxy");
     Value maximum = map_get(options, "max_body");
+    Value allow_private = map_get(options, "allow_private_networks");
     if (body.kind != V_NULL && body.kind != V_STRING) {
         runtime_type_error(rt, site, "HTTP body must be String"); return null_value();
     }
@@ -3659,10 +3701,14 @@ static Value http_request(Runtime *rt, const HhyNode *site, const char *method,
                                    maximum.as.number > (double)rt->limits.max_http_body)) {
         runtime_value_error(rt, site, "HTTP max_body must be Bytes up to 16 MiB"); return null_value();
     }
+    if (allow_private.kind != V_NULL && allow_private.kind != V_BOOL) {
+        runtime_type_error(rt, site, "HTTP allow_private_networks must be Bool"); return null_value();
+    }
     Value final_url = url_add_query(rt, site, argv[0], query);
     if (rt->failed) return null_value();
     const char *keys[] = {"method", "url", "body", "headers", "timeout_ns", "retry_count",
-                          "retry_backoff_ns", "follow_redirects", "proxy", "max_body"};
+                          "retry_backoff_ns", "follow_redirects", "proxy", "max_body",
+                          "allow_private_networks"};
     Value timeout_value = {.kind = V_DURATION};
     timeout_value.as.number = 30000000000.0;
     Value backoff_value = {.kind = V_DURATION};
@@ -3674,9 +3720,10 @@ static Value http_request(Runtime *rt, const HhyNode *site, const char *method,
         proxy,
         maximum.kind == V_NULL
             ? (Value){.kind = V_BYTES, .as.number = (double)rt->limits.max_http_body}
-            : maximum
+            : maximum,
+        allow_private.kind == V_NULL ? bool_value(true) : allow_private
     };
-    return map_with_entries(rt, V_HTTP_REQUEST, 10, keys, values);
+    return map_with_entries(rt, V_HTTP_REQUEST, 11, keys, values);
 }
 
 static Value redact_http_url(Runtime *rt, Value url) {
@@ -3718,6 +3765,7 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
     Value backoff = map_get(request, "retry_backoff_ns");
     Value headers = map_get(request, "headers"), redirects = map_get(request, "follow_redirects");
     Value proxy = map_get(request, "proxy"), maximum = map_get(request, "max_body");
+    Value allow_private = map_get(request, "allow_private_networks");
     if (!rt->effect_allowed) {
         const char *keys[] = {"status", "bytes", "ok", "dry_run", "method", "url",
                               "timeout", "retry_count"};
@@ -3746,6 +3794,11 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, hhy_curl_progress);
         curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progress);
+        CurlNetworkGuard network_guard = {0};
+        if (allow_private.kind != V_BOOL || !allow_private.as.boolean) {
+            curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, guarded_open_socket);
+            curl_easy_setopt(curl, CURLOPT_OPENSOCKETDATA, &network_guard);
+        }
         long timeout_ms = timeout.kind == V_DURATION ? (long)(timeout.as.number / 1000000.0) : 30000L;
         if (timeout_ms < 1) timeout_ms = 1;
         curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout_ms);
@@ -3783,6 +3836,12 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
         if (code == CURLE_OK) curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
         curl_slist_free_all(header_list);
         curl_easy_cleanup(curl);
+        if (network_guard.blocked_private) {
+            free(buffer.data);
+            runtime_error_kind(rt, site, "HttpError", "HHY_HTTP_PRIVATE_NETWORK",
+                               "HTTP connection to a private, loopback, or link-local address is blocked");
+            return null_value();
+        }
         if (code == CURLE_OK && status < 500 && status != 429) break;
         if (attempt + 1 < attempts && backoff.kind == V_DURATION && backoff.as.number > 0) {
             (void)runtime_wait_ns(rt, site, (uint64_t)backoff.as.number);
@@ -3956,8 +4015,75 @@ static Value list_new(Runtime *rt, size_t count) {
     return value;
 }
 
+static Value url_resolve_value(Runtime *rt, const HhyNode *site, size_t argc, Value *argv) {
+    if (argc < 1 || argc > 2 || argv[0].kind != V_STRING ||
+        (argc == 2 && argv[1].kind != V_STRING)) {
+        runtime_type_error(rt, site, "url_resolve expects URL and optional base URL");
+        return null_value();
+    }
+    if (string_has_nul(argv[0]) || (argc == 2 && string_has_nul(argv[1]))) {
+        runtime_value_error(rt, site, "URL cannot contain U+0000"); return null_value();
+    }
+    CURLU *url = curl_url();
+    CURLUcode code = CURLUE_OK;
+    if (url == NULL) {
+        runtime_error_kind(rt, site, "ResourceLimitError", "HHY_URL_MEMORY",
+                           "cannot allocate URL parser"); return null_value();
+    }
+    if (argc == 2) code = curl_url_set(url, CURLUPART_URL, argv[1].as.string, 0);
+    if (code == CURLUE_OK)
+        code = curl_url_set(url, CURLUPART_URL, argv[0].as.string, 0);
+    char *scheme = NULL, *host = NULL, *port = NULL, *path = NULL, *query = NULL;
+    char *user = NULL, *password = NULL, *normalized = NULL;
+    if (code == CURLUE_OK) code = curl_url_get(url, CURLUPART_SCHEME, &scheme, 0);
+    if (code == CURLUE_OK) code = curl_url_get(url, CURLUPART_HOST, &host, 0);
+    if (code == CURLUE_OK) {
+        for (char *p = host; *p != '\0'; p++) *p = (char)tolower((unsigned char)*p);
+        code = curl_url_set(url, CURLUPART_HOST, host, 0);
+    }
+    if (code == CURLUE_OK && strcmp(scheme, "http") != 0 && strcmp(scheme, "https") != 0)
+        code = CURLUE_UNSUPPORTED_SCHEME;
+    if (code == CURLUE_OK &&
+        (curl_url_get(url, CURLUPART_USER, &user, 0) == CURLUE_OK ||
+         curl_url_get(url, CURLUPART_PASSWORD, &password, 0) == CURLUE_OK))
+        code = CURLUE_USER_NOT_ALLOWED;
+    if (code == CURLUE_OK) {
+        (void)curl_url_set(url, CURLUPART_FRAGMENT, NULL, 0);
+        if (curl_url_get(url, CURLUPART_PORT, &port, 0) == CURLUE_OK &&
+            ((strcmp(scheme, "http") == 0 && strcmp(port, "80") == 0) ||
+             (strcmp(scheme, "https") == 0 && strcmp(port, "443") == 0))) {
+            curl_free(port); port = NULL;
+            (void)curl_url_set(url, CURLUPART_PORT, NULL, 0);
+        }
+        (void)curl_url_get(url, CURLUPART_PATH, &path, 0);
+        (void)curl_url_get(url, CURLUPART_QUERY, &query, 0);
+        code = curl_url_get(url, CURLUPART_URL, &normalized, 0);
+    }
+    if (code != CURLUE_OK) {
+        curl_free(scheme); curl_free(host); curl_free(port); curl_free(path);
+        curl_free(query); curl_free(user); curl_free(password); curl_free(normalized);
+        curl_url_cleanup(url);
+        runtime_error_kind(rt, site, "ValueError", "HHY_URL_INVALID",
+                           "URL must resolve to an absolute HTTP(S) URL without credentials");
+        return null_value();
+    }
+    const char *keys[] = {"url", "scheme", "host", "port", "path", "query", "fingerprint"};
+    Value values[] = {
+        string_value(rt, normalized), string_value(rt, scheme), string_value(rt, host),
+        port == NULL ? null_value() : string_value(rt, port),
+        path == NULL ? string_value(rt, "/") : string_value(rt, path),
+        query == NULL ? null_value() : string_value(rt, query), string_value(rt, normalized)
+    };
+    Value result = map_with_entries(rt, V_MAP, 7, keys, values);
+    curl_free(scheme); curl_free(host); curl_free(port); curl_free(path);
+    curl_free(query); curl_free(user); curl_free(password); curl_free(normalized);
+    curl_url_cleanup(url);
+    return result;
+}
+
 static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *name,
                      size_t argc, Value *argv) {
+    if (strcmp(name, "url_resolve") == 0) return url_resolve_value(rt, site, argc, argv);
     if (strcmp(name, "print") == 0 || strcmp(name, "print_error") == 0) {
         FILE *stream = strcmp(name, "print_error") == 0 ? stderr : stdout;
         if (argc == 1 && argv[0].kind == V_STREAM) {
