@@ -53,6 +53,14 @@ $ rg 'Value \*[^;=]*= hhy_(alloc|realloc)|Value \*[^;]*hhy_realloc' src/runtime.
 
 首次 Debug 验证曾发现新增 Map 索引字段在旧反序列化构造路径可能未初始化；随后增加固定 magic 标记，只在 `map_build_index` 完整建索引后启用快路径。修复后 ASan+UBSan 全量测试通过。该过程保留在报告中，作为 sanitizer 实际发现并阻止未定义行为进入提交的证据。
 
-## CI 验收条件
+## CI 验收结果
 
-GitHub Actions 应至少完成仓库现有跨平台工作流，并执行 Release 测试。CI 成功链接或 run ID 在浏览器触发完成后补充到本报告。
+外部 Chrome 已确认 [HHY v1.1 release evidence #65](https://github.com/hh696-wq/hhy-vm/actions/runs/33135887517) 成功，总耗时 2m11s；macOS arm64、Linux arm64、Linux x86_64 三个原生 sanitizer+release job 全部通过，产物证据如下：
+
+| Artifact | SHA-256 digest |
+| --- | --- |
+| `hhy-darwin-arm64-ffafced...` | `61ae8a3c879281525f6a300e6bbaa26cb4d07fc8648f9bbf4a61832d53f4211f` |
+| `hhy-linux-arm64-ffafced...` | `f00c019ad310a7aed31fa2e1986d795b4f59dc6f461899fceb34632ef38b82d9` |
+| `hhy-linux-x86_64-ffafced...` | `a07cb9c5574701bb2b88b6494151fca0cdbd12f4fdb099b6d37d8d0c77c72786` |
+
+唯一 annotation 是 macOS Homebrew 对用户环境中 `aws/tap` 的非阻断信任提示，不影响依赖安装、测试、归档或最终 Success 状态。
