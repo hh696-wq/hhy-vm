@@ -14,7 +14,7 @@ make
 
 默认任务会抓取 `https://hhylang.dev/zh/learn/cli-reference`，抽取页面中的二级标题，并写入 `output/records.json`、`output/report.json` 与 `output/failures.json`。
 
-`init.sh` 把扩展安装到项目自己的 `.hhy-extensions`，不会污染用户级扩展目录；重复运行是安全的。
+`init.sh` 默认复用 HHY 统一的用户级扩展目录（`~/.hhy/extensions`）；若 CI 或测试设置 `HHY_EXTENSION_HOME`，则使用指定的隔离目录。重复运行是安全的。
 
 ## 配置一个 Spider
 

@@ -5,6 +5,7 @@ project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$project_dir/../.." && pwd)
 hhy_bin=${HHY_BIN:-"$repo_root/build/hhy"}
 workspace=$(mktemp -d "${TMPDIR:-/tmp}/hhy-sitegraph.XXXXXX")
+extension_home="$workspace/extensions"
 server_pid=""
 
 cleanup() {
@@ -13,7 +14,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-HHY_BIN="$hhy_bin" "$project_dir/init.sh"
+HHY_BIN="$hhy_bin" HHY_EXTENSION_HOME="$extension_home" "$project_dir/init.sh"
 python3 "$project_dir/test-server.py" "$workspace/port" &
 server_pid=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -53,12 +54,12 @@ EOF
 
 run_case() {
     name=$1
-    HHY_EXTENSION_HOME="$project_dir/.hhy-extensions" "$hhy_bin" run "$project_dir/sitegraph.hhy" "$workspace/$name.json" "$workspace/$name-inventory.json" "$workspace/$name-graph.json" "$workspace/$name-report.json" "$workspace/$name-failures.json"
+    HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" run "$project_dir/sitegraph.hhy" "$workspace/$name.json" "$workspace/$name-inventory.json" "$workspace/$name-graph.json" "$workspace/$name-report.json" "$workspace/$name-failures.json"
 }
 
 write_config healthy /docs/index
 write_config risky /docs/risky
-HHY_EXTENSION_HOME="$project_dir/.hhy-extensions" "$hhy_bin" check "$project_dir/sitegraph.hhy"
+HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" check "$project_dir/sitegraph.hhy"
 run_case healthy
 python3 "$project_dir/test-report.py" healthy "$workspace"
 

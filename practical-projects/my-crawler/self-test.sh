@@ -5,6 +5,7 @@ project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$project_dir/../.." && pwd)
 hhy_bin=${HHY_BIN:-"$repo_root/build/hhy"}
 workspace=$(mktemp -d "${TMPDIR:-/tmp}/hhy-crawler.XXXXXX")
+extension_home="$workspace/extensions"
 server_pid=""
 
 cleanup() {
@@ -13,7 +14,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-HHY_BIN="$hhy_bin" "$project_dir/init.sh"
+HHY_BIN="$hhy_bin" HHY_EXTENSION_HOME="$extension_home" "$project_dir/init.sh"
 python3 "$project_dir/test-server.py" "$workspace/port" &
 server_pid=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -44,8 +45,8 @@ cat > "$workspace/config.json" <<EOF
 }
 EOF
 
-HHY_EXTENSION_HOME="$project_dir/.hhy-extensions" "$hhy_bin" check "$project_dir/crawler.hhy"
-HHY_EXTENSION_HOME="$project_dir/.hhy-extensions" "$hhy_bin" run "$project_dir/crawler.hhy" \
+HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" check "$project_dir/crawler.hhy"
+HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" run "$project_dir/crawler.hhy" \
     "$workspace/config.json" "$workspace/records.json" "$workspace/report.json" "$workspace/failures.json"
 python3 "$project_dir/test-report.py" "$workspace/records.json" "$workspace/report.json" "$workspace/failures.json"
 cat > "$workspace/ssrf.hhy" <<EOF

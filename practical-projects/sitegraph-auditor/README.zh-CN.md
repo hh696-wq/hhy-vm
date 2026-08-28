@@ -20,6 +20,8 @@ SiteGraph Auditor 是一个基于 HHY 1.1.4 安全静态 Spider 的站点结构�
 
 ## 确定性自测
 
+正常运行默认复用 HHY 统一的用户级扩展目录 `~/.hhy/extensions`，不会在项目内保存插件副本。CI/自测通过临时 `HHY_EXTENSION_HOME` 隔离安装，测试退出后自动清理。
+
 ```sh
 make
 ./practical-projects/sitegraph-auditor/self-test.sh

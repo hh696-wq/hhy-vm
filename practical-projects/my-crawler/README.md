@@ -14,7 +14,7 @@ make
 
 The default task fetches `https://hhylang.dev/zh/learn/cli-reference`, extracts its level-two headings, and writes `output/records.json`, `output/report.json`, and `output/failures.json`.
 
-`init.sh` installs the extension in the project's own `.hhy-extensions` directory, leaving the user-level extension home untouched. It is safe to run repeatedly.
+`init.sh` reuses HHY's unified user extension home (`~/.hhy/extensions`) by default. CI and tests can set `HHY_EXTENSION_HOME` for an isolated installation. It is safe to run repeatedly.
 
 ## Configure a spider
 

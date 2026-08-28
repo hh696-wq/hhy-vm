@@ -22,7 +22,7 @@
 - `lib/graph.hhy`：对发现链接再次执行 `url_resolve`，应用域名和路径边界，构建确定性的规范化边。
 - `lib/report.hhy`：检查标题、描述、canonical 和抓取失败，输出稳定的错误/警告计数。
 - `test-server.py`：同时提供健康四层文档站与故障站，覆盖相对路径、点路径、片段重复、外域链接、越界路径和 404。
-- `self-test.sh` / `test-report.py`：精确断言页面数、边数、重复数、拒绝数、发现项和质量门禁退出码，并额外验证 SSRF 负例。
+- `self-test.sh` / `test-report.py`：在临时扩展目录中精确断言页面数、边数、重复数、拒绝数、发现项和质量门禁退出码，并额外验证 SSRF 负例；正常运行统一复用 `~/.hhy/extensions`，项目目录不提交插件副本。
 - `.github/workflows/ci.yml`：Linux 与 macOS CI 都执行原安全爬虫和 SiteGraph Auditor 的端到端验收。
 
 ## 3. 本地举证
