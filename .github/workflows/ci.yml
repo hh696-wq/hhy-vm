@@ -60,6 +60,11 @@ jobs:
       - name: Release suite
         run: make clean && make test
 
+      - name: Safe crawler project acceptance
+        run: |
+          ./practical-projects/my-crawler/self-test.sh
+          ./practical-projects/sitegraph-auditor/self-test.sh
+
       - name: Coverage-guided fuzzing
         run: make fuzz-ci FUZZ_CC=clang
 
@@ -114,6 +119,11 @@ jobs:
 
       - name: Release suite
         run: make clean && make test
+
+      - name: Safe crawler project acceptance
+        run: |
+          ./practical-projects/my-crawler/self-test.sh
+          ./practical-projects/sitegraph-auditor/self-test.sh
 
       - name: Deterministic fuzz smoke
         run: make fuzz-smoke

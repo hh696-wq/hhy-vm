@@ -8,5 +8,6 @@ Complete, self-tested applications built with HHY:
 - [Hong Kong Film Companies](hong-kong-film-companies/README.md) — concurrent Wikipedia research exported to CSV.
 - [Multi-API Data Collector](multi-api-data-collector/README.md) — paginated OpenAlex, Crossref, and GitHub data normalized into incremental CSV.
 - [HHY Collector Framework](my-crawler/README.md) — configurable static-HTML crawling with the official HTML extension, deterministic fixtures, and a real hhylang.dev task.
+- [SiteGraph Auditor](sitegraph-auditor/README.md) — a recursive documentation inventory, normalized link graph, metadata audit, and security gate built on the safe static Spider.
 
 Each project includes deterministic fixtures and a `self-test.sh` script that can be run from the repository root.

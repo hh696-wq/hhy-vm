@@ -1,0 +1,59 @@
+fn metadata_findings(inventory) {
+    let mut findings = []
+    for page in inventory {
+        if page.title == null or trim(page.title) == "" {
+            findings = append(findings, { severity: "error", kind: "missing_title", url: page.source_url })
+        }
+        if page.description == null or trim(page.description) == "" {
+            findings = append(findings, { severity: "error", kind: "missing_description", url: page.source_url })
+        }
+        if page.canonical == null or trim(page.canonical) == "" {
+            findings = append(findings, { severity: "warning", kind: "missing_canonical", url: page.source_url })
+        }
+    }
+    return findings
+}
+
+fn crawl_findings(failed) {
+    let mut findings = []
+    for page in failed {
+        findings = append(findings, { severity: "error", kind: "crawl_failure", url: page.url, detail: page.error })
+    }
+    return findings
+}
+
+fn combine(left, right) {
+    let mut result = left
+    for item in right { result = append(result, item) }
+    return result
+}
+
+export fn build_report(project, crawl_result, inventory, graph, failed) {
+    let findings = combine(metadata_findings(inventory), crawl_findings(failed))
+    let errors = findings |> stream |> where { item -> item.severity == "error" } |> count
+    let warnings = findings |> stream |> where { item -> item.severity == "warning" } |> count
+    let successful = crawl_result.pages |> stream |> where { page -> page.ok == true } |> count
+    let external_edges = graph.edges |> stream |> where { edge -> edge.allowed != true } |> count
+    return {
+        tool: "SiteGraph Auditor",
+        version: "1.0.0",
+        project: project,
+        ok: errors == 0,
+        stats: {
+            requested_pages: length(crawl_result.pages),
+            successful_pages: successful,
+            failed_pages: length(failed),
+            records: length(inventory),
+            edges: length(graph.edges),
+            external_or_rejected_edges: external_edges,
+            duplicate_edges: graph.duplicate_edges,
+            duplicate_urls: crawl_result.stats.duplicate_urls,
+            rejected_urls: crawl_result.stats.rejected_urls,
+            limited_urls: crawl_result.stats.limited_urls,
+            max_depth_reached: crawl_result.stats.max_depth_reached,
+            errors: errors,
+            warnings: warnings
+        },
+        findings: findings
+    }
+}

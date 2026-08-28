@@ -1,0 +1,56 @@
+fn path_allowed(path_value, prefixes) {
+    if length(prefixes) == 0 { return true }
+    for prefix in prefixes {
+        if starts_with(path_value, prefix) { return true }
+    }
+    return false
+}
+
+fn edge_for(source, href, config) {
+    let resolved = attempt { url_resolve(href, source) }
+    if resolved.ok != true {
+        return { source_url: source, href: href, to: null, fingerprint: null, allowed: false, reason: "invalid_url" }
+    }
+    let value = resolved.value
+    let domain_ok = contains(config.allowed_domains, value.host)
+    let path_ok = path_allowed(value.path, config.allowed_path_prefixes)
+    let mut reason = null
+    if not domain_ok {
+        reason = "outside_domain"
+    } else if not path_ok {
+        reason = "outside_path"
+    }
+    return {
+        source_url: source,
+        href: href,
+        to: value.url,
+        fingerprint: value.fingerprint,
+        allowed: domain_ok and path_ok,
+        reason: reason
+    }
+}
+
+export fn build_graph(pages, config) {
+    let mut edges = []
+    let mut seen_edges = []
+    let mut duplicate_edges = 0
+    for page in pages {
+        if page.ok == true {
+            for href in page.links {
+                let edge = edge_for(page.url, href, config)
+                if edge.fingerprint != null {
+                    let edge_key = page.url + " -> " + edge.fingerprint
+                    if contains(seen_edges, edge_key) {
+                        duplicate_edges = duplicate_edges + 1
+                    } else {
+                        seen_edges = append(seen_edges, edge_key)
+                        edges = append(edges, edge)
+                    }
+                } else {
+                    edges = append(edges, edge)
+                }
+            }
+        }
+    }
+    return { edges: edges, duplicate_edges: duplicate_edges }
+}

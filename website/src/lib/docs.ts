@@ -16,6 +16,7 @@ export type ChapterSlug =
   | "asset-governance-project"
   | "hong-kong-film-companies-project"
   | "multi-api-data-collector-project"
+  | "sitegraph-auditor-project"
   | "syntax-reference"
   | "standard-library"
   | "extensions-roadmap"
@@ -1337,7 +1338,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "syntax-reference",
-    order: 16,
+    order: 17,
     title: { zh: "语法完整参考", en: "Complete Syntax Reference" },
     summary: { zh: `${hhyVersionLabel} 的词法、字面量、运算符、语句、闭包和模块语法。`, en: `${hhyVersionLabel} lexical rules, literals, operators, statements, closures, and module syntax.` },
     sections: {
@@ -1387,7 +1388,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "standard-library",
-    order: 17,
+    order: 18,
     title: { zh: "标准库函数索引", en: "Standard Library Function Index" },
     summary: { zh: `运行时 Registry 中全部 95 个 ${hhyVersionLabel} 核心 callable 的签名与用途。`, en: `Signatures and purposes for all 95 ${hhyVersionLabel} core callables in the runtime Registry.` },
     sections: {
@@ -1609,7 +1610,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "cli-reference",
-    order: 18,
+    order: 19,
     title: { zh: "CLI 参考", en: "CLI Reference" },
     summary: { zh: "运行、检查、格式化、REPL、dry-run 与性能分析。", en: "Run, check, format, use the REPL, inspect dry-run plans, and profile performance." },
     sections: {
@@ -1946,8 +1947,48 @@ export const chapters: Chapter[] = [
     }
   },
   {
+    slug: "sitegraph-auditor-project",
+    order: 16,
+    title: { zh: "实战项目：SiteGraph Auditor", en: "Project: SiteGraph Auditor" },
+    summary: { zh: "递归建立文档站页面清单与规范化链接图，用 metadata、失败和安全边界实施质量门禁。", en: "Recursively inventory a documentation site, build a normalized link graph, and enforce metadata, failure, and security gates." },
+    sections: {
+      zh: [
+        { title: "一个真正使用安全 Spider 的质量门禁", blocks: [
+          { type: "p", text: `SiteGraph Auditor 基于 HHY ${hhyVersionTag} 和 my-crawler 的安全递归引擎。它从 seed 开始逐层发现页面，同时输出 inventory、规范链接图、report 和 failures；报告以稳定退出码阻止缺失 metadata 或存在抓取失败的站点通过。` },
+          { type: "table", columns: ["新能力", "项目中的实际用途"], rows: [["URL 规范化", "相对链接、点路径、fragment、host 和默认端口统一成稳定 URL"], ["链接发现", "main a[href] 持续补充下一层 Frontier"], ["Frontier", "按深度批次并发，保留 page/depth/source 上下文"], ["硬边界", "domain/path/depth/pages/frontier/links 六类限制"], ["指纹去重", "进入 Frontier 前去重，链接图另统计同源重复边"], ["SSRF", "正式配置禁止私网，在实际 socket 地址上覆盖 DNS 与重定向"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/sitegraph-auditor", label: "查看 SiteGraph Auditor 完整源码 ↗", description: "包含三个 HHY 模块、四层健康站点、风险站点、报告断言和 SSRF 负向测试。" }
+        ] },
+        { title: "健康与风险双场景", blocks: [
+          { type: "code", language: "sh", code: "make\n./practical-projects/sitegraph-auditor/self-test.sh" },
+          { type: "terminal", command: "./practical-projects/sitegraph-auditor/self-test.sh", output: "SiteGraph Auditor healthy\nPages 4 / 4 Edges 5\nDuplicates 3 Rejected 1 Findings 0\nSiteGraph Auditor risky\nPages 1 / 2 Edges 2\nDuplicates 0 Rejected 1 Findings 3\nSiteGraph Auditor self-test passed" },
+          { type: "p", text: "健康站点包含四层页面、相对 URL、点路径、fragment 重复和跨域引用，必须通过。风险站点包含缺失 description/canonical、404 和越界路径，必须返回失败；最后再证明安全模式会拒绝 loopback。" }
+        ] },
+        { title: "输出与当前边界", blocks: [
+          { type: "table", columns: ["输出", "内容"], rows: [["inventory.json", "title、description、canonical、heading、source_url"], ["graph.json", "source、原始 href、规范目标、fingerprint、允许状态和拒绝原因"], ["report.json", "页面、边、重复、拒绝、限制、错误、warning 和 findings"], ["failures.json", "URL、深度和稳定错误"]] },
+          { type: "note", text: "这是静态站点审计，不执行 JavaScript，也不绕过认证、验证码、robots.txt 或反爬策略。当前 Frontier 位于内存中；持久队列和断点恢复仍是后续能力。" }
+        ] }
+      ],
+      en: [
+        { title: "A quality gate that uses the safe spider end to end", blocks: [
+          { type: "p", text: `SiteGraph Auditor builds on HHY ${hhyVersionTag} and the safe recursive my-crawler engine. Starting from seeds, it discovers pages by depth and writes an inventory, normalized graph, report, and failures. A stable exit status blocks sites with missing metadata or crawl failures.` },
+          { type: "table", columns: ["New capability", "Use in this project"], rows: [["URL normalization", "Unify relative links, dot segments, fragments, host case, and default ports"], ["Link discovery", "main a[href] continuously feeds the next frontier"], ["Frontier", "Concurrent depth batches retain page, depth, and source context"], ["Hard boundaries", "Domain, path, depth, pages, frontier, and links"], ["Fingerprint deduplication", "Deduplicate before frontier admission; count duplicate graph edges separately"], ["SSRF", "Production configuration rejects private resolved socket addresses across DNS and redirects"]] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/practical-projects/sitegraph-auditor", label: "View the complete SiteGraph Auditor source ↗", description: "Includes three HHY modules, a four-level healthy site, a risky site, report assertions, and a negative SSRF test." }
+        ] },
+        { title: "Healthy and risky scenarios", blocks: [
+          { type: "code", language: "sh", code: "make\n./practical-projects/sitegraph-auditor/self-test.sh" },
+          { type: "terminal", command: "./practical-projects/sitegraph-auditor/self-test.sh", output: "SiteGraph Auditor healthy\nPages 4 / 4 Edges 5\nDuplicates 3 Rejected 1 Findings 0\nSiteGraph Auditor risky\nPages 1 / 2 Edges 2\nDuplicates 0 Rejected 1 Findings 3\nSiteGraph Auditor self-test passed" },
+          { type: "p", text: "The healthy site has four levels, relative URLs, dot segments, fragment duplicates, and an external reference. The risky site has missing description/canonical metadata, a 404, and an out-of-scope path. A final request proves safe mode rejects loopback." }
+        ] },
+        { title: "Outputs and boundary", blocks: [
+          { type: "table", columns: ["Output", "Content"], rows: [["inventory.json", "title, description, canonical, heading, and source_url"], ["graph.json", "source, raw href, normalized target, fingerprint, allowed state, and rejection reason"], ["report.json", "Pages, edges, duplicates, rejections, limits, errors, warnings, and findings"], ["failures.json", "URL, depth, and stable error"]] },
+          { type: "note", text: "This is a static-site audit. It does not execute JavaScript or bypass authentication, CAPTCHAs, robots.txt, or anti-bot controls. The frontier is currently in memory; persistence and resume remain future work." }
+        ] }
+      ]
+    }
+  },
+  {
     slug: "extensions-roadmap",
-    order: 19,
+    order: 20,
     title: { zh: "扩展系统", en: "Extension System" },
     summary: { zh: "面向扩展开发者的 v1.1.1 实现说明：本地包清单、权限声明、进程协议、加载链路和 callable 注册。", en: "The v1.1.1 implementation guide for extension developers: local manifests, capability declarations, the process protocol, load lifecycle, and callable registration." },
     sections: {
@@ -2019,7 +2060,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "database-extension",
-    order: 20,
+    order: 21,
     title: { zh: "数据库扩展使用指南", en: "Database Extension Guide" },
     summary: { zh: "安装官方 database 0.2.0 扩展，通过 JSON 配置连接 MySQL/PostgreSQL，并完成查询、写入与事务。", en: "Install the official database 0.2.0 extension, configure MySQL/PostgreSQL with JSON, and run queries, writes, and transactions." },
     sections: {
@@ -2087,7 +2128,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "html-crawler-framework",
-    order: 21,
+    order: 22,
     title: { zh: "HTML 扩展与抓取框架", en: "HTML Extension and Crawler Framework" },
     summary: { zh: "用官方 HTML 扩展和安全 Frontier 完成 URL 规范化、链接发现、递归去重及有界静态抓取。", en: "Combine the official HTML extension with a safe frontier for URL normalization, discovery, recursive deduplication, and bounded static crawling." },
     sections: {
@@ -2137,7 +2178,7 @@ export const chapters: Chapter[] = [
   },
   {
     slug: "language-vm-roadmap",
-    order: 22,
+    order: 23,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
     summary: { zh: "v1.1.4 完成安全静态 Spider；未来只保留扩展工具链和生态 ABI 两个方向。", en: "v1.1.4 completes the safe static spider, followed by only two directions: extension tooling and the ecosystem ABI decision." },
     sections: {
@@ -2202,7 +2243,7 @@ export function getChapter(slug: string): Chapter | undefined {
 }
 
 export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" {
-  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project" || chapter.slug === "multi-api-data-collector-project") return "project";
+  if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project" || chapter.slug === "multi-api-data-collector-project" || chapter.slug === "sitegraph-auditor-project") return "project";
   if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension" || chapter.slug === "html-crawler-framework") return "extension";
   if (chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"

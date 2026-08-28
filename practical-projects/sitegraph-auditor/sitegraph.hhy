@@ -1,0 +1,33 @@
+#!/usr/bin/env hhy
+
+import { crawl, records, failures } from "../my-crawler/lib/engine.hhy"
+import { build_graph } from "./lib/graph.hhy"
+import { build_report } from "./lib/report.hhy"
+
+if length(args) != 5 {
+    print_error("usage: hhy run sitegraph.hhy <config.json> <inventory.json> <graph.json> <report.json> <failures.json>")
+    exit(3)
+}
+
+try {
+    let config = read_text(path(args[0])) |> parse_json
+    let crawl_result = crawl(config)
+    let inventory = records(crawl_result)
+    let failed = failures(crawl_result)
+    let graph = build_graph(crawl_result.pages, config)
+    let report = build_report(config.project, crawl_result, inventory, graph, failed)
+
+    inventory |> encode_json({ pretty: true }) |> save_text(path(args[1]), { atomic: true, create_parents: true })
+    graph |> encode_json({ pretty: true }) |> save_text(path(args[2]), { atomic: true, create_parents: true })
+    report |> encode_json({ pretty: true }) |> save_text(path(args[3]), { atomic: true, create_parents: true })
+    failed |> encode_json({ pretty: true }) |> save_text(path(args[4]), { atomic: true, create_parents: true })
+
+    print("SiteGraph Auditor", config.project)
+    print("Pages", report.stats.successful_pages, "/", report.stats.requested_pages, "Edges", report.stats.edges)
+    print("Duplicates", report.stats.duplicate_urls, "Rejected", report.stats.rejected_urls, "Findings", length(report.findings))
+    print("Report", path(args[3]))
+    if not report.ok { exit(1) }
+} catch err {
+    print_error(err)
+    exit(1)
+}
