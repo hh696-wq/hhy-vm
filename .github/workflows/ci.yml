@@ -52,7 +52,9 @@ jobs:
           sudo ldconfig
 
       - name: Validate callable contracts
-        run: python3 tests/check_contracts.py
+        run: |
+          python3 tests/check_contracts.py
+          sh tests/check-promotion-assets.sh
 
       - name: Debug sanitizer suite
         run: make test-debug SANITIZERS=${{ matrix.sanitizers }}
@@ -112,7 +114,9 @@ jobs:
         run: brew install pcre2 bdw-gc jansson openssl@3 libpq mysql lexbor
 
       - name: Validate callable contracts
-        run: python3 tests/check_contracts.py
+        run: |
+          python3 tests/check_contracts.py
+          sh tests/check-promotion-assets.sh
 
       - name: Debug ASan and UBSan suite
         run: make test-debug

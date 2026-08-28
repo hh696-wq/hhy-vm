@@ -796,10 +796,20 @@ export const chapters: Chapter[] = [
     slug: "quick-start",
     order: 1,
     title: { zh: "快速开始", en: "Quick Start" },
-    summary: { zh: "安装 HHY，构建解释器，并运行第一个脚本。", en: "Install HHY, build the interpreter, and run your first script." },
+    summary: { zh: "5 分钟安装 HHY、运行第一个 Flow，并掌握日常开发命令。", en: "Install HHY, run your first Flow, and learn the daily commands in five minutes." },
     sections: {
       zh: [
-        { title: "方式一：直接下载 Release（推荐）", blocks: [
+        { title: "第 1 分钟：一键安装（推荐）", blocks: [
+          { type: "p", text: `支持 macOS arm64、Linux x86_64 与 Linux arm64。安装器自动识别平台、下载 ${hhyVersionLabel} 发行包和同名 .sha256，校验通过后才安装；默认不需要 sudo。` },
+          { type: "code", language: "sh", code: "curl -fsSL https://hhylang.dev/install.sh | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nhhy --version" },
+          { type: "note", text: `默认安装版本目录为 ~/.local/share/hhy/${hhyVersion}，命令入口为 ~/.local/bin/hhy。安装器默认解析 GitHub 最新稳定版；HHY_VERSION 可用于固定或回滚版本，HHY_INSTALL_ROOT 和 HHY_BIN_DIR 可以覆盖位置。` }
+        ] },
+        { title: "macOS：通过 Homebrew Tap 安装", blocks: [
+          { type: "p", text: "Apple Silicon Mac 可以使用仓库内的 Formula。显式绑定 Git 仓库 URL，使当前仓库在独立 homebrew-tap 仓库建立前也能作为 Tap 使用。" },
+          { type: "code", language: "sh", code: "brew tap hh696-wq/hhy https://github.com/hh696-wq/hhy-vm.git\nbrew install hhy\nhhy --version" },
+          { type: "note", text: "当前 Formula 只支持 macOS arm64，并锁定官方发行包及其 SHA-256。Linux 请使用一键安装器或 Release 包。" }
+        ] },
+        { title: "方式二：直接下载 Release", blocks: [
           { type: "p", text: `不需要修改 HHY Runtime 时，直接使用官方 ${hhyVersionLabel} 发行包最快。根据系统和 CPU 选择 darwin-arm64、linux-x86_64 或 linux-arm64；压缩包已包含 HHY 可执行文件、官方示例与数据库扩展、所需的非系统运行库、文档、许可证和构建信息。` },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases", label: "打开 HHY GitHub Releases ↗", description: "下载最新稳定版本、对应的 .sha256 文件或汇总 SHA256SUMS。" },
           { type: "code", language: "sh", code: `tar -xzf hhy-${hhyVersion}-PLATFORM-ARCH.tar.gz\ncd hhy-${hhyVersion}-PLATFORM-ARCH\n./bin/hhy --version\n./bin/hhy run examples/07-language-basics.hhy` },
@@ -810,7 +820,7 @@ export const chapters: Chapter[] = [
           { type: "code", language: "sh", code: `# macOS\nshasum -a 256 -c hhy-${hhyVersion}-darwin-arm64.tar.gz.sha256\n\n# Linux\nsha256sum -c hhy-${hhyVersion}-linux-x86_64.tar.gz.sha256\n\n# 当前终端加入 PATH（替换成实际绝对路径）\nexport PATH=\"/absolute/path/hhy-${hhyVersion}-PLATFORM-ARCH/bin:$PATH\"\nhhy --version` },
           { type: "p", text: "长期使用时，把 export PATH 行放进 shell 配置文件；或者继续通过发行目录中的 ./bin/hhy 运行，不需要系统级安装。" }
         ] },
-        { title: "方式二：从源码构建", blocks: [
+        { title: "方式三：从源码构建", blocks: [
           { type: "p", text: `需要开发 Runtime、验证最新源码或自定义安装位置时再选择源码构建。HHY ${hhyVersionLabel} 正式支持 macOS arm64、Linux arm64 和 Linux x86_64；需要 C11 编译器、make、libcurl、PCRE2 与 BDWGC。数据库扩展还需要对应的 PostgreSQL libpq 或 MySQL client 开发库。` },
           { type: "code", language: "sh", code: "brew install curl pcre2 bdw-gc\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\nmake test\n./build/hhy --version" },
           { type: "note", text: "brew 命令只适用于 macOS。Linux 的依赖包名称因发行版而异，完整说明见仓库 INSTALL.md。" }
@@ -831,7 +841,17 @@ export const chapters: Chapter[] = [
         ] }
       ],
       en: [
-        { title: "Option 1: download a Release (recommended)", blocks: [
+        { title: "Minute 1: one-command install (recommended)", blocks: [
+          { type: "p", text: `The installer supports macOS arm64, Linux x86_64, and Linux arm64. It detects the platform, downloads the ${hhyVersionLabel} archive and matching .sha256, and installs only after verification. sudo is not required by default.` },
+          { type: "code", language: "sh", code: "curl -fsSL https://hhylang.dev/install.sh | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nhhy --version" },
+          { type: "note", text: `The default version directory is ~/.local/share/hhy/${hhyVersion} and the command entry point is ~/.local/bin/hhy. The installer resolves the latest stable GitHub release by default; use HHY_VERSION to pin or roll back, and HHY_INSTALL_ROOT or HHY_BIN_DIR to override locations.` }
+        ] },
+        { title: "macOS: install from the Homebrew tap", blocks: [
+          { type: "p", text: "Apple Silicon Macs can use the Formula maintained in this repository. The explicit Git URL lets the repository act as a tap before a separate homebrew-tap repository is created." },
+          { type: "code", language: "sh", code: "brew tap hh696-wq/hhy https://github.com/hh696-wq/hhy-vm.git\nbrew install hhy\nhhy --version" },
+          { type: "note", text: "The current Formula supports macOS arm64 only and pins the official archive and SHA-256. Use the installer or a Release archive on Linux." }
+        ] },
+        { title: "Option 2: download a Release", blocks: [
           { type: "p", text: `If you are not modifying the HHY Runtime, an official ${hhyVersionLabel} archive is the fastest path. Choose darwin-arm64, linux-x86_64, or linux-arm64 for your OS and CPU. Archives include the executable, official sample and database extensions, required non-system runtime libraries, docs, licenses, and build metadata.` },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases", label: "Open HHY GitHub Releases ↗", description: "Download the latest stable archive and its matching .sha256 file or SHA256SUMS." },
           { type: "code", language: "sh", code: `tar -xzf hhy-${hhyVersion}-PLATFORM-ARCH.tar.gz\ncd hhy-${hhyVersion}-PLATFORM-ARCH\n./bin/hhy --version\n./bin/hhy run examples/07-language-basics.hhy` },
@@ -842,7 +862,7 @@ export const chapters: Chapter[] = [
           { type: "code", language: "sh", code: `# macOS\nshasum -a 256 -c hhy-${hhyVersion}-darwin-arm64.tar.gz.sha256\n\n# Linux\nsha256sum -c hhy-${hhyVersion}-linux-x86_64.tar.gz.sha256\n\n# Add to PATH for this terminal (use the real absolute path)\nexport PATH=\"/absolute/path/hhy-${hhyVersion}-PLATFORM-ARCH/bin:$PATH\"\nhhy --version` },
           { type: "p", text: "For permanent access, put the export PATH line in your shell profile. You may also keep invoking ./bin/hhy from the extracted directory without a system-wide install." }
         ] },
-        { title: "Option 2: build from source", blocks: [
+        { title: "Option 3: build from source", blocks: [
           { type: "p", text: `Build from source when developing the Runtime, validating current source, or choosing a custom installation prefix. HHY ${hhyVersionLabel} supports macOS arm64, Linux arm64, and Linux x86_64 and requires a C11 compiler, make, libcurl, PCRE2, and BDWGC. The database extension additionally needs the corresponding PostgreSQL libpq or MySQL client development library.` },
           { type: "code", language: "sh", code: "brew install curl pcre2 bdw-gc\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\nmake test\n./build/hhy --version" },
           { type: "note", text: "The brew command applies only to macOS. Linux package names vary by distribution; see INSTALL.md for the full dependency matrix." }

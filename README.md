@@ -5,17 +5,40 @@
 
   **Pipe Everything.**
 
-  A flow-first scripting language for system automation.
+  A small, deterministic, flow-first language for files, processes, HTTP, data pipelines, and safe static crawling.
 
-  [Website](https://hhylang.dev) · [Language Specification](docs/HHY_V1.md) · [Examples](examples/README.md) · [Known Limitations](docs/KNOWN_LIMITATIONS.md)
+  [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
   [![Version](https://img.shields.io/badge/version-1.1.4-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
 
-HHY 是一门用 C 从零实现的系统脚本语言。它通过统一的 Flow 模型连接文件、
-进程、网络和结构化数据，让系统自动化像描述数据流一样直接。
+HHY 是一门用 C 从零实现的系统脚本语言。它用同一种 `source |> transform |>
+action` 模型连接文件、进程、网络与结构化数据，并提供有界并发、资源限制、
+脱敏 dry-run 和扩展权限清单。它不是自然语言或 AI 包装层，脚本具有确定的
+grammar、类型规则、执行语义和退出码。
+
+## 30 秒开始
+
+macOS arm64、Linux x86_64 / arm64：
+
+```sh
+curl -fsSL https://hhylang.dev/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+hhy --version
+```
+
+macOS arm64 也可以使用仓库内维护的 Homebrew Tap：
+
+```sh
+brew tap hh696-wq/hhy https://github.com/hh696-wq/hhy-vm.git
+brew install hhy
+```
+
+安装器会选择平台包、下载同名 `.sha256`、强制校验后安装到
+`~/.local/share/hhy/<version>`，并在 `~/.local/bin` 创建入口。可审计源码见
+[install.sh](install.sh)，手动下载见 [Releases](https://github.com/hh696-wq/hhy-vm/releases/latest)。
 
 ```hhy
 processes
@@ -25,8 +48,7 @@ processes
     |> print
 ```
 
-HHY 不是自然语言理解系统，也不依赖 AI。源码具有确定的 grammar、类型规则
-和执行语义。它的核心表达始终是：
+它的核心表达始终是：
 
 ```text
 source |> transform |> filter |> action
@@ -44,6 +66,17 @@ source |> transform |> filter |> action
 
 当前稳定版本是 **V1.1.4**（`1.1.4`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64。
+
+### 一键安装（推荐）
+
+```sh
+curl -fsSL https://hhylang.dev/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+hhy --version
+```
+
+完整的 5 分钟路径、手动校验和卸载说明见
+[Quick Start](https://hhylang.dev/zh/learn/quick-start)。
 
 ### 从源码构建
 
