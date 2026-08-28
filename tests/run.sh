@@ -20,6 +20,10 @@ fail() {
     exit 1
 }
 
+if grep -En 'Value \*[^;=]*= hhy_(alloc|realloc)|Value \*[^;]*hhy_realloc' src/runtime.c >/dev/null; then
+    fail "managed Value buffer uses a native allocator"
+fi
+
 for source in examples/*.hhy tests/valid/*.hhy tests/acceptance/*.hhy tests/acceptance/lib/*.hhy; do
     "$HHY_BIN" check "$source" >/dev/null || fail "expected $source to parse"
 done
@@ -34,6 +38,15 @@ sh tests/check-docs.sh "$HHY_BIN" README.md >/dev/null
 if command -v python3 >/dev/null 2>&1; then
     python3 tests/check_contracts.py >/dev/null
 fi
+
+# Deterministic GC pressure: every managed allocation triggers a collection.
+# These paths retain managed Values/strings in growable aggregation buffers.
+for gc_case in tests/valid/advanced-flow.hhy tests/valid/json-flow.hhy tests/valid/csv-flow.hhy; do
+    gc_expected=$("$HHY_BIN" run "$gc_case")
+    gc_actual=$(HHY_GC_STRESS=1 "$HHY_BIN" run "$gc_case")
+    [ "$gc_actual" = "$gc_expected" ] ||
+        fail "GC stress changed output for $gc_case"
+done
 
 for source in tests/invalid/*.hhy; do
     if "$HHY_BIN" check "$source" >/dev/null 2>&1; then
@@ -180,6 +193,12 @@ grep -F '"allocated_bytes"' tests/output/basic.profile.json >/dev/null ||
     fail "JSON profile omitted allocation data"
 grep -F '"name": "<top-level>"' tests/output/basic.profile.json >/dev/null ||
     fail "JSON profile omitted top-level execution"
+grep -F '"cpu_sample_period_us": 1000' tests/output/basic.profile.json >/dev/null ||
+    fail "JSON profile omitted CPU sample period"
+grep -F '"cpu_data_quality": "insufficient"' tests/output/basic.profile.json >/dev/null ||
+    fail "JSON profile omitted low-sample quality marker"
+grep -F '"warnings": [' tests/output/basic.profile.json >/dev/null ||
+    fail "JSON profile omitted warnings"
 if command -v python3 >/dev/null 2>&1; then
     python3 -m json.tool tests/output/basic.profile.json >/dev/null ||
         fail "profile JSON is invalid"
@@ -746,8 +765,9 @@ beta") ;;
     *) fail "process output Flow returned unexpected content: $process_output" ;;
 esac
 
-logical_record_output=$("$HHY_BIN" run tests/valid/logical-record-types.hhy)
-case "$logical_record_output" in
+if /bin/ps -axo pid=,pcpu=,rss=,state=,comm= >/dev/null 2>&1; then
+  logical_record_output=$("$HHY_BIN" run tests/valid/logical-record-types.hhy)
+  case "$logical_record_output" in
     "Result
 Result
 Result
@@ -760,17 +780,24 @@ CommandResult
 CommandResult
 Process
 Process") ;;
-    *) fail "logical record types or parallel serialization are incorrect: $logical_record_output" ;;
-esac
+      *) fail "logical record types or parallel serialization are incorrect: $logical_record_output" ;;
+  esac
+else
+  printf '%s\n' 'SKIP: host denies /bin/ps; process logical-record serialization is covered by CI'
+fi
 
-system_output=$("$HHY_BIN" run tests/valid/system.hhy)
-case "$system_output" in
+if /bin/ps -axo pid=,pcpu=,rss=,state=,comm= >/dev/null 2>&1; then
+  system_output=$("$HHY_BIN" run tests/valid/system.hhy)
+  case "$system_output" in
     "String
 Path
 true
 true") ;;
-    *) fail "system namespaces or process Stream are incorrect: $system_output" ;;
-esac
+      *) fail "system namespaces or process Stream are incorrect: $system_output" ;;
+  esac
+else
+  printf '%s\n' 'SKIP: host denies /bin/ps; system process Stream is covered by CI'
+fi
 
 module_output=$("$HHY_BIN" run tests/valid/modules.hhy)
 case "$module_output" in
@@ -840,11 +867,15 @@ awk 'BEGIN { for (i = 0; i < 90000; i++) print "INFO regular line"; print "ERROR
 [ "$(cat tests/output/acceptance/errors.txt)" = "ERROR acceptance" ] ||
     fail "file/text/units/parallel acceptance scenario failed"
 
-acceptance_process_output=$("$HHY_BIN" run tests/acceptance/03-process-system.hhy)
-case "$acceptance_process_output" in
+if /bin/ps -axo pid=,pcpu=,rss=,state=,comm= >/dev/null 2>&1; then
+  acceptance_process_output=$("$HHY_BIN" run tests/acceptance/03-process-system.hhy)
+  case "$acceptance_process_output" in
     ''|*[!0-9]*) fail "process/system acceptance scenario returned invalid count" ;;
-    0) fail "process/system acceptance scenario found no processes" ;;
-esac
+      0) fail "process/system acceptance scenario found no processes" ;;
+  esac
+else
+  printf '%s\n' 'SKIP: host denies /bin/ps; process/system acceptance is covered by CI'
+fi
 
 acceptance_language_output=$("$HHY_BIN" run tests/acceptance/05-language-modules.hhy)
 [ "$acceptance_language_output" = '{"count": 3, "total": 40}' ] ||

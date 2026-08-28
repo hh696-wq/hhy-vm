@@ -219,10 +219,17 @@ static void json_string(FILE *out, const char *text) {
 static void print_json(HhyProfiler *p, FILE *out) {
     fputs("{\n  \"source\": ", out); json_string(out, p->source_path);
     fprintf(out, ",\n  \"wall_seconds\": %.9f,\n  \"cpu_seconds\": %.9f,"
-            "\n  \"cpu_samples\": %d,\n  \"heap_peak_bytes\": %zu,"
+            "\n  \"cpu_samples\": %d,\n  \"cpu_sample_period_us\": 1000,"
+            "\n  \"cpu_data_quality\": \"%s\",\n  \"warnings\": %s,"
+            "\n  \"heap_peak_bytes\": %zu,"
             "\n  \"heap_current_bytes\": %zu,\n  \"allocated_bytes\": %" PRIu64
             ",\n  \"allocations\": %" PRIu64 ",\n  \"hotspots\": [",
-            p->wall_seconds, p->cpu_seconds, (int)p->total_samples, p->heap_peak,
+            p->wall_seconds, p->cpu_seconds, (int)p->total_samples,
+            p->total_samples < 10 ? "insufficient" : "usable",
+            p->total_samples < 10
+                ? "[\"fewer than 10 CPU samples; use a larger workload for stable results\"]"
+                : "[]",
+            p->heap_peak,
             p->heap_current, p->total_allocated, p->total_allocations);
     for (size_t i = 0; i < p->entry_count; i++) {
         ProfileEntry *e = &p->entries[i];

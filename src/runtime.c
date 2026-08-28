@@ -85,7 +85,15 @@ struct WatchItem {
 };
 typedef struct { pid_t pid; FILE *file; bool active; } ParallelJob;
 typedef struct { size_t count; Value *items; } List;
-typedef struct { size_t count; char **keys; size_t *key_lengths; Value *values; } Map;
+typedef struct {
+    size_t count;
+    char **keys;
+    size_t *key_lengths;
+    Value *values;
+    size_t *slots;
+    size_t slot_count;
+    uint64_t index_magic;
+} Map;
 typedef struct {
     const char *builtin;
     const HhyNode *node;
@@ -143,6 +151,8 @@ struct Stream {
     bool initialized;
     bool descending;
     Value *seen;
+    size_t *seen_slots;
+    size_t seen_slot_count;
     uint64_t *seen_times;
     size_t seen_count;
     size_t seen_capacity;
@@ -212,6 +222,7 @@ struct Runtime {
     Stream *streams;
     jmp_buf memory_jump;
     bool memory_jump_ready;
+    bool gc_stress;
     size_t memory_baseline;
     size_t memory_check_budget;
     size_t memory_observed_local;
@@ -249,6 +260,7 @@ static Value bool_value(bool b) { Value v = {.kind = V_BOOL}; v.as.boolean = b; 
 static Value int_value(int64_t n) { Value v = {.kind = V_INT}; v.as.integer = n; return v; }
 static Value float_value(double n) { Value v = {.kind = V_FLOAT}; v.as.number = n; return v; }
 static void *rt_alloc(Runtime *rt, size_t size);
+static void map_build_index(Runtime *rt, Map *map);
 static char *rt_strndup(Runtime *rt, const char *text, size_t length);
 static Value string_n(Runtime *rt, const char *text, size_t length);
 static Value list_new(Runtime *rt, size_t count);
@@ -318,6 +330,7 @@ static Value protocol_json_to_value(Runtime *rt, const HhyNode *site, json_t *va
             result.as.map.keys[index] = rt_strndup(rt, key, result.as.map.key_lengths[index]);
             result.as.map.values[index] = protocol_json_to_value(rt, site, item); index++;
         }
+        map_build_index(rt, &result.as.map);
         return result;
     }
     runtime_value_error(rt, site, "extension returned an unsupported protocol value");
@@ -384,6 +397,7 @@ static bool runtime_memory_available(Runtime *rt, size_t size) {
 
 static void *rt_alloc(Runtime *rt, size_t size) {
     size_t requested = size == 0 ? 1 : size;
+    if (rt->gc_stress) GC_gcollect();
     if (!runtime_memory_available(rt, requested)) runtime_memory_limit(rt);
     void *pointer = GC_malloc(requested);
     if (pointer == NULL) runtime_memory_limit(rt);
@@ -404,6 +418,26 @@ static void *rt_alloc_atomic(Runtime *rt, size_t size) {
                                 rt->memory_baseline + rt->memory_observed_local);
     memset(pointer, 0, size);
     return pointer;
+}
+
+/* Managed references must live in scanned storage. These named helpers make
+ * the ownership rule explicit at every grow site. */
+static void *rt_scanned_array_grow(Runtime *rt, const void *old, size_t old_count,
+                                   size_t new_count, size_t item_size) {
+    if (new_count > SIZE_MAX / item_size) runtime_memory_limit(rt);
+    void *result = rt_alloc(rt, new_count * item_size);
+    if (old != NULL && old_count != 0) memcpy(result, old, old_count * item_size);
+    return result;
+}
+
+static Value *rt_value_array_grow(Runtime *rt, Value *old, size_t old_count,
+                                  size_t new_count) {
+    return rt_scanned_array_grow(rt, old, old_count, new_count, sizeof(Value));
+}
+
+static char **rt_pointer_array_grow(Runtime *rt, char **old, size_t old_count,
+                                    size_t new_count) {
+    return rt_scanned_array_grow(rt, old, old_count, new_count, sizeof(char *));
 }
 
 static Value bytes_buffer_value(Runtime *rt, const void *data, size_t length) {
@@ -1247,8 +1281,8 @@ static bool compare_sort_keys(Runtime *rt, const HhyNode *site, Value left, Valu
 static bool stable_sort_values(Runtime *rt, const HhyNode *site, Value *items, Value *keys,
                                size_t count, bool descending) {
     if (count < 2) return true;
-    Value *temporary_items = hhy_alloc(count * sizeof(Value));
-    Value *temporary_keys = hhy_alloc(count * sizeof(Value));
+    Value *temporary_items = rt_value_array_grow(rt, NULL, 0, count);
+    Value *temporary_keys = rt_value_array_grow(rt, NULL, 0, count);
     Value *source_items = items, *source_keys = keys;
     Value *target_items = temporary_items, *target_keys = temporary_keys;
     for (size_t width = 1; width < count; width = width > count / 2 ? count : width * 2) {
@@ -1262,7 +1296,7 @@ static bool stable_sort_values(Runtime *rt, const HhyNode *site, Value *items, V
                     int comparison = 0;
                     if (!compare_sort_keys(rt, site, source_keys[left], source_keys[right],
                                            &comparison)) {
-                        free(temporary_items); free(temporary_keys); return false;
+                        return false;
                     }
                     take_left = descending ? comparison >= 0 : comparison <= 0;
                 }
@@ -1274,14 +1308,13 @@ static bool stable_sort_values(Runtime *rt, const HhyNode *site, Value *items, V
         Value *swap = source_items; source_items = target_items; target_items = swap;
         swap = source_keys; source_keys = target_keys; target_keys = swap;
         if (runtime_check_cancel(rt, site)) {
-            free(temporary_items); free(temporary_keys); return false;
+            return false;
         }
     }
     if (source_items != items) {
         memcpy(items, source_items, count * sizeof(Value));
         memcpy(keys, source_keys, count * sizeof(Value));
     }
-    free(temporary_items); free(temporary_keys);
     return true;
 }
 
@@ -1406,9 +1439,45 @@ static Value binary_value(Runtime *rt, const HhyNode *node, Value a, Value b) {
     return float_value(result);
 }
 
+static uint64_t hash_key_bytes(const char *key, size_t key_length) {
+    uint64_t hash = UINT64_C(1469598103934665603);
+    for (size_t i = 0; i < key_length; i++) {
+        hash ^= (unsigned char)key[i];
+        hash *= UINT64_C(1099511628211);
+    }
+    return hash;
+}
+
+static void map_build_index(Runtime *rt, Map *map) {
+    if (map->count < 8) return;
+    size_t slots = 16;
+    while (slots < map->count * 2) slots *= 2;
+    map->slots = rt_alloc_atomic(rt, slots * sizeof(size_t));
+    map->slot_count = slots;
+    map->index_magic = UINT64_C(0x4848594d41504958);
+    for (size_t i = 0; i < map->count; i++) {
+        size_t slot = (size_t)(hash_key_bytes(map->keys[i], map->key_lengths[i]) & (slots - 1));
+        while (map->slots[slot] != 0) slot = (slot + 1) & (slots - 1);
+        map->slots[slot] = i + 1;
+    }
+}
+
 static bool map_lookup_n(Value map, const char *key, size_t key_length, Value *out) {
     if (!record_kind(map.kind))
         return false;
+    if (map.as.map.index_magic == UINT64_C(0x4848594d41504958)) {
+        size_t slot = (size_t)(hash_key_bytes(key, key_length) & (map.as.map.slot_count - 1));
+        while (map.as.map.slots[slot] != 0) {
+            size_t i = map.as.map.slots[slot] - 1;
+            if (map.as.map.key_lengths[i] == key_length &&
+                memcmp(map.as.map.keys[i], key, key_length) == 0) {
+                *out = map.as.map.values[i];
+                return true;
+            }
+            slot = (slot + 1) & (map.as.map.slot_count - 1);
+        }
+        return false;
+    }
     for (size_t i = 0; i < map.as.map.count; i++) {
         if (map.as.map.key_lengths[i] == key_length &&
             memcmp(map.as.map.keys[i], key, key_length) == 0) {
@@ -1706,8 +1775,10 @@ static void stream_close(Stream *stream) {
         stream->fts_counted = false;
     }
     if (stream->inner.kind == V_STREAM) stream_close(stream->inner.as.stream);
-    free(stream->seen);
     stream->seen = NULL;
+    free(stream->seen_slots);
+    stream->seen_slots = NULL;
+    stream->seen_slot_count = 0;
     free(stream->seen_times);
     stream->seen_times = NULL;
     for (size_t i = 0; i < stream->watch_count; i++) free(stream->watch_items[i].path);
@@ -2218,14 +2289,35 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                 runtime_type_error(rt, site, "distinct accepts hashable scalar values only");
                 return false;
             }
-            for (size_t i = 0; i < stream->seen_count; i++)
-                if (equal_values(stream->seen[i], item)) { duplicate = true; break; }
+            if (stream->seen_slot_count == 0 ||
+                (stream->seen_count + 1) * 10 >= stream->seen_slot_count * 7) {
+                size_t next = stream->seen_slot_count == 0 ? 16 : stream->seen_slot_count * 2;
+                size_t *slots = hhy_alloc(next * sizeof(size_t));
+                memset(slots, 0, next * sizeof(size_t));
+                for (size_t i = 0; i < stream->seen_count; i++) {
+                    size_t existing = (size_t)(hash_scalar(stream->seen[i]) & (uint64_t)(next - 1));
+                    while (slots[existing] != 0) existing = (existing + 1) & (next - 1);
+                    slots[existing] = i + 1;
+                }
+                free(stream->seen_slots);
+                stream->seen_slots = slots;
+                stream->seen_slot_count = next;
+            }
+            size_t slot = (size_t)(hash_scalar(item) & (uint64_t)(stream->seen_slot_count - 1));
+            while (stream->seen_slots[slot] != 0) {
+                size_t index = stream->seen_slots[slot] - 1;
+                if (equal_values(stream->seen[index], item)) { duplicate = true; break; }
+                slot = (slot + 1) & (stream->seen_slot_count - 1);
+            }
             if (duplicate) continue;
             if (stream->seen_count == stream->seen_capacity) {
-                stream->seen_capacity = stream->seen_capacity < 8 ? 8 : stream->seen_capacity * 2;
-                stream->seen = hhy_realloc(stream->seen, stream->seen_capacity * sizeof(Value));
+                size_t old_capacity = stream->seen_capacity;
+                stream->seen_capacity = old_capacity < 8 ? 8 : old_capacity * 2;
+                stream->seen = rt_value_array_grow(rt, stream->seen, old_capacity,
+                                                   stream->seen_capacity);
             }
-            stream->seen[stream->seen_count++] = item;
+            stream->seen[stream->seen_count] = item;
+            stream->seen_slots[slot] = ++stream->seen_count;
             *out = item;
             return true;
         }
@@ -2257,7 +2349,9 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                 }
                 if (stream->seen_count == stream->seen_capacity) {
                     stream->seen_capacity = stream->seen_capacity < 8 ? 8 : stream->seen_capacity * 2;
-                    stream->seen = hhy_realloc(stream->seen, stream->seen_capacity * sizeof(Value));
+                    stream->seen = rt_value_array_grow(rt, stream->seen,
+                                                       stream->seen_count,
+                                                       stream->seen_capacity);
                     stream->seen_times = hhy_realloc(stream->seen_times,
                                                      stream->seen_capacity * sizeof(uint64_t));
                 }
@@ -2426,7 +2520,7 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
     if (!require_bounded_stream(rt, site, value, "collect")) return null_value();
     if (!stream_claim(rt, site, value)) return null_value();
     size_t count = 0, capacity = 8;
-    Value *temporary = hhy_alloc(capacity * sizeof(Value));
+    Value *temporary = rt_value_array_grow(rt, NULL, 0, capacity);
     Value item;
     while (stream_next(rt, site, value.as.stream, &item)) {
         if (count >= HHY_MAX_COLLECTION_ITEMS) {
@@ -2436,14 +2530,13 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
         }
         if (count == capacity) {
             capacity *= 2;
-            temporary = hhy_realloc(temporary, capacity * sizeof(Value));
+            temporary = rt_value_array_grow(rt, temporary, count, capacity);
         }
         temporary[count++] = item;
     }
     stream_close(value.as.stream);
     Value result = list_new(rt, count);
     if (count > 0) memcpy(result.as.list.items, temporary, count * sizeof(Value));
-    free(temporary);
     return result;
 }
 
@@ -2826,13 +2919,13 @@ static Value json_value(JsonParser *p, size_t depth);
 static Value json_parse_array(JsonParser *p, size_t depth) {
     json_take(p, '['); json_space(p);
     size_t count = 0, capacity = 8;
-    Value *items = hhy_alloc(capacity * sizeof(Value));
-    if (json_take(p, ']')) { free(items); return list_new(p->rt, 0); }
+    Value *items = rt_value_array_grow(p->rt, NULL, 0, capacity);
+    if (json_take(p, ']')) return list_new(p->rt, 0);
     while (!p->rt->failed) {
         if (count >= HHY_MAX_COLLECTION_ITEMS) {
             json_error(p, "JSON array exceeds 1000000 item limit"); break;
         }
-        if (count == capacity) { capacity *= 2; items = hhy_realloc(items, capacity * sizeof(Value)); }
+        if (count == capacity) { capacity *= 2; items = rt_value_array_grow(p->rt, items, count, capacity); }
         items[count++] = json_value(p, depth + 1); json_space(p);
         if (json_take(p, ']')) break;
         if (!json_take(p, ',')) { json_error(p, "expected comma or closing bracket"); break; }
@@ -2840,38 +2933,54 @@ static Value json_parse_array(JsonParser *p, size_t depth) {
     }
     Value result = list_new(p->rt, count);
     if (count > 0) memcpy(result.as.list.items, items, count * sizeof(Value));
-    free(items); return result;
+    return result;
 }
 
 static Value json_parse_object(JsonParser *p, size_t depth) {
     json_take(p, '{'); json_space(p);
     size_t count = 0, capacity = 8;
-    char **keys = hhy_alloc(capacity * sizeof(char *));
+    char **keys = rt_pointer_array_grow(p->rt, NULL, 0, capacity);
     size_t *key_lengths = hhy_alloc(capacity * sizeof(size_t));
-    Value *values = hhy_alloc(capacity * sizeof(Value));
-    if (json_take(p, '}')) { free(keys); free(key_lengths); free(values); Value empty = {.kind = V_MAP}; return empty; }
+    Value *values = rt_value_array_grow(p->rt, NULL, 0, capacity);
+    size_t slot_count = 16;
+    size_t *key_slots = hhy_alloc(slot_count * sizeof(size_t));
+    memset(key_slots, 0, slot_count * sizeof(size_t));
+    if (json_take(p, '}')) { free(key_lengths); free(key_slots); Value empty = {.kind = V_MAP}; return empty; }
     while (!p->rt->failed) {
         if (count >= HHY_MAX_COLLECTION_ITEMS) {
             json_error(p, "JSON object exceeds 1000000 entry limit"); break;
         }
         if (count == capacity) {
-            capacity *= 2; keys = hhy_realloc(keys, capacity * sizeof(char *));
+            capacity *= 2; keys = rt_pointer_array_grow(p->rt, keys, count, capacity);
             key_lengths = hhy_realloc(key_lengths, capacity * sizeof(size_t));
-            values = hhy_realloc(values, capacity * sizeof(Value));
+            values = rt_value_array_grow(p->rt, values, count, capacity);
         }
         Value key = json_parse_string(p); json_space(p);
         if (!json_take(p, ':')) { json_error(p, "expected colon after object key"); break; }
-        for (size_t i = 0; i < count; i++) {
+        if ((count + 1) * 10 >= slot_count * 7) {
+            size_t next_count = slot_count * 2;
+            size_t *next_slots = hhy_alloc(next_count * sizeof(size_t));
+            memset(next_slots, 0, next_count * sizeof(size_t));
+            for (size_t i = 0; i < count; i++) {
+                size_t old_slot = (size_t)(hash_key_bytes(keys[i], key_lengths[i]) & (next_count - 1));
+                while (next_slots[old_slot] != 0) old_slot = (old_slot + 1) & (next_count - 1);
+                next_slots[old_slot] = i + 1;
+            }
+            free(key_slots); key_slots = next_slots; slot_count = next_count;
+        }
+        size_t key_slot = (size_t)(hash_key_bytes(key.as.string, key.string_length) & (slot_count - 1));
+        while (key_slots[key_slot] != 0) {
+            size_t i = key_slots[key_slot] - 1;
             if (key_lengths[i] == key.string_length &&
                 memcmp(keys[i], key.as.string, key.string_length) == 0) {
-                json_error(p, "duplicate object key");
-                break;
+                json_error(p, "duplicate object key"); break;
             }
+            key_slot = (key_slot + 1) & (slot_count - 1);
         }
         if (p->rt->failed) break;
         json_space(p); keys[count] = key.as.string; key_lengths[count] = key.string_length;
         values[count] = json_value(p, depth + 1);
-        count++; json_space(p);
+        key_slots[key_slot] = ++count; json_space(p);
         if (json_take(p, '}')) break;
         if (!json_take(p, ',')) { json_error(p, "expected comma or closing brace"); break; }
         json_space(p);
@@ -2885,7 +2994,8 @@ static Value json_parse_object(JsonParser *p, size_t depth) {
         memcpy(result.as.map.key_lengths, key_lengths, count * sizeof(size_t));
         memcpy(result.as.map.values, values, count * sizeof(Value));
     }
-    free(keys); free(key_lengths); free(values); return result;
+    map_build_index(p->rt, &result.as.map);
+    free(key_lengths); free(key_slots); return result;
 }
 
 static Value json_value(JsonParser *p, size_t depth) {
@@ -3243,7 +3353,7 @@ static Value csv_read_record(Runtime *rt, const HhyNode *site, Stream *source,
 static Value csv_parse_row(Runtime *rt, const HhyNode *site,
                            const char *record, size_t record_length, char delimiter, char quote) {
     size_t count = 0, capacity = 8;
-    Value *fields = hhy_alloc(capacity * sizeof(Value));
+    Value *fields = rt_value_array_grow(rt, NULL, 0, capacity);
     const char *cursor = record, *limit = record + record_length;
     for (;;) {
         size_t maximum = (size_t)(limit - cursor) + 1;
@@ -3261,16 +3371,16 @@ static Value csv_parse_row(Runtime *rt, const HhyNode *site,
             }
         }
         if (quoted) {
-            free(field); free(fields); runtime_value_error(rt, site, "unterminated quoted CSV field"); return null_value();
+            free(field); runtime_value_error(rt, site, "unterminated quoted CSV field"); return null_value();
         }
         while (cursor < limit && *cursor != delimiter) {
             if (*cursor != ' ' && *cursor != '\t') {
-                free(field); free(fields); runtime_value_error(rt, site, "unexpected content after quoted CSV field"); return null_value();
+                free(field); runtime_value_error(rt, site, "unexpected content after quoted CSV field"); return null_value();
             }
             cursor++;
         }
         *out = '\0';
-        if (count == capacity) { capacity *= 2; fields = hhy_realloc(fields, capacity * sizeof(Value)); }
+        if (count == capacity) { capacity *= 2; fields = rt_value_array_grow(rt, fields, count, capacity); }
         fields[count++] = string_n(rt, field, (size_t)(out - field));
         free(field);
         if (cursor < limit && *cursor == delimiter) { cursor++; continue; }
@@ -3278,7 +3388,7 @@ static Value csv_parse_row(Runtime *rt, const HhyNode *site,
     }
     Value result = list_new(rt, count);
     memcpy(result.as.list.items, fields, count * sizeof(Value));
-    free(fields); return result;
+    return result;
 }
 
 static Value csv_encode_row(Runtime *rt, const HhyNode *site, Value fields,
@@ -3370,6 +3480,7 @@ static Value map_with_entries(Runtime *rt, ValueKind kind, size_t count,
         result.as.map.keys[i] = rt_strndup(rt, keys[i], strlen(keys[i]));
         result.as.map.key_lengths[i] = strlen(keys[i]);
     }
+    map_build_index(rt, &result.as.map);
     return result;
 }
 
@@ -3704,6 +3815,15 @@ static Value process_snapshot(Runtime *rt, const HhyNode *site) {
     command.as.list.items[2] = string_value(rt, "pid=,pcpu=,rss=,state=,comm=");
     Value result = command_run(rt, site, command, null_value());
     if (rt->failed) return null_value();
+    Value exit_code = map_get(result, "exit_code");
+    if (exit_code.kind != V_INT || exit_code.as.integer != 0) {
+        Value diagnostic = map_get(result, "stderr");
+        runtime_error_kind(rt, site, "ProcessError", "HHY_PROCESS_SNAPSHOT",
+                           diagnostic.kind == V_STRING && diagnostic.string_length != 0
+                               ? diagnostic.as.string
+                               : "process snapshot command failed");
+        return null_value();
+    }
     Value output = map_get(result, "stdout");
     Value lines = string_lines(rt, output.as.string, output.string_length);
     Value collected = stream_collect(rt, site, lines);
@@ -5094,6 +5214,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
                 }
                 value.as.map.values[i] = eval(rt, env, entry->children[0]);
             }
+            map_build_index(rt, &value.as.map);
             return value;
         }
         case HHY_N_MEMBER: {
@@ -5770,6 +5891,8 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
     rt->dry_run = dry_run;
     rt->effect_allowed = true;
     rt->limits = limits == NULL ? hhy_runtime_limits_default() : *limits;
+    const char *gc_stress = getenv("HHY_GC_STRESS");
+    rt->gc_stress = gc_stress != NULL && strcmp(gc_stress, "0") != 0;
     clock_gettime(CLOCK_MONOTONIC, &rt->started_at);
     GC_gcollect();
     rt->memory_baseline = GC_get_memory_use();
