@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight, Code, Database, Handshake, PuzzlePiece, RocketLaunch, ShieldCheck, TerminalWindow, WarningDiamond } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, Code, Handshake, PuzzlePiece, RocketLaunch, ShieldCheck, TerminalWindow, WarningDiamond } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { ElementType } from "react";
@@ -56,7 +56,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
           : chapterKind(chapter) === "reference"
             ? (lang === "zh" ? "HHY 参考" : "HHY Reference")
           : chapterKind(chapter) === "extension"
-            ? (lang === "zh" ? "HHY 扩展 · v1.1 已实现" : "HHY Extension · Implemented in v1.1")
+            ? (lang === "zh" ? `HHY 扩展 · 当前版本 v${hhyVersion}` : `HHY Extension · Current version v${hhyVersion}`)
             : (lang === "zh" ? "HHY 路线图" : "HHY Roadmap")}</p>
         <h1>{chapter.title[lang]}</h1>
         <p className="chapter-summary">{chapter.summary[lang]}</p>
@@ -187,24 +187,24 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
               if (block.type === "extension-flow") {
                 const steps: Array<[string, string, string, ElementType]> = lang === "zh"
                   ? [
-                    ["HHY 脚本", "导入数据库", "import database", Code],
+                    ["HHY 脚本", "导入扩展包", "import package_name", Code],
                     ["Runtime", "验证并初始化", "校验清单与 SHA-256", ShieldCheck],
-                    ["扩展进程", "启动隔离进程", "bin/hhy-database\n--protocol 1", RocketLaunch],
-                    ["协议注册", "注册可调用能力", "handshake\nregister 4 个 callable", PuzzlePiece],
-                    ["驱动适配", "连接数据库驱动", "libpq / MySQL client", Database],
+                    ["扩展进程", "启动隔离进程", "bin/hhy-package\n--protocol 1", RocketLaunch],
+                    ["协议注册", "注册可调用能力", "handshake\nregister callables", PuzzlePiece],
+                    ["能力实现", "处理协议参数", "Null / Bool / Number\nString / List / Map", PuzzlePiece],
                     ["调用执行", "返回结果或错误", "call_result\n或结构化 Error", TerminalWindow]
                   ]
                   : [
-                    ["HHY script", "Import database", "import database", Code],
+                    ["HHY script", "Import a package", "import package_name", Code],
                     ["Runtime", "Validate and initialize", "Verify manifest and SHA-256", ShieldCheck],
-                    ["Extension process", "Start isolated process", "bin/hhy-database\n--protocol 1", RocketLaunch],
-                    ["Protocol registration", "Register callable capability", "handshake\nregister 4 callables", PuzzlePiece],
-                    ["Driver adapter", "Connect database driver", "libpq / MySQL client", Database],
+                    ["Extension process", "Start isolated process", "bin/hhy-package\n--protocol 1", RocketLaunch],
+                    ["Protocol registration", "Register callable capability", "handshake\nregister callables", PuzzlePiece],
+                    ["Implementation", "Handle protocol values", "Null / Bool / Number\nString / List / Map", PuzzlePiece],
                     ["Call execution", "Return result or error", "call_result\nor structured Error", TerminalWindow]
                   ];
                 const guarantees: Array<[string, string, ElementType]> = lang === "zh"
-                  ? [["完整性验证", "安装与加载时校验 SHA-256", ShieldCheck], ["标准协议", "Protocol 1 统一互操作", Handshake], ["能力注册", "4 个 database callable", PuzzlePiece], ["统一响应", "结构化结果与错误", TerminalWindow]]
-                  : [["Integrity", "Verify SHA-256 on install and load", ShieldCheck], ["Standard protocol", "Protocol 1 interoperability", Handshake], ["Capability registry", "Four database callables", PuzzlePiece], ["Unified response", "Structured results and errors", TerminalWindow]];
+                  ? [["完整性验证", "安装与加载时校验 SHA-256", ShieldCheck], ["标准协议", "Protocol 1 统一互操作", Handshake], ["能力注册", "包命名空间内动态注册", PuzzlePiece], ["统一响应", "结构化结果与错误", TerminalWindow]]
+                  : [["Integrity", "Verify SHA-256 on install and load", ShieldCheck], ["Standard protocol", "Protocol 1 interoperability", Handshake], ["Capability registry", "Dynamic registration inside the package namespace", PuzzlePiece], ["Unified response", "Structured results and errors", TerminalWindow]];
                 return (
                   <figure className="extension-flow" key={index}>
                     <header className="extension-flow-header">
