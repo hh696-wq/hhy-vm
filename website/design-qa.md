@@ -1,5 +1,117 @@
 # Design QA
 
+## Learning / Examples / Extensions alignment · 2026-08-29
+
+final result: passed
+
+- Source visual truth: `output/design-audit/nav-pages/01-home.png` (1440 × 1000 px; homepage editorial system)
+- Desktop implementations: `output/design-audit/nav-pages/12-learn-compact.png`, `13-examples-compact.png`, `14-extensions-compact.png` (1280 × 720 browser captures; 1280 CSS viewport)
+- Mobile implementation: `output/design-audit/nav-pages/15-learn-compact-mobile.png` (390 × 844 px; 390 × 844 CSS viewport)
+- Routes and state: `/zh/learn`, `/zh/learn/practical-recipes`, `/zh/learn/extensions-roadmap`; light theme; default state
+
+### Full-view and focused comparison evidence
+
+- The homepage reference and all three desktop implementation captures were opened together in the same comparison input. The pages now share the homepage's centered content frame, 10 px corner radius, blue-gray border, white editorial cards, navy/blue hierarchy, and compact spacing rhythm.
+- Focused checks covered the global navigation active state, documentation hero, sidebar frame, chapter cards, code panel, callout, and table. No replacement or generated raster assets were required; the existing HHY logo and Phosphor icons remain sharp and consistent.
+- Fonts/copy remain the existing site truth. Colors use the shared `--ink`, `--blue`, `--line`, and page tokens. The current HHY content was not rewritten.
+
+### Interaction and responsive verification
+
+- Desktop navigation correctly reports exactly one active item for 学习, 示例, and 扩展.
+- Mobile navigation successfully opens and routes to all three pages with the matching active state.
+- At 390 px, the desktop manual sidebar is removed from the initial reading path, the content starts at the top, and document width equals the viewport.
+- No browser console errors. TypeScript, ESLint, and the optimized Next.js build pass.
+
+### Comparison history
+
+1. P2: the three pages used a 1280 px documentation frame, loose unframed headings, 15 px card radii, and no top-navigation active state, visibly drifting from the 1180 px homepage editorial system.
+2. Fix: unified frame width, border/radius tokens, cardized the documentation hero and sidebar, wrapped chapter headings in the same hero treatment, and added precise desktop/mobile active states.
+3. P1 mobile: the full manual sidebar pushed content below 1400 px on phone-sized viewports.
+4. Fix: removed the desktop sidebar from the phone reading path; the chapter content now begins at 104 px with no horizontal overflow.
+5. P2 density: the first aligned pass still left hero and chapter cards visibly too tall.
+6. Fix: reduced hero padding/type scale and chapter-card minimum heights/padding; final desktop hero is approximately 250 px on the learning index and 176 px on chapter pages, while mobile keeps readable line height and touch-safe spacing.
+7. P2 learning-index density: chapter cards still consumed too much vertical space. Reduced the grid gap, section spacing, padding, text scale, and summary height. Final desktop guide cards align at exactly 159 px; mobile cards render at 161–163 px, with no summary truncation, overflow, or console errors.
+8. P1 documentation navigation: the active chapter did not expose page-section anchors or follow the reading position. Added an auto-positioned, expandable desktop table of contents under the current chapter and a mobile “本页目录” dropdown. Browser checks confirm anchor hashes, 110 px section offsets, scroll-driven active states, current-chapter visibility, 390 px overflow safety, and zero console errors.
+
+Residual P3: none identified in the requested alignment scope.
+
+## Homepage equal-height hero · Flow / Pipe / System · 2026-08-29
+
+final result: passed
+
+- Source visual truth: `/Users/houhuiyang/.codex/generated_images/01a04dc0-631c-7d83-a186-572fe3b02773/exec-338b5831-0420-4d03-ad47-a62d6123f3e9.png` (1721 × 914 px)
+- Desktop implementation: `implementation-hero-equal-columns-desktop.png` (1440 × 1005 px capture; 1440 × 1024 CSS viewport; DPR-normalized browser capture)
+- Mobile implementation: `implementation-hero-equal-columns-mobile.png` (390 × 844 px; 390 × 844 CSS viewport)
+- Route and state: `http://127.0.0.1:9800/zh`, light theme, default homepage state
+
+### Full-view and focused comparison evidence
+
+- The source and desktop implementation were opened together in the same comparison input. Both use one bordered split frame, a 42/58-style editorial division, aligned bottom proof rows, and the same content hierarchy.
+- Browser geometry measured both desktop columns at exactly 648 px high, top 123 px and bottom 771 px. The document width equals the 1440 px viewport.
+- The Flow / Pipe / System row was inspected as the focused fidelity region in both the source and browser capture. It uses Phosphor vector icons and the exact language principles from `docs/HHY_V1.md`.
+- Typography, spacing, white/light-blue tokens, vector icon sharpness, and current SiteGraph Auditor copy were visually checked. The implementation intentionally uses the website's existing font stack and truthful current content.
+
+### Interaction and responsive verification
+
+- Mobile document width equals the 390 px viewport; no document-level horizontal overflow.
+- Mobile global search opens and closes.
+- Mobile navigation opens successfully.
+- Browser console logs: no errors or warnings.
+- TypeScript, ESLint, optimized Next.js build, and `git diff --check` pass.
+
+### Comparison history
+
+1. P1: the earlier hero used two detached regions and left the introduction visually underfilled relative to the SiteGraph project card.
+2. P2: the initial filler strip looked like generic feature navigation and did not express the language itself.
+3. Fix: rebuilt the hero as one equal-height frame with a shared divider and aligned proof baselines; replaced the filler strip with the canonical Flow / Pipe / System principles.
+4. Post-fix evidence: desktop geometry confirms exact equal height; the 390 px layout stacks into two readable cards and keeps all primary interactions working.
+5. P1: the first proof-row pass used equal heights but their top and bottom rules were not on the same baseline. The final browser measurement is 86 px on both sides with a 0.039 px subpixel top/bottom delta (effectively the same rendered line).
+6. P1: the first featured-project panel showed JSON configuration instead of HHY source, then an incomplete HHY fragment. It now shows the real SiteGraph core flow from `try` through crawl, inventory, graph, report, atomic output, failure exit, and `catch`, with only repeated output writes explicitly omitted using a valid HHY `#` comment.
+7. Post-fix evidence: desktop and 390 px mobile both report zero code overflow; browser console is empty.
+8. P1: content-derived footer positioning still produced visible line drift at wider desktop viewports. Replaced the tuning with a structural layout: both 86 px footer rows are absolutely anchored to the bottom of their equal-height grid columns, with matching reserved padding.
+9. Post-fix evidence: browser geometry reports exactly `0px` top, height, and bottom delta at 1440, 1920, and 2048 px desktop widths. At 390 px both rows correctly return to static flow, document width remains 390 px, and console logs remain empty.
+10. P2: after structural footer anchoring, the HHY code panel touched the shared footer rule at some wide viewports. Added a desktop-only 24 px safety gap; browser geometry confirms exactly 24 px at 1440, 1920, and 2048 px while preserving 0 px footer-line delta and equal 86 px footer heights. Mobile keeps natural flow with no duplicate margin or overflow.
+11. P2: the platform verification originally read as one plain text sentence. It now uses centered, separately grouped Phosphor Apple, Linux, and Windows icons with individual success states and subtle separators. Browser geometry confirms the group center exactly matches its parent center (`0px` delta), the shared footer line remains aligned, and the 390 px layout has no overflow.
+12. User-requested simplification: removed the entire “Continue learning” rail and removed the homepage's trailing 82 px bottom padding. Browser geometry confirms the rail count is zero, the platform-proof bottom equals the homepage bottom, and the site footer begins with exactly `0px` intervening gap on desktop; mobile remains overflow-free.
+13. User-requested chrome cleanup: removed the GitHub mark from the header link, removed desktop and mobile download buttons, and removed the GitHub mark from the footer while retaining the text links. Browser DOM checks report zero matching icons/buttons on desktop and mobile, no overflow, and an empty console.
+14. User-requested icon correction: replaced both GitHub marks in the community card (Contribute and Visit GitHub repository) with the existing Phosphor Code icon. Browser checks confirm both vector icons render, with no overflow or console entries.
+15. P1 content alignment: the hero verification incorrectly showed generic macOS/Linux/Windows labels while the public-release proof lists the actually verified targets. The icon row now matches exactly: macOS arm64, Linux arm64, and Linux x86_64. Desktop and mobile DOM checks confirm identical labels, zero group/document overflow, and no console entries.
+
+Residual P3: the browser implementation is slightly denser than the generated concept so the complete header and beginning of the next section remain visible at 1024 px; hierarchy and component proportions remain faithful.
+
+## Homepage editorial redesign · featured project correction · 2026-08-29
+
+final result: passed
+
+- Source visual truth: `/Users/houhuiyang/.codex/generated_images/01a04dc0-631c-7d83-a186-572fe3b02773/exec-862d9b1a-5087-49a1-8064-0f333cc4d811.png` (1487 × 1058 px)
+- Desktop implementation: `implementation-desktop-featured-fixed.png` (1440 × 1760 px full-page capture; 1440 × 1024 CSS viewport)
+- Mobile implementation: `implementation-mobile-featured-fixed.png` (390 × 844 px)
+- Route and state: `http://127.0.0.1:9800/zh`, light theme, default homepage state
+
+### Visual comparison
+
+- The featured card now follows the selected concept's compact light-blue panel, single featured label, headline and two-line description hierarchy.
+- The five URL → Frontier → Fetch → Parse → Report stages use equally weighted icon tiles and directional arrows.
+- The code area is a light, bordered, line-numbered panel using the current SiteGraph Auditor configuration rather than fabricated sample output.
+- The footer is reduced to the source design's single shield verification row; the implementation-only dark terminal and artifact strip were removed.
+- The card uses content-driven height and no longer stretches into a large empty panel.
+
+### Functional and responsive verification
+
+- Desktop visual comparison completed against the source in the same inspection pass.
+- Mobile viewport has `scrollWidth === innerWidth === 390`; the flow remains horizontally scrollable inside the card without creating document overflow.
+- Mobile global search opens and closes successfully.
+- Mobile navigation opens and exposes Learn, Examples, Extensions, Spec, GitHub, language, and download destinations.
+- TypeScript, ESLint, optimized Next.js build, and `git diff --check` pass.
+
+### Comparison history
+
+1. P2: the first implementation used a dark terminal, an extra artifact strip, a top-right project link, and stretch alignment, causing the card to diverge from the source and leave excessive empty space.
+2. Fix: adopted the source's light code surface, compact vertical rhythm, five equal flow tiles, one verification row, and content-sized card alignment.
+3. Post-fix desktop and 390 px mobile evidence confirms the corrected hierarchy and no document-level horizontal overflow.
+
+Residual P3: the code text intentionally uses the real current SiteGraph Auditor configuration, while the design concept used illustrative placeholder code.
+
 final result: passed
 
 - Source: `../assets/website/ChatGPT Image 2026年8月25日 14_17_10.png`

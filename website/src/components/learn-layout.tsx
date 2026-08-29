@@ -1,6 +1,8 @@
-import { ArrowLeft, ArrowRight, ListBullets } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowRight, FilePdf, ListBullets } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
+import { Fragment } from "react";
 import type { ReactNode } from "react";
+import { ChapterToc } from "@/components/chapter-toc";
 import { chapterKind, chapters } from "@/lib/docs";
 import type { Chapter } from "@/lib/docs";
 import type { Language } from "@/lib/i18n";
@@ -16,6 +18,16 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
   const currentIndex = chapter ? manualChapters.findIndex((item) => item.slug === chapter.slug) : -1;
   const previous = currentIndex > 0 ? manualChapters[currentIndex - 1] : undefined;
   const next = currentIndex >= 0 && currentIndex < manualChapters.length - 1 ? manualChapters[currentIndex + 1] : undefined;
+  const currentSections = chapter?.sections[language].map((section) => section.title) ?? [];
+  const renderChapterLink = (item: Chapter) => {
+    const active = chapter?.slug === item.slug;
+    return (
+      <Fragment key={item.slug}>
+        <Link aria-current={active ? "page" : undefined} className={active ? "active" : ""} href={`/${language}/learn/${item.slug}`}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>
+        {active && currentSections.length ? <ChapterToc language={language} sections={currentSections} /> : null}
+      </Fragment>
+    );
+  };
 
   return (
     <main className="docs-shell">
@@ -23,19 +35,21 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
         <div className="docs-sidebar-title"><ListBullets size={20} />{language === "zh" ? "HHY 手册" : "HHY Manual"}</div>
         <nav aria-label={language === "zh" ? "手册章节" : "Manual chapters"}>
           <small className="docs-nav-group">{language === "zh" ? "指南" : "Guide"}</small>
-          {guideChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
+          {guideChapters.map(renderChapterLink)}
           <small className="docs-nav-group">{language === "zh" ? "实战项目" : "Project"}</small>
-          {projectChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
+          {projectChapters.map(renderChapterLink)}
           <small className="docs-nav-group">{language === "zh" ? "参考" : "Reference"}</small>
-          {referenceChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
+          {referenceChapters.map(renderChapterLink)}
           <small className="docs-nav-group">{language === "zh" ? "扩展" : "Extensions"}</small>
-          {extensionChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
+          {extensionChapters.map(renderChapterLink)}
           <small className="docs-nav-group">{language === "zh" ? "路线图" : "Roadmap"}</small>
-          {roadmapChapters.map((item) => <Link className={chapter?.slug === item.slug ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>)}
+          {roadmapChapters.map(renderChapterLink)}
         </nav>
+        <Link className="print-manual-link" href={`/${language}/learn/print`}><FilePdf size={17} />{language === "zh" ? "打印版手册 / PDF" : "Print edition / PDF"}</Link>
         <Link className="spec-link" href="https://github.com/hh696-wq/hhy-vm/blob/main/docs/HHY_V1.md" target="_blank">{language === "zh" ? `${hhyVersionLabel} 完整规范 ↗` : `Full ${hhyVersionLabel} spec ↗`}</Link>
       </aside>
       <div className="docs-content">
+        {chapter && currentSections.length ? <ChapterToc language={language} mobile sections={currentSections} /> : null}
         {children}
         {chapter ? (
           <nav className="chapter-pagination" aria-label={language === "zh" ? "章节翻页" : "Chapter pagination"}>

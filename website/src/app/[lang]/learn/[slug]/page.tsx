@@ -8,7 +8,7 @@ import { JsonLd } from "@/components/json-ld";
 import { LearnLayout } from "@/components/learn-layout";
 import { chapterKind, chapters, getChapter } from "@/lib/docs";
 import { isLanguage, languages } from "@/lib/i18n";
-import { hhyVersion } from "@/lib/release";
+import { hhyVersion, hhyVersionTag } from "@/lib/release";
 import { createMetadata, localizedUrl, siteName } from "@/lib/seo";
 
 export function generateStaticParams() {
@@ -49,19 +49,21 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
         about: ["HHY Language", "system scripting", "Flow pipelines"]
       }} />
       <article className="chapter-article">
-        <p className="eyebrow">{chapterKind(chapter) === "guide"
-          ? (lang === "zh" ? `指南 · 第 ${chapter.order} 章` : `Guide · Chapter ${chapter.order}`)
-          : chapterKind(chapter) === "project"
-            ? (lang === "zh" ? "实战项目 · 已通过自测" : "Project · Self-tested")
-          : chapterKind(chapter) === "reference"
-            ? (lang === "zh" ? "HHY 参考" : "HHY Reference")
-          : chapterKind(chapter) === "extension"
-            ? (lang === "zh" ? `HHY 扩展 · 当前版本 v${hhyVersion}` : `HHY Extension · Current version v${hhyVersion}`)
-            : (lang === "zh" ? "HHY 路线图" : "HHY Roadmap")}</p>
-        <h1>{chapter.title[lang]}</h1>
-        <p className="chapter-summary">{chapter.summary[lang]}</p>
-        {chapter.sections[lang].map((section) => (
-          <section key={section.title}>
+        <header className="chapter-hero">
+          <p className="eyebrow">{chapterKind(chapter) === "guide"
+            ? (lang === "zh" ? `指南 · 第 ${chapter.order} 章` : `Guide · Chapter ${chapter.order}`)
+            : chapterKind(chapter) === "project"
+              ? (lang === "zh" ? "实战项目 · 已通过自测" : "Project · Self-tested")
+            : chapterKind(chapter) === "reference"
+              ? (lang === "zh" ? "HHY 参考" : "HHY Reference")
+            : chapterKind(chapter) === "extension"
+              ? (lang === "zh" ? `HHY 扩展 · 当前版本 v${hhyVersion}` : `HHY Extension · Current version v${hhyVersion}`)
+              : (lang === "zh" ? "HHY 路线图" : "HHY Roadmap")}</p>
+          <h1>{chapter.title[lang]}</h1>
+          <p className="chapter-summary">{chapter.summary[lang]}</p>
+        </header>
+        {chapter.sections[lang].map((section, sectionIndex) => (
+          <section id={`section-${sectionIndex + 1}`} key={section.title}>
             <h2>{section.title}</h2>
             {section.blocks.map((block, index) => {
               if (block.type === "p") return <p key={index}>{block.text}</p>;
@@ -96,7 +98,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
               if (block.type === "image") return <figure className={`doc-image ${block.size}`} key={index}><a href={block.src} target="_blank" rel="noreferrer" aria-label={lang === "zh" ? "查看原图" : "View full-size image"}><Image src={block.src} alt={block.alt} width={block.width} height={block.height} sizes={block.size === "medium" ? "(max-width: 560px) calc(100vw - 32px), 480px" : "(max-width: 720px) calc(100vw - 32px), 680px"} /></a><figcaption>{block.caption}</figcaption></figure>;
               if (block.type === "runtime-performance-roadmap") {
                 const copy = lang === "zh" ? {
-                  eyebrow: "v1.1.1 · 当前执行路径", title: "AST 解释器性能演进", current: "当前 AST Interpreter",
+                  eyebrow: `${hhyVersionTag} · 当前执行路径`, title: "AST 解释器性能演进", current: "当前 AST Interpreter",
                   resolver: "AST 预解析 / Resolve Pass", resolverItems: ["参数绑定到 slot", "局部变量绑定到 slot", "标记 global / builtin / closure"],
                   frame: "Lightweight CallFrame", call: "function call", frameCode: "slots[]  ·  parent/env  ·  function",
                   fast: "Local / Param", fastDetail: "slots[index] · 快路径", slow: "Closure / Global / Builtin", slowDetail: "Env lookup · 兼容慢路径",
@@ -105,7 +107,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                   profile: "Profiling + GC / Allocation 优化", decision: "Profile 仍显示 AST dispatch 为主要热点？", future: "未来方向", bytecode: "Bytecode VM",
                   caption: "Resolver → Slot → Lightweight Frame → Escape-safe Reuse；保持现有语言语义，不依赖字节码。"
                 } : {
-                  eyebrow: "v1.1.1 · Current execution path", title: "AST interpreter performance evolution", current: "Current AST Interpreter",
+                  eyebrow: `${hhyVersionTag} · Current execution path`, title: "AST interpreter performance evolution", current: "Current AST Interpreter",
                   resolver: "AST pre-resolution / Resolve Pass", resolverItems: ["Bind parameters to slots", "Bind locals to slots", "Mark globals / builtins / closures"],
                   frame: "Lightweight CallFrame", call: "function call", frameCode: "slots[]  ·  parent/env  ·  function",
                   fast: "Local / Param", fastDetail: "slots[index] · fast path", slow: "Closure / Global / Builtin", slowDetail: "Env lookup · compatibility path",

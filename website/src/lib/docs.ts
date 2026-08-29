@@ -1653,7 +1653,7 @@ export const chapters: Chapter[] = [
           { type: "note", text: "CPU 使用进程 CPU 时间采样，文件、HTTP 和进程等待不会被误算成 CPU 热点。运行不足数毫秒的脚本可能样本太少，应增大输入或重复负载。Heap 只统计 HHY 的 Boehm GC 托管内存，不包含扩展子进程或原生库自行管理的内存。" }
         ] },
         { title: "解释器性能架构演进", blocks: [
-          { type: "p", text: "v1.1.1 继续保留 AST Interpreter，通过预解析、静态槽位和可复用轻量调用帧降低函数调用成本。确定的局部变量走 Slot 快路径；闭包捕获、全局变量与 builtin 保留兼容的 Env 路径。" },
+          { type: "p", text: `${hhyVersionTag} 继续保留 AST Interpreter，通过预解析、静态槽位和可复用轻量调用帧降低函数调用成本。确定的局部变量走 Slot 快路径；闭包捕获、全局变量与 builtin 保留兼容的 Env 路径。` },
           { type: "runtime-performance-roadmap" },
           { type: "note", text: "Bytecode VM 是数据驱动的后续方向，并非当前执行前提。只有当 Profile 证明 AST dispatch 已成为主要剩余热点时，才进入该阶段。" }
         ] },
@@ -1686,7 +1686,7 @@ export const chapters: Chapter[] = [
           { type: "note", text: "CPU profiling samples process CPU time, so file, HTTP, and process waits are not misreported as CPU hotspots. Scripts that finish in a few milliseconds may need a larger or repeated workload. Heap metrics cover memory managed by HHY's Boehm GC, not extension subprocesses or memory owned directly by native libraries." }
         ] },
         { title: "Interpreter performance evolution", blocks: [
-          { type: "p", text: "v1.1.1 keeps the AST Interpreter and reduces function-call cost through resolution, static slots, and reusable lightweight frames. Deterministic locals use the Slot fast path, while closure captures, globals, and builtins retain the compatible Env path." },
+          { type: "p", text: `${hhyVersionTag} keeps the AST Interpreter and reduces function-call cost through resolution, static slots, and reusable lightweight frames. Deterministic locals use the Slot fast path, while closure captures, globals, and builtins retain the compatible Env path.` },
           { type: "runtime-performance-roadmap" },
           { type: "note", text: "The Bytecode VM is a data-driven future direction, not a prerequisite today. HHY enters that phase only when profiling shows AST dispatch has become the dominant remaining hotspot." }
         ] },
