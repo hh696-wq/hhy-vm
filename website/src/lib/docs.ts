@@ -3,6 +3,7 @@ import { hhyVersion, hhyVersionLabel, hhyVersionTag } from "./release";
 
 export type ChapterSlug =
   | "quick-start"
+  | "editor-support"
   | "language-basics"
   | "flow-and-streams"
   | "files-and-paths"
@@ -882,6 +883,52 @@ export const chapters: Chapter[] = [
           { type: "table", columns: ["Task", "Command", "Purpose"], rows: [["Format", "hhy fmt script.hhy", "Write canonical HHY formatting"], ["Check format", "hhy fmt --check script.hhy", "Verify in CI without changing files"], ["Check script", "hhy check script.hhy", "Validate syntax, scope, and known APIs"], ["Run", "hhy run script.hhy", "Execute the script"], ["Pass arguments", "hhy run script.hhy input.csv output.json", "Arguments enter read-only args"], ["Preview plan", "hhy run --dry-run script.hhy", "Inspect a redacted plan without external effects"]] },
           { type: "p", text: "HHY source files use the .hhy suffix. View complete command help:" },
           { type: "code", language: "sh", code: "hhy --help" }
+        ] }
+      ]
+    }
+  },
+  {
+    slug: "editor-support",
+    order: 24,
+    title: { zh: "编辑器语言支持", en: "Editor Language Support" },
+    summary: { zh: "为 VS Code 与 Sublime Text 安装由统一语法源生成的 HHY 语言包。", en: "Install HHY language packages for VS Code and Sublime Text, generated from one syntax source." },
+    sections: {
+      zh: [
+        { title: "HHY Language Support 0.1.0", blocks: [
+          { type: "p", text: "编辑器语言包识别 .hhy 文件，提供 HHY 语法高亮、# 注释、shebang、字符串与转义、Regex、数字与单位、关键字和运算符，并配置括号自动闭合、缩进与常用代码片段。VS Code 使用 TextMate Grammar，Sublime Text 使用 .sublime-syntax。" },
+          { type: "note", text: "0.1.0 是不启动 HHY 进程的轻量语言支持：当前不提供保存时格式化、诊断、跳转定义或 LSP。语法规则以仓库中的 editors/syntax/hhy-syntax.json 为唯一事实源。" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/editors", label: "查看编辑器语言包源码 ↗", description: "包含统一语法源、生成脚本、VS Code 与 Sublime Text 包以及真实 .hhy 回归样例。" }
+        ] },
+        { title: "生成并验证语言包", blocks: [
+          { type: "code", language: "sh", code: "git clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm/editors\nnpm install\nnpm run generate\nnpm run check\nnpm run package" },
+          { type: "p", text: "package 生成 dist/hhy-language-support-0.1.0.vsix 与 dist/HHY-0.1.0.sublime-package。check 会核对 Lexer 关键字和字面量后缀、插件元数据、生成文件新鲜度，并用真实 HHY 二进制检查 fixtures。" }
+        ] },
+        { title: "安装到 VS Code", blocks: [
+          { type: "code", language: "sh", code: "code --install-extension editors/dist/hhy-language-support-0.1.0.vsix" },
+          { type: "p", text: "也可以在 VS Code 中打开“扩展”，从右上角菜单选择“从 VSIX 安装”。安装后打开任意 .hhy 文件，语言模式会自动识别为 HHY。" }
+        ] },
+        { title: "安装到 Sublime Text", blocks: [
+          { type: "p", text: "把 editors/dist/HHY-0.1.0.sublime-package 复制到 Sublime Text 的 Installed Packages 目录。开发时也可以把 editors/sublime 复制到 Packages/HHY。之后打开 .hhy 文件即可自动启用 HHY 语法。" },
+          { type: "note", text: "HHY Lexer 会根据前一个 token 区分 Regex 与除法。编辑器语法采用保守的表达式起始上下文识别 Regex，宁可少高亮一个 Regex，也避免把除法表达式的后续内容误判为 Regex。" }
+        ] }
+      ],
+      en: [
+        { title: "HHY Language Support 0.1.0", blocks: [
+          { type: "p", text: "The editor packages recognize .hhy files and provide HHY syntax highlighting for # comments, shebangs, strings and escapes, Regex, numbers and units, keywords, and operators, plus bracket auto-closing, indentation, and common snippets. VS Code uses a TextMate grammar; Sublime Text uses .sublime-syntax." },
+          { type: "note", text: "Version 0.1.0 is lightweight, process-free language support. It does not yet provide format-on-save, diagnostics, go-to-definition, or an LSP. The repository-owned editors/syntax/hhy-syntax.json file is the single source of truth." },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/editors", label: "Open the editor language-support source ↗", description: "Includes the shared syntax source, generator, VS Code and Sublime Text packages, and real .hhy regression fixtures." }
+        ] },
+        { title: "Generate and verify the packages", blocks: [
+          { type: "code", language: "sh", code: "git clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm/editors\nnpm install\nnpm run generate\nnpm run check\nnpm run package" },
+          { type: "p", text: "The package command creates dist/hhy-language-support-0.1.0.vsix and dist/HHY-0.1.0.sublime-package. The check command compares Lexer keywords and literal suffixes, validates plugin metadata and generated-file freshness, and checks every fixture with the real HHY binary." }
+        ] },
+        { title: "Install in VS Code", blocks: [
+          { type: "code", language: "sh", code: "code --install-extension editors/dist/hhy-language-support-0.1.0.vsix" },
+          { type: "p", text: "You can also open Extensions in VS Code and choose Install from VSIX from the top-right menu. After installation, any .hhy file is automatically recognized as HHY." }
+        ] },
+        { title: "Install in Sublime Text", blocks: [
+          { type: "p", text: "Copy editors/dist/HHY-0.1.0.sublime-package into Sublime Text's Installed Packages directory. For development, copy editors/sublime into Packages/HHY. Opening a .hhy file then enables HHY syntax automatically." },
+          { type: "note", text: "The HHY Lexer distinguishes Regex from division using the previous token. Editor grammars conservatively recognize Regex only in expression-start contexts, preferring a missed Regex highlight over mis-highlighting the remainder of a division expression." }
         ] }
       ]
     }
@@ -1987,7 +2034,7 @@ export const chapters: Chapter[] = [
         ] },
         { title: "输出与当前边界", blocks: [
           { type: "table", columns: ["输出", "内容"], rows: [["inventory.json", "title、description、canonical、heading、source_url"], ["graph.json", "source、原始 href、规范目标、fingerprint、允许状态和拒绝原因"], ["report.json", "页面、边、重复、拒绝、限制、错误、warning 和 findings"], ["failures.json", "URL、深度和稳定错误"]] },
-          { type: "note", text: "这是静态站点审计，不执行 JavaScript，也不绕过认证、验证码、robots.txt 或反爬策略。当前 Frontier 位于内存中；持久队列和断点恢复仍是后续能力。" }
+          { type: "note", text: "默认模式仍是静态站点审计，不绕过认证、验证码、robots.txt 或反爬策略。v1.1.5 可选择原子 checkpoint Frontier 与严格断点恢复，也可通过隔离的 Playwright Renderer 执行 JavaScript。" }
         ] }
       ],
       en: [
@@ -2003,7 +2050,7 @@ export const chapters: Chapter[] = [
         ] },
         { title: "Outputs and boundary", blocks: [
           { type: "table", columns: ["Output", "Content"], rows: [["inventory.json", "title, description, canonical, heading, and source_url"], ["graph.json", "source, raw href, normalized target, fingerprint, allowed state, and rejection reason"], ["report.json", "Pages, edges, duplicates, rejections, limits, errors, warnings, and findings"], ["failures.json", "URL, depth, and stable error"]] },
-          { type: "note", text: "This is a static-site audit. It does not execute JavaScript or bypass authentication, CAPTCHAs, robots.txt, or anti-bot controls. The frontier is currently in memory; persistence and resume remain future work." }
+          { type: "note", text: "The default mode remains a static-site audit and does not bypass authentication, CAPTCHAs, robots.txt, or anti-bot controls. v1.1.5 can use an atomic checkpoint frontier with strict resume, plus an isolated Playwright renderer when JavaScript execution is required." }
         ] }
       ]
     }
@@ -2284,8 +2331,9 @@ export function getChapter(slug: string): Chapter | undefined {
   return chapters.find((chapter) => chapter.slug === slug);
 }
 
-export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" {
+export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" | "tooling" {
   if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project" || chapter.slug === "multi-api-data-collector-project" || chapter.slug === "sitegraph-auditor-project") return "project";
+  if (chapter.slug === "editor-support") return "tooling";
   if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension" || chapter.slug === "html-crawler-framework") return "extension";
   if (chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"

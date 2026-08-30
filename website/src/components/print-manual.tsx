@@ -6,8 +6,8 @@ import { hhyVersionLabel } from "@/lib/release";
 import { PrintButton } from "@/components/print-button";
 
 const groupLabel = {
-  zh: { guide: "指南", project: "实战项目", reference: "参考", extension: "扩展", roadmap: "路线图" },
-  en: { guide: "Guide", project: "Projects", reference: "Reference", extension: "Extensions", roadmap: "Roadmap" }
+  zh: { guide: "指南", project: "实战项目", reference: "参考", extension: "扩展", roadmap: "路线图", tooling: "工具" },
+  en: { guide: "Guide", project: "Projects", reference: "Reference", extension: "Extensions", roadmap: "Roadmap", tooling: "Tooling" }
 } as const;
 
 function PrintBlock({ block, language }: { block: DocBlock; language: Language }) {

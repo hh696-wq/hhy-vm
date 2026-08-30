@@ -31,6 +31,7 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
   const referenceChapters = chapters.filter((chapter) => chapterKind(chapter) === "reference").sort((a, b) => a.order - b.order);
   const extensionChapters = chapters.filter((chapter) => chapterKind(chapter) === "extension").sort((a, b) => a.order - b.order);
   const roadmapChapters = chapters.filter((chapter) => chapterKind(chapter) === "roadmap").sort((a, b) => a.order - b.order);
+  const toolingChapters = chapters.filter((chapter) => chapterKind(chapter) === "tooling").sort((a, b) => a.order - b.order);
 
   return (
     <LearnLayout language={lang}>
@@ -109,6 +110,18 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
             <h2>{chapter.title[lang]}</h2>
             <p>{chapter.summary[lang]}</p>
             <strong>{lang === "zh" ? "查看路线图" : "Read roadmap"}<ArrowRight size={17} /></strong>
+          </Link>
+        ))}
+      </div>
+      <h2 className="docs-index-heading reference-heading">{lang === "zh" ? "工具" : "Tooling"}</h2>
+      <p className="docs-index-description">{lang === "zh" ? "安装与 HHY Lexer 同步生成的编辑器语言支持。" : "Install editor language support generated in sync with the HHY Lexer."}</p>
+      <div className="chapter-grid">
+        {toolingChapters.map((chapter) => (
+          <Link href={`/${lang}/learn/${chapter.slug}`} className="chapter-card" key={chapter.slug}>
+            <span>{String(chapter.order).padStart(2, "0")}</span>
+            <h2>{chapter.title[lang]}</h2>
+            <p>{chapter.summary[lang]}</p>
+            <strong>{lang === "zh" ? "安装语言支持" : "Install language support"}<ArrowRight size={17} /></strong>
           </Link>
         ))}
       </div>

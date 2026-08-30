@@ -1,4 +1,4 @@
-import { AppleLogo, ArrowRight, BookOpenText, CheckCircle, Code, Cube, DownloadSimple, FileText, FlowArrow, GlobeHemisphereWest, Graph, LinuxLogo, ShieldCheck, TerminalWindow, UsersThree, WaveSine } from "@phosphor-icons/react/dist/ssr";
+import { AppleLogo, ArrowRight, CheckCircle, Code, Cube, DownloadSimple, FileText, FlowArrow, GlobeHemisphereWest, Graph, LinuxLogo, ShieldCheck, TerminalWindow, UsersThree, WaveSine, WindowsLogo } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import Link from "next/link";
 import type { Language } from "@/lib/i18n";
@@ -71,9 +71,9 @@ export function HomePage({ language }: { language: Language }) {
           <pre className="project-output" aria-label={zh ? "SiteGraph Auditor HHY 源码示例" : "SiteGraph Auditor HHY source example"}><code>{siteGraphSnippet}</code></pre>
           <div className="project-verification">
             <span className="verification-label"><ShieldCheck size={19} weight="duotone" />{zh ? "验证通过" : "Verified"}</span>
-            <span className="verified-platform"><AppleLogo size={19} weight="fill" /><span>macOS arm64</span><CheckCircle size={15} weight="fill" /></span>
-            <span className="verified-platform"><LinuxLogo size={19} weight="fill" /><span>Linux arm64</span><CheckCircle size={15} weight="fill" /></span>
-            <span className="verified-platform"><LinuxLogo size={19} weight="fill" /><span>Linux x86_64</span><CheckCircle size={15} weight="fill" /></span>
+            <span className="verified-platform"><AppleLogo size={19} weight="fill" /><span>macOS</span><CheckCircle size={15} weight="fill" /></span>
+            <span className="verified-platform"><LinuxLogo size={19} weight="fill" /><span>Linux</span><CheckCircle size={15} weight="fill" /></span>
+            <span className="verified-platform"><WindowsLogo size={19} weight="fill" /><span>Windows</span><CheckCircle size={15} weight="fill" /></span>
           </div>
         </article>
       </section>
@@ -81,25 +81,24 @@ export function HomePage({ language }: { language: Language }) {
       <section className="editorial-grid section-shell">
         <article className="release-story">
           <div className="story-label"><CheckCircle size={18} weight="duotone" />{zh ? "当前版本" : "Current release"}</div>
-          <h2>{hhyVersionTag} · {zh ? "安全静态 Spider" : "Safe static spider"}</h2>
-          <p>{zh ? "URL 规范化、链接发现、Frontier、边界、指纹去重与连接级 SSRF 防护。" : "URL normalization, discovery, frontier limits, fingerprint deduplication, and connection-level SSRF protection."}</p>
+          <h2>{hhyVersionTag} · {zh ? "可恢复 Spider" : "Resumable spider"}</h2>
+          <p>{zh ? "持久 Frontier、严格断点恢复、流式响应落盘与可选 Playwright JavaScript 渲染，并新增 Windows MSYS2 构建验证。" : "Persistent frontier state, strict resume, streamed response files, optional Playwright JavaScript rendering, and Windows MSYS2 build verification."}</p>
           <div className="release-art"><Image src="/hhy-logo.png" alt="" width={420} height={280} /></div>
           <Link href={`/${language}/learn/language-vm-roadmap`}>{zh ? "查看版本路线图" : "View release roadmap"}<ArrowRight size={17} /></Link>
         </article>
 
         <div className="editorial-stack">
           <article className="editorial-story">
-            <div className="story-label"><BookOpenText size={18} weight="duotone" />{zh ? "教程" : "Tutorial"}</div>
-            <h2>{zh ? "从日志到结构化报告" : "From logs to structured reports"}</h2>
-            <p>{zh ? "从可直接运行的配方开始，学习文件读取、筛选、聚合与可靠输出。" : "Start with runnable recipes for reading, filtering, aggregating, and reliably writing data."}</p>
-            <code>{'files("**/*.log") |> where { line -> contains(line, "ERROR") }'}</code>
-            <Link href={`/${language}/learn/practical-recipes`}>{zh ? "阅读实战教程" : "Read practical recipes"}<ArrowRight size={16} /></Link>
-          </article>
-          <article className="editorial-story reference-story">
             <div className="story-label"><Code size={18} weight="duotone" />{zh ? "参考" : "Reference"}</div>
             <h2>{zh ? "完整的 95 个核心 callable" : "All 95 core callables"}</h2>
             <p>{zh ? "来自 Runtime Callable Contract Registry 的完整签名与用途。" : "Complete signatures and purposes from the Runtime Callable Contract Registry."}</p>
             <Link href={`/${language}/learn/standard-library`}>{zh ? "浏览函数索引" : "Browse function index"}<ArrowRight size={16} /></Link>
+          </article>
+          <article className="editorial-story reference-story">
+            <div className="story-label"><Code size={18} weight="duotone" />{zh ? "编辑器支持" : "Editor support"}</div>
+            <h2>{zh ? "为 .hhy 文件准备好高亮" : "Syntax support for .hhy files"}</h2>
+            <p>{zh ? "同一语法源生成 VS Code 与 Sublime Text 插件，包含高亮、注释、括号、缩进与常用片段。" : "One syntax source generates VS Code and Sublime Text packages with highlighting, comments, brackets, indentation, and snippets."}</p>
+            <Link href={`/${language}/learn/editor-support`}>{zh ? "安装语言包" : "Install language support"}<ArrowRight size={16} /></Link>
           </article>
         </div>
 

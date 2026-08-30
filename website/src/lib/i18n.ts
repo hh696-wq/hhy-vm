@@ -45,8 +45,8 @@ export const ui = {
     learnTitle: "学习 HHY",
     learnBody: "从安装到编写真实系统脚本，沿着清晰路径逐步掌握。",
     allTutorials: "查看完整手册",
-    stable: `${hhyVersionLabel} 已发布并通过三平台公开验证`,
-    stableBody: "macOS arm64、Linux arm64、Linux x86_64；包含首个稳定的本地进程扩展工作流。",
+    stable: `${hhyVersionLabel} 已发布并通过四平台公开验证`,
+    stableBody: "macOS arm64、Linux arm64、Linux x86_64 与 Windows MSYS2；包含可恢复 Spider、流式响应与可选浏览器渲染。",
     footerLine: "一门以 Flow 为核心的系统脚本语言。"
   },
   en: {
@@ -81,8 +81,8 @@ export const ui = {
     learnTitle: "Learn HHY",
     learnBody: "Follow a focused path from installation to real system scripts.",
     allTutorials: "View the full manual",
-    stable: `${hhyVersionLabel} is released and verified on three platforms`,
-    stableBody: "macOS arm64, Linux arm64, and Linux x86_64; includes the first stable local process-extension workflow.",
+    stable: `${hhyVersionLabel} is released and publicly verified on four platforms`,
+    stableBody: "macOS arm64, Linux arm64, Linux x86_64, and Windows MSYS2; includes resumable crawling, streamed responses, and optional browser rendering.",
     footerLine: "A flow-first scripting language for system automation."
   }
 } as const;

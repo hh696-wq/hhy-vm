@@ -451,17 +451,18 @@ button, input { font: inherit; }
 .verification-label { padding-right: 20px; font-weight: 700; }
 .verified-platform { padding: 0 18px; border-left: 1px solid #d5e2f6; color: #173675; font-weight: 650; }
 .verified-platform > svg:last-child { width: 13px; color: #2d72dc; }
-.editorial-grid { display: grid; grid-template-columns: 1.05fr .95fr .96fr; gap: 18px; margin-top: 22px; }
+.editorial-grid { display: grid; grid-template-columns: 1.05fr .95fr .96fr; align-items: stretch; gap: 18px; margin-top: 22px; }
 .release-story, .editorial-story, .community-story { border: 1px solid var(--line); border-radius: 13px; background: #fff; }
-.release-story { min-height: 480px; display: flex; flex-direction: column; padding: 27px; overflow: hidden; background: linear-gradient(150deg, #f5f9ff 0%, #fff 58%); }
+.release-story { display: flex; flex-direction: column; padding: 27px; overflow: hidden; background: linear-gradient(150deg, #f5f9ff 0%, #fff 58%); }
 .story-label { display: flex; align-items: center; gap: 7px; color: var(--blue); font-size: 12px; font-weight: 800; }
 .release-story h2, .editorial-story h2, .community-story h2 { margin: 16px 0 9px; font-size: 23px; line-height: 1.25; letter-spacing: -.035em; }
 .release-story > p, .editorial-story > p, .community-story > p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
-.release-art { min-height: 240px; display: flex; align-items: center; justify-content: center; margin: 12px -10px 4px; }
-.release-art img { width: min(100%, 360px); height: auto; filter: drop-shadow(0 22px 30px rgba(10, 83, 207, .12)); }
-.release-story > a { margin-top: auto; }
-.editorial-stack { display: grid; grid-template-rows: 1.14fr .86fr; gap: 18px; }
-.editorial-story { padding: 25px; }
+.release-art { min-height: 176px; display: flex; align-items: center; justify-content: center; margin: 8px -10px 2px; }
+.release-art img { width: min(78%, 250px); height: auto; filter: drop-shadow(0 18px 24px rgba(10, 83, 207, .11)); }
+.release-story > a { margin-top: 12px; }
+.editorial-stack { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.editorial-story { display: flex; flex-direction: column; padding: 25px; }
+.editorial-story > a { margin-top: 12px; }
 .editorial-story code { display: block; margin: 18px 0; padding: 13px; overflow: hidden; color: #17478f; border: 1px solid #c9daf4; border-radius: 8px; background: #f5f9ff; font: 10px/1.55 "SFMono-Regular", Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .reference-story { background: #fbfdff; }
 .community-story { padding: 27px; }
@@ -730,9 +731,12 @@ button, input { font: inherit; }
   .project-flow-item span { min-width: 86px; }
   .project-output { height: auto; overflow: visible; font-size: 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .editorial-intro { padding-inline: 18px; }
-  .language-principles { position: static; height: auto; grid-template-columns: 1fr; gap: 0; margin: 30px -18px 0; padding: 8px 18px; }
-  .language-principle { grid-template-columns: auto minmax(0, 1fr); padding: 11px 0; border-right: 0; border-bottom: 1px solid #d5e2f6; }
-  .language-principle:last-child { border-bottom: 0; }
+  .language-principles { position: static; width: calc(100vw - 28px); max-width: calc(100vw - 28px); height: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 30px -18px 0; padding: 12px 8px; overflow: hidden; }
+  .language-principle { grid-template-columns: 1fr; justify-items: center; gap: 6px; padding: 5px 7px; border-right: 1px solid #d5e2f6; border-bottom: 0; text-align: center; }
+  .language-principle:first-child { padding-left: 7px; }
+  .language-principle:last-child { padding-right: 7px; border-right: 0; }
+  .language-principle strong { font-size: 13px; }
+  .language-principle small { margin-top: 3px; font-size: 9px; }
   .featured-project { padding: 22px 18px 0; }
   .project-verification { position: static; min-height: 62px; height: auto; margin: 24px -18px 0; padding-inline: 18px; }
   .project-verification { flex-wrap: wrap; justify-content: flex-start; gap: 12px 0; padding-block: 16px; }
