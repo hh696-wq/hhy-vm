@@ -5,7 +5,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <fts.h>
 #include <poll.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,8 +12,10 @@
 #include <unistd.h>
 
 #ifdef __APPLE__
+#include <fts.h>
 #include <sys/event.h>
 #elif defined(__linux__)
+#include <fts.h>
 #include <sys/inotify.h>
 #endif
 
@@ -34,10 +35,12 @@ struct HhyPlatformWatch {
 #endif
 };
 
+#if defined(__APPLE__) || defined(__linux__)
 static bool is_directory(const char *path) {
     struct stat info;
     return lstat(path, &info) == 0 && S_ISDIR(info.st_mode);
 }
+#endif
 
 #ifdef __APPLE__
 static void clear_handles(HhyPlatformWatch *watch) {
