@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, FilePdf, ListBullets } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowRight, CaretDown, FilePdf, ListBullets } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { Fragment } from "react";
 import type { ReactNode } from "react";
@@ -28,6 +28,10 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
       </Fragment>
     );
   };
+  const renderMobileChapterLink = (item: Chapter) => {
+    const active = chapter?.slug === item.slug;
+    return <Link aria-current={active ? "page" : undefined} className={active ? "active" : ""} href={`/${language}/learn/${item.slug}`} key={item.slug}><span>{String(item.order).padStart(2, "0")}</span>{item.title[language]}</Link>;
+  };
 
   return (
     <main className="docs-shell">
@@ -49,6 +53,21 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
         <Link className="spec-link" href="https://github.com/hh696-wq/hhy-vm/blob/main/docs/HHY_V1.md" target="_blank">{language === "zh" ? `${hhyVersionLabel} 完整规范 ↗` : `Full ${hhyVersionLabel} spec ↗`}</Link>
       </aside>
       <div className="docs-content">
+        <details className="mobile-manual-toc">
+          <summary aria-label={language === "zh" ? "打开全部章节" : "Open all chapters"}><ListBullets size={20} /><strong>{language === "zh" ? "全部章节" : "All chapters"}</strong><span>{manualChapters.length}</span><CaretDown size={16} /></summary>
+          <nav aria-label={language === "zh" ? "完整手册目录" : "Complete manual contents"}>
+            <small className="docs-nav-group">{language === "zh" ? "指南" : "Guide"}</small>
+            {guideChapters.map(renderMobileChapterLink)}
+            <small className="docs-nav-group">{language === "zh" ? "实战项目" : "Project"}</small>
+            {projectChapters.map(renderMobileChapterLink)}
+            <small className="docs-nav-group">{language === "zh" ? "参考" : "Reference"}</small>
+            {referenceChapters.map(renderMobileChapterLink)}
+            <small className="docs-nav-group">{language === "zh" ? "扩展" : "Extensions"}</small>
+            {extensionChapters.map(renderMobileChapterLink)}
+            <small className="docs-nav-group">{language === "zh" ? "路线图" : "Roadmap"}</small>
+            {roadmapChapters.map(renderMobileChapterLink)}
+          </nav>
+        </details>
         {chapter && currentSections.length ? <ChapterToc language={language} mobile sections={currentSections} /> : null}
         {children}
         {chapter ? (
