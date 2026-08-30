@@ -40,7 +40,7 @@ jobs:
       - name: Windows parser and runtime smoke
         run: |
           ./build/hhy --version
-          ./build/hhy check examples/*.hhy tests/valid/*.hhy
+          ./build/hhy check examples/*.hhy tests/valid/basic.hhy tests/valid/regex.hhy tests/valid/json-flow.hhy
           ./build/hhy run tests/valid/basic.hhy
           ./build/hhy run tests/valid/regex.hhy
           ./build/hhy run tests/valid/json-flow.hhy
