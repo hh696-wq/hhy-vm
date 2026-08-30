@@ -43,7 +43,9 @@ struct HhyProfiler {
     bool sampling;
 };
 
+#ifndef __MSYS__
 static HhyProfiler *active_profiler;
+#endif
 
 static char *copy_text_n(const char *text, size_t length) {
     char *copy = malloc(length + 1);
@@ -53,6 +55,7 @@ static char *copy_text_n(const char *text, size_t length) {
 
 static char *copy_text(const char *text) { return copy_text_n(text, strlen(text)); }
 
+#ifndef __MSYS__
 static void sample_handler(int signal_number) {
     (void)signal_number;
     HhyProfiler *profiler = active_profiler;
@@ -63,6 +66,7 @@ static void sample_handler(int signal_number) {
         profiler->total_samples++;
     }
 }
+#endif
 
 static double timespec_delta(struct timespec end, struct timespec start) {
     return (double)(end.tv_sec - start.tv_sec) +
@@ -122,6 +126,7 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
     clock_gettime(CLOCK_MONOTONIC, &profiler->wall_started);
     getrusage(RUSAGE_SELF, &profiler->usage_started);
     if (profiler->options.cpu) {
+#ifndef __MSYS__
         struct sigaction action;
         memset(&action, 0, sizeof(action));
         action.sa_handler = sample_handler;
@@ -137,6 +142,7 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
                 profiler->sampling = true;
             else active_profiler = NULL;
         }
+#endif
     }
     return profiler;
 }
@@ -297,12 +303,14 @@ static void print_text(HhyProfiler *p, FILE *out) {
 void hhy_profiler_stop(HhyProfiler *profiler, size_t heap_current) {
     if (profiler == NULL) return;
     if (profiler->sampling) {
+#ifndef __MSYS__
         struct itimerval stopped;
         memset(&stopped, 0, sizeof(stopped));
         setitimer(ITIMER_PROF, &stopped, NULL);
         active_profiler = NULL;
         sigaction(SIGPROF, &profiler->previous_action, NULL);
         setitimer(ITIMER_PROF, &profiler->previous_timer, NULL);
+#endif
         profiler->sampling = false;
     }
     struct timespec wall_ended; struct rusage usage_ended;
