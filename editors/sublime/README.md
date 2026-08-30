@@ -1,8 +1,9 @@
 # HHY for Sublime Text
 
-Sublime Text 4200 uses a conservative safety grammar without Regex-literal,
-function-call, or member-access lookaround highlighting. The reduced grammar
-avoids a native incremental-lexer crash observed on macOS arm64.
+Sublime Text 4200 uses a minimal, linear safety grammar. Rich Regex, number/unit,
+function-call, member-access, capture, and lookaround rules are excluded after
+a native lexer crash and runaway catalogue crawlers were observed on macOS arm64.
+Keywords, simple integers, strings, comments, builtins, and operators remain.
 
 Syntax highlighting, comments, indentation and a function snippet for HHY `.hhy` files.
 

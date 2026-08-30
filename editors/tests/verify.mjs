@@ -34,6 +34,9 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(sublime, /string\.regexp\.hhy/, "Sublime 4200 safety grammar must not enable Regex-literal highlighting");
 assert.doesNotMatch(sublime, /\(\?<|\(\?=/, "Sublime 4200 safety grammar must not contain lookarounds");
+assert.doesNotMatch(sublime, /captures:/, "Sublime 4200 safety grammar must not contain capture rules");
+assert.match(sublime, /storage\.type\.function\.hhy/, "Sublime safety grammar must highlight fn");
+assert.match(sublime, /constant\.numeric\.integer\.hhy/, "Sublime safety grammar must highlight simple integers");
 
 const lexerKeywords = [...lexer.matchAll(/\{"([a-z]+)", HHY_T_[A-Z_]+\}/g)].map((match) => match[1]);
 const sourceKeywords = Object.values(source.keywords).flat().sort();

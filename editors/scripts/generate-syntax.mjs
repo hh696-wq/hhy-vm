@@ -77,19 +77,26 @@ const includeOrder = [
   "functionCall", "member", "operator"
 ];
 
-// Sublime Text 4200 on arm64 can crash inside its incremental backtracking
-// lexer while cataloguing the full TextMate-style rule set. Keep its grammar
-// intentionally conservative: no Regex-literal rule and no lookarounds. Unit
-// literals use linear patterns without nested optional/repeated groups.
+// Sublime Text 4200 on arm64 crashed and spawned runaway catalogue crawlers
+// when indexing the richer grammar. Its package therefore uses a deliberately
+// minimal, linear rule set. Do not add captures, lookarounds, nested numeric
+// expressions, or Regex-literal parsing here without testing the catalogue
+// crawler on Build 4200. The VS Code grammar remains fully featured.
 const sublimePatterns = {
-  ...patterns,
-  bytes: { match: `\\b\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:${byteUnits})\\b`, name: "constant.numeric.bytes.hhy" },
-  duration: { match: `\\b\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:${durationUnits})\\b`, name: "constant.numeric.duration.hhy" },
-  percent: { match: "\\b\\d[\\d_]*(?:\\.\\d[\\d_]*)?%", name: "constant.numeric.percentage.hhy" },
-  float: { match: "\\b\\d[\\d_]*\\.\\d[\\d_]*\\b", name: "constant.numeric.float.hhy" },
-  integer: { match: "\\b\\d[\\d_]*\\b", name: "constant.numeric.integer.hhy" }
+  shebang: patterns.shebang,
+  comment: patterns.comment,
+  string: patterns.string,
+  functionKeyword: { match: "\\bfn\\b", name: "storage.type.function.hhy" },
+  module: patterns.module,
+  declaration: patterns.declaration,
+  control: patterns.control,
+  wordOperator: patterns.wordOperator,
+  constants: patterns.constants,
+  number: { match: "\\b[0-9][0-9_]*\\b", name: "constant.numeric.integer.hhy" },
+  builtins: patterns.builtins,
+  operator: patterns.operator
 };
-const sublimeIncludeOrder = includeOrder.filter((name) => !["regex", "functionCall", "member"].includes(name));
+const sublimeIncludeOrder = Object.keys(sublimePatterns);
 
 const grammar = {
   $schema: "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",

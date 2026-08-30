@@ -15,10 +15,8 @@ contexts:
     - match: '"'
       scope: punctuation.definition.string.begin.hhy
       push: double-quoted-string
-    - match: '\b(fn)\s+([A-Za-z_][A-Za-z0-9_]*)'
-      captures:
-        1: storage.type.function.hhy
-        2: entity.name.function.hhy
+    - match: '\bfn\b'
+      scope: storage.type.function.hhy
     - match: '\b(?:import|export|from|as)\b'
       scope: keyword.control.import.hhy
     - match: '\b(?:let|mut)\b'
@@ -29,19 +27,7 @@ contexts:
       scope: keyword.operator.logical.hhy
     - match: '\b(?:false|true|null)\b'
       scope: constant.language.hhy
-    - match: '\b\d[\d_]*(?:\.\d[\d_]*)?(?:kib|mib|gib|tib|kb|mb|gb|tb|b)\b'
-      scope: constant.numeric.bytes.hhy
-    - match: '\b\d[\d_]*(?:\.\d[\d_]*)?(?:min|ns|us|ms|s|h|d)\b'
-      scope: constant.numeric.duration.hhy
-    - match: '\b\d[\d_]*(?:\.\d[\d_]*)?%'
-      scope: constant.numeric.percentage.hhy
-    - match: '\b0[xX][0-9A-Fa-f_]+\b'
-      scope: constant.numeric.integer.hexadecimal.hhy
-    - match: '\b0[bB][01_]+\b'
-      scope: constant.numeric.integer.binary.hhy
-    - match: '\b\d[\d_]*\.\d[\d_]*\b'
-      scope: constant.numeric.float.hhy
-    - match: '\b\d[\d_]*\b'
+    - match: '\b[0-9][0-9_]*\b'
       scope: constant.numeric.integer.hhy
     - match: '\b(?:regex_captures|encode_json|print_error|regex_match|parse_json|read_text|save_text|contains|distinct|flat_map|group_by|collect|inspect|is_type|require|send_to|sort_by|timeout|append|length|reduce|stream|count|first|print|where|exit|pick|send|take|type|get|map|put|run)\b'
       scope: support.function.builtin.hhy
