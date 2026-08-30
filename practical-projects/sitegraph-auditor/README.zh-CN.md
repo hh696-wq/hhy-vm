@@ -1,6 +1,6 @@
 # SiteGraph Auditor
 
-SiteGraph Auditor 是一个基于 HHY 1.1.4 安全静态 Spider 的站点结构与内容质量门禁。它递归抓取授权范围内的文档页面，生成页面 inventory、规范化链接图、失败归档和审计报告。
+SiteGraph Auditor 是一个基于 HHY 1.1.5 可恢复 Spider 的站点结构与内容质量门禁。它递归抓取授权范围内的文档页面，生成页面 inventory、规范化链接图、失败归档和审计报告。
 
 ## 挑战点
 

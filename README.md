@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.1.4-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.1.5-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -64,8 +64,8 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前稳定版本是 **V1.1.4**（`1.1.4`），正式支持 macOS arm64、Linux arm64 和
-Linux x86_64。
+当前稳定版本是 **V1.1.5**（`1.1.5`），正式支持 macOS arm64、Linux arm64 和
+Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
 
@@ -187,8 +187,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.1.4-PLATFORM-ARCH.tar.gz
-cd hhy-1.1.4-PLATFORM-ARCH
+tar -xzf hhy-1.1.5-PLATFORM-ARCH.tar.gz
+cd hhy-1.1.5-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -280,21 +280,23 @@ html.extract(body, "article.product", {
 
 API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
 
-## V1.1.4 状态
+## V1.1.5 状态
 
-V1.0 语言 contract 保持兼容；V1.1.4 在 V1.1.3 Runtime 加固之上补齐 URL 规范化、
-安全递归 Frontier、请求指纹去重和连接地址级 SSRF 防护。V1.1.3 完成 GC 引用缓冲、Stream 去重状态、Map/JSON
+V1.0 语言 contract 保持兼容；V1.1.5 在 V1.1.4 安全 Spider 之上补齐持久 Frontier、
+批次 checkpoint 与断点恢复、原子流式 HTTP 落盘和独立 Playwright JavaScript 渲染器，
+并增加 Windows x86_64 MSYS2 构建验证。V1.1.3 完成 GC 引用缓冲、Stream 去重状态、Map/JSON
 哈希索引、进程快照诊断和 Profiler 数据质量标记的技术评审修复，并继续包含 V1.1.2
 的官方 HTML 扩展与静态文档采集框架。
 内建 `hhy profile` 提供 CPU 与托管 Heap 分析；内存、递归、集合及运行时上限通过
 压力测试确保越界返回稳定错误而不是使 Runtime 崩溃。每次主分支提交都会在 macOS arm64、
-Linux arm64 和 Linux x86_64 上执行严格编译、sanitizer、完整测试、fuzz、
+Linux arm64、Linux x86_64 和 Windows x86_64 MSYS2 上执行相应的严格编译与验证；
+三个正式发行平台继续执行 sanitizer、完整测试、fuzz、
 文档验证、发行包内容检查和 SHA-256 校验。
 
 - 当前版本来源：[VERSION](VERSION)
 - 语言的唯一规范来源：[docs/HHY_V1.md](docs/HHY_V1.md)
 - 已知限制：[docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md)
-- 三平台持续验证：[GitHub Actions](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
+- 四平台持续验证：[GitHub Actions](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
 
 ## 文档
 

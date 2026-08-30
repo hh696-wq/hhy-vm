@@ -1,7 +1,7 @@
 # SiteGraph Auditor
 
 SiteGraph Auditor is a site-structure and content-quality gate built on the HHY
-1.1.4 safe static spider. It recursively inventories authorized documentation,
+1.1.5 resumable spider. It recursively inventories authorized documentation,
 builds a normalized link graph, archives failures, and returns a stable gate
 exit status.
 
