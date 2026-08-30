@@ -1,0 +1,25 @@
+{
+  "language": {
+    "id": "hhy",
+    "name": "HHY",
+    "scopeName": "source.hhy",
+    "extensions": [".hhy"],
+    "firstLine": "^#!.*\\bhhy(?:\\s|$)"
+  },
+  "keywords": {
+    "declaration": ["let", "mut", "fn", "import", "export", "from", "as"],
+    "control": ["if", "else", "for", "in", "while", "return", "break", "continue", "try", "catch", "throw", "attempt"],
+    "operator": ["and", "or", "not"],
+    "constants": ["true", "false", "null"]
+  },
+  "literals": {
+    "byteUnits": ["kib", "mib", "gib", "tib", "kb", "mb", "gb", "tb", "b"],
+    "durationUnits": ["min", "ns", "us", "ms", "s", "h", "d"],
+    "regexFlags": ["i", "m", "s", "u"],
+    "stringEscapes": ["n", "r", "t", "\\\"", "\\\\", "b", "f", "0"]
+  },
+  "operators": ["|>", "??", "->", "..", "==", "!=", "<=", ">=", "+", "-", "*", "/", "%", "=", "<", ">"],
+  "builtins": [
+    "append", "collect", "contains", "count", "distinct", "encode_json", "exit", "first", "flat_map", "get", "group_by", "inspect", "is_type", "length", "map", "parse_json", "pick", "print", "print_error", "put", "read_text", "reduce", "regex_captures", "regex_match", "require", "run", "save_text", "send", "sort_by", "stream", "take", "timeout", "type", "where"
+  ]
+}

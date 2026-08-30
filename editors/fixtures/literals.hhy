@@ -1,0 +1,13 @@
+let decimal = 1_000_000
+let floating = 3.141_592
+let exponent = 6.02e23
+let hexadecimal = 0xff_00
+let binary = 0b1010_0101
+let memory = 10mib
+let network = 5mb
+let delay = 250ms
+let timeout_value = 5s
+let ratio = 80%
+
+print(decimal, floating, exponent, hexadecimal, binary)
+print(memory, network, delay, timeout_value, ratio)

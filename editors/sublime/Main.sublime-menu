@@ -1,0 +1,25 @@
+[
+  {
+    "caption": "Preferences",
+    "mnemonic": "n",
+    "id": "preferences",
+    "children": [
+      {
+        "caption": "Package Settings",
+        "id": "package-settings",
+        "children": [
+          {
+            "caption": "HHY",
+            "children": [
+              {
+                "command": "open_file",
+                "args": { "file": "${packages}/HHY/README.md" },
+                "caption": "README"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

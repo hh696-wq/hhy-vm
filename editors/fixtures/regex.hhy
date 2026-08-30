@@ -1,0 +1,8 @@
+let severity = /ERROR|WARN/i
+let escaped = /https?:\/\/[^\s]+/u
+let ratio = 12 / 3
+let nested = (ratio + 2) / 2
+
+print(regex_match("warning", severity))
+print(regex_match("https://hhylang.dev", escaped))
+print(ratio, nested)

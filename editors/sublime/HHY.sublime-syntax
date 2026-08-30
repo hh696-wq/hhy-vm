@@ -1,0 +1,67 @@
+%YAML 1.2
+---
+# Generated from editors/syntax/hhy-syntax.json. Do not edit by hand.
+name: HHY
+file_extensions:
+  - hhy
+first_line_match: '^#!.*\bhhy(?:\s|$)'
+scope: source.hhy
+contexts:
+  main:
+    - match: '^#!.*$'
+      scope: comment.line.shebang.hhy
+    - match: '#.*$'
+      scope: comment.line.number-sign.hhy
+    - match: '"'
+      scope: punctuation.definition.string.begin.hhy
+      push: double-quoted-string
+    - match: '(^|\b(?:let|return|throw|attempt|in|and|or|not)\s+|[=(,:\[!&|?{};>]\s*)(/(?:\\.|\[(?:\\.|[^\]\\])*\]|[^/\\\n])+/[imsu]*)'
+      captures:
+        2: string.regexp.hhy
+    - match: '\b(fn)\s+([A-Za-z_][A-Za-z0-9_]*)'
+      captures:
+        1: storage.type.function.hhy
+        2: entity.name.function.hhy
+    - match: '\b(?:import|export|from|as)\b'
+      scope: keyword.control.import.hhy
+    - match: '\b(?:let|mut)\b'
+      scope: storage.modifier.hhy
+    - match: '\b(?:continue|attempt|return|while|break|catch|throw|else|for|try|if|in)\b'
+      scope: keyword.control.hhy
+    - match: '\b(?:and|not|or)\b'
+      scope: keyword.operator.logical.hhy
+    - match: '\b(?:false|true|null)\b'
+      scope: constant.language.hhy
+    - match: '\b(?:\d(?:[\d_]*\d)?|\d)(?:\.(?:\d(?:[\d_]*\d)?|\d))?(?:[eE][+-]?(?:\d(?:[\d_]*\d)?|\d))?(?:kib|mib|gib|tib|kb|mb|gb|tb|b)\b'
+      scope: constant.numeric.bytes.hhy
+    - match: '\b(?:\d(?:[\d_]*\d)?|\d)(?:\.(?:\d(?:[\d_]*\d)?|\d))?(?:[eE][+-]?(?:\d(?:[\d_]*\d)?|\d))?(?:min|ns|us|ms|s|h|d)\b'
+      scope: constant.numeric.duration.hhy
+    - match: '\b(?:\d(?:[\d_]*\d)?|\d)(?:\.(?:\d(?:[\d_]*\d)?|\d))?(?:[eE][+-]?(?:\d(?:[\d_]*\d)?|\d))?%'
+      scope: constant.numeric.percentage.hhy
+    - match: '\b0[xX][0-9A-Fa-f_]+\b'
+      scope: constant.numeric.integer.hexadecimal.hhy
+    - match: '\b0[bB][01_]+\b'
+      scope: constant.numeric.integer.binary.hhy
+    - match: '\b(?:(?:\d(?:[\d_]*\d)?|\d)\.(?:\d(?:[\d_]*\d)?|\d)|(?:\d(?:[\d_]*\d)?|\d)[eE][+-]?(?:\d(?:[\d_]*\d)?|\d))\b'
+      scope: constant.numeric.float.hhy
+    - match: '\b(?:\d(?:[\d_]*\d)?|\d)\b'
+      scope: constant.numeric.integer.hhy
+    - match: '\b(?:regex_captures|encode_json|print_error|regex_match|parse_json|read_text|save_text|contains|distinct|flat_map|group_by|collect|inspect|is_type|require|sort_by|timeout|append|length|reduce|stream|count|first|print|where|exit|pick|send|take|type|get|map|put|run)\b'
+      scope: support.function.builtin.hhy
+    - match: '\b([A-Za-z_][A-Za-z0-9_]*)(?=\s*\()'
+      captures:
+        1: entity.name.function.call.hhy
+    - match: '(?<=\.)[A-Za-z_][A-Za-z0-9_]*'
+      scope: variable.other.member.hhy
+    - match: '\|>|\?\?|->|\.\.|==|!=|<=|>=|[+\-*\/%=<>]'
+      scope: keyword.operator.hhy
+
+  double-quoted-string:
+    - meta_scope: string.quoted.double.hhy
+    - match: '\\[nrt\"\\bf0]'
+      scope: constant.character.escape.hhy
+    - match: '\\.'
+      scope: invalid.illegal.escape.hhy
+    - match: '"'
+      scope: punctuation.definition.string.end.hhy
+      pop: true

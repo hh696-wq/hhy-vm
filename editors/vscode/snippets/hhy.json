@@ -1,0 +1,32 @@
+{
+  "Function": {
+    "prefix": "fn",
+    "body": ["fn ${1:name}(${2:args}) {", "    ${0}", "}"],
+    "description": "Declare an HHY function"
+  },
+  "Mutable binding": {
+    "prefix": "letmut",
+    "body": ["let mut ${1:name} = ${0:value}"],
+    "description": "Declare a mutable binding"
+  },
+  "Flow pipeline": {
+    "prefix": "flow",
+    "body": ["${1:source}", "    |> stream", "    |> ${2:where { value -> true }}", "    |> collect"],
+    "description": "Create an HHY flow pipeline"
+  },
+  "Try catch": {
+    "prefix": "try",
+    "body": ["try {", "    ${1}", "} catch ${2:err} {", "    ${0}", "}"],
+    "description": "Handle a structured HHY error"
+  },
+  "Attempt result": {
+    "prefix": "attempt",
+    "body": ["let ${1:result} = attempt { ${0} }"],
+    "description": "Capture an operation as Result"
+  },
+  "Import names": {
+    "prefix": "import",
+    "body": ["import { ${1:name} } from \"${2:./module.hhy}\""],
+    "description": "Import HHY module exports"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "hhy-editor-support-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate-syntax.mjs",
+    "check:generated": "node scripts/generate-syntax.mjs --check",
+    "test": "node tests/verify.mjs",
+    "check": "npm run check:generated && npm test",
+    "prepare:dist": "node scripts/prepare-dist.mjs",
+    "package:sublime": "node scripts/package-sublime.mjs",
+    "package:vscode": "cd vscode && npx --yes @vscode/vsce package --out ../dist/hhy-language-support-0.1.0.vsix",
+    "package": "npm run check && npm run prepare:dist && npm run package:vscode && npm run package:sublime"
+  }
+}

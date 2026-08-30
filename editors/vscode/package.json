@@ -1,0 +1,49 @@
+{
+  "name": "hhy-language-support",
+  "displayName": "HHY Language Support",
+  "description": "Syntax highlighting, editor configuration, and snippets for HHY.",
+  "version": "0.1.0",
+  "publisher": "hh696-wq",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages", "Snippets"],
+  "keywords": ["HHY", "language", "syntax", "highlighting"],
+  "files": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "language-configuration.json",
+    "snippets/hhy.json",
+    "syntaxes/hhy.tmLanguage.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hh696-wq/hhy-vm.git"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "hhy",
+        "aliases": ["HHY", "hhy"],
+        "extensions": [".hhy"],
+        "firstLine": "^#!.*\\bhhy(?:\\s|$)",
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "hhy",
+        "scopeName": "source.hhy",
+        "path": "./syntaxes/hhy.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "hhy",
+        "path": "./snippets/hhy.json"
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+#!/usr/bin/env hhy
+
+# Bindings, declarations, control flow and structured errors.
+export fn classify(value) {
+    let mut label = "small\nvalue"
+    if value >= 10 and value != 42 {
+        label = "large"
+    } else if value == 42 {
+        label = "answer"
+    }
+    return label
+}
+
+let outcome = attempt { classify(42) }
+try {
+    require(outcome.ok, "classification failed")
+} catch err {
+    err |> print_error
+}

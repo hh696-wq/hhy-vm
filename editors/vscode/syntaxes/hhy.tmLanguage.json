@@ -1,0 +1,283 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "HHY",
+  "scopeName": "source.hhy",
+  "fileTypes": [
+    "hhy"
+  ],
+  "firstLineMatch": "^#!.*\\bhhy(?:\\s|$)",
+  "patterns": [
+    {
+      "include": "#shebang"
+    },
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#regex"
+    },
+    {
+      "include": "#functionDeclaration"
+    },
+    {
+      "include": "#module"
+    },
+    {
+      "include": "#declaration"
+    },
+    {
+      "include": "#control"
+    },
+    {
+      "include": "#wordOperator"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#bytes"
+    },
+    {
+      "include": "#duration"
+    },
+    {
+      "include": "#percent"
+    },
+    {
+      "include": "#hexadecimal"
+    },
+    {
+      "include": "#binary"
+    },
+    {
+      "include": "#float"
+    },
+    {
+      "include": "#integer"
+    },
+    {
+      "include": "#builtins"
+    },
+    {
+      "include": "#functionCall"
+    },
+    {
+      "include": "#member"
+    },
+    {
+      "include": "#operator"
+    }
+  ],
+  "repository": {
+    "shebang": {
+      "patterns": [
+        {
+          "match": "^#!.*$",
+          "name": "comment.line.shebang.hhy"
+        }
+      ]
+    },
+    "comment": {
+      "patterns": [
+        {
+          "match": "#.*$",
+          "name": "comment.line.number-sign.hhy"
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "begin": "\"",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.hhy"
+            }
+          },
+          "end": "\"|$",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.hhy"
+            }
+          },
+          "name": "string.quoted.double.hhy",
+          "patterns": [
+            {
+              "match": "\\\\[nrt\\\"\\\\bf0]",
+              "name": "constant.character.escape.hhy"
+            },
+            {
+              "match": "\\\\.",
+              "name": "invalid.illegal.escape.hhy"
+            }
+          ]
+        }
+      ]
+    },
+    "regex": {
+      "patterns": [
+        {
+          "match": "(^|\\b(?:let|return|throw|attempt|in|and|or|not)\\s+|[=(,:\\[!&|?{};>]\\s*)(/(?:\\\\.|\\[(?:\\\\.|[^\\]\\\\])*\\]|[^/\\\\\\n])+/[imsu]*)",
+          "captures": {
+            "2": {
+              "name": "string.regexp.hhy"
+            }
+          }
+        }
+      ]
+    },
+    "functionDeclaration": {
+      "patterns": [
+        {
+          "match": "\\b(fn)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.function.hhy"
+            },
+            "2": {
+              "name": "entity.name.function.hhy"
+            }
+          }
+        }
+      ]
+    },
+    "module": {
+      "patterns": [
+        {
+          "match": "\\b(?:import|export|from|as)\\b",
+          "name": "keyword.control.import.hhy"
+        }
+      ]
+    },
+    "declaration": {
+      "patterns": [
+        {
+          "match": "\\b(?:let|mut)\\b",
+          "name": "storage.modifier.hhy"
+        }
+      ]
+    },
+    "control": {
+      "patterns": [
+        {
+          "match": "\\b(?:continue|attempt|return|while|break|catch|throw|else|for|try|if|in)\\b",
+          "name": "keyword.control.hhy"
+        }
+      ]
+    },
+    "wordOperator": {
+      "patterns": [
+        {
+          "match": "\\b(?:and|not|or)\\b",
+          "name": "keyword.operator.logical.hhy"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "match": "\\b(?:false|true|null)\\b",
+          "name": "constant.language.hhy"
+        }
+      ]
+    },
+    "bytes": {
+      "patterns": [
+        {
+          "match": "\\b(?:\\d(?:[\\d_]*\\d)?|\\d)(?:\\.(?:\\d(?:[\\d_]*\\d)?|\\d))?(?:[eE][+-]?(?:\\d(?:[\\d_]*\\d)?|\\d))?(?:kib|mib|gib|tib|kb|mb|gb|tb|b)\\b",
+          "name": "constant.numeric.bytes.hhy"
+        }
+      ]
+    },
+    "duration": {
+      "patterns": [
+        {
+          "match": "\\b(?:\\d(?:[\\d_]*\\d)?|\\d)(?:\\.(?:\\d(?:[\\d_]*\\d)?|\\d))?(?:[eE][+-]?(?:\\d(?:[\\d_]*\\d)?|\\d))?(?:min|ns|us|ms|s|h|d)\\b",
+          "name": "constant.numeric.duration.hhy"
+        }
+      ]
+    },
+    "percent": {
+      "patterns": [
+        {
+          "match": "\\b(?:\\d(?:[\\d_]*\\d)?|\\d)(?:\\.(?:\\d(?:[\\d_]*\\d)?|\\d))?(?:[eE][+-]?(?:\\d(?:[\\d_]*\\d)?|\\d))?%",
+          "name": "constant.numeric.percentage.hhy"
+        }
+      ]
+    },
+    "hexadecimal": {
+      "patterns": [
+        {
+          "match": "\\b0[xX][0-9A-Fa-f_]+\\b",
+          "name": "constant.numeric.integer.hexadecimal.hhy"
+        }
+      ]
+    },
+    "binary": {
+      "patterns": [
+        {
+          "match": "\\b0[bB][01_]+\\b",
+          "name": "constant.numeric.integer.binary.hhy"
+        }
+      ]
+    },
+    "float": {
+      "patterns": [
+        {
+          "match": "\\b(?:(?:\\d(?:[\\d_]*\\d)?|\\d)\\.(?:\\d(?:[\\d_]*\\d)?|\\d)|(?:\\d(?:[\\d_]*\\d)?|\\d)[eE][+-]?(?:\\d(?:[\\d_]*\\d)?|\\d))\\b",
+          "name": "constant.numeric.float.hhy"
+        }
+      ]
+    },
+    "integer": {
+      "patterns": [
+        {
+          "match": "\\b(?:\\d(?:[\\d_]*\\d)?|\\d)\\b",
+          "name": "constant.numeric.integer.hhy"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "match": "\\b(?:regex_captures|encode_json|print_error|regex_match|parse_json|read_text|save_text|contains|distinct|flat_map|group_by|collect|inspect|is_type|require|sort_by|timeout|append|length|reduce|stream|count|first|print|where|exit|pick|send|take|type|get|map|put|run)\\b",
+          "name": "support.function.builtin.hhy"
+        }
+      ]
+    },
+    "functionCall": {
+      "patterns": [
+        {
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.call.hhy"
+            }
+          }
+        }
+      ]
+    },
+    "member": {
+      "patterns": [
+        {
+          "match": "(?<=\\.)[A-Za-z_][A-Za-z0-9_]*",
+          "name": "variable.other.member.hhy"
+        }
+      ]
+    },
+    "operator": {
+      "patterns": [
+        {
+          "match": "\\|>|\\?\\?|->|\\.\\.|==|!=|<=|>=|[+\\-*\\/%=<>]",
+          "name": "keyword.operator.hhy"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "generated": "Generated from editors/syntax/hhy-syntax.json. Do not edit by hand."
+  }
+}
