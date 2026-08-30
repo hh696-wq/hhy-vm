@@ -1,0 +1,12 @@
+let response = http.get(args[0], { allow_private_networks: true })
+    |> timeout(2s)
+    |> send_to(path(args[1]))
+
+response.path
+    |> read_text
+    |> parse_json
+    |> get("users")
+    |> stream
+    |> where { user -> user.active }
+    |> count
+    |> print

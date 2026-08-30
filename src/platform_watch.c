@@ -16,8 +16,6 @@
 #include <sys/event.h>
 #elif defined(__linux__)
 #include <sys/inotify.h>
-#else
-#error "HHY v1.0 watcher supports macOS and Linux only"
 #endif
 
 struct HhyPlatformWatch {
@@ -29,8 +27,10 @@ struct HhyPlatformWatch {
     int queue;
     int *descriptors;
     size_t descriptor_count;
-#else
+#elif defined(__linux__)
     int descriptor;
+#else
+    struct stat snapshot;
 #endif
 };
 
@@ -83,7 +83,7 @@ static bool register_paths(HhyPlatformWatch *watch, const char **error) {
     }
     fts_close(tree); return ok;
 }
-#else
+#elif defined(__linux__)
 static void clear_handles(HhyPlatformWatch *watch) {
     if (watch->descriptor >= 0) close(watch->descriptor);
     watch->descriptor = -1; watch->handle_count = 0;
@@ -120,6 +120,17 @@ static bool register_paths(HhyPlatformWatch *watch, const char **error) {
     }
     fts_close(tree); return ok;
 }
+#else
+static void clear_handles(HhyPlatformWatch *watch) {
+    watch->handle_count = 0;
+}
+
+static bool register_paths(HhyPlatformWatch *watch, const char **error) {
+    if (watch->maximum < 1) { *error = "watch exceeds RuntimeLimits.max_open_files"; return false; }
+    if (lstat(watch->path, &watch->snapshot) != 0) { *error = "cannot stat watch target"; return false; }
+    watch->handle_count = 1;
+    return true;
+}
 #endif
 
 HhyPlatformWatch *hhy_platform_watch_open(const char *path, bool recursive,
@@ -131,7 +142,7 @@ HhyPlatformWatch *hhy_platform_watch_open(const char *path, bool recursive,
     watch->queue = kqueue();
     if (watch->queue < 0) { *error = "cannot create kqueue watcher"; hhy_platform_watch_close(watch); return NULL; }
     watch->handle_count = 1;
-#else
+#elif defined(__linux__)
     watch->descriptor = -1;
 #endif
     if (!register_paths(watch, error)) { hhy_platform_watch_close(watch); return NULL; }
@@ -147,7 +158,7 @@ int hhy_platform_watch_wait(HhyPlatformWatch *watch, int timeout_ms,
     int result = kevent(watch->queue, NULL, 0, &event, 1, &timeout);
     if (result < 0 && errno != EINTR) { *error = "kqueue wait failed"; return -1; }
     return result > 0 ? 1 : 0;
-#else
+#elif defined(__linux__)
     struct pollfd item = {.fd = watch->descriptor, .events = POLLIN};
     int result = poll(&item, 1, timeout_ms);
     if (result < 0 && errno != EINTR) { *error = "inotify wait failed"; return -1; }
@@ -155,6 +166,15 @@ int hhy_platform_watch_wait(HhyPlatformWatch *watch, int timeout_ms,
     char buffer[16384];
     while (read(watch->descriptor, buffer, sizeof(buffer)) > 0) {}
     return 1;
+#else
+    (void)poll(NULL, 0, timeout_ms);
+    struct stat current;
+    if (lstat(watch->path, &current) != 0) { *error = "cannot stat watch target"; return -1; }
+    bool changed = current.st_mtime != watch->snapshot.st_mtime ||
+                   current.st_size != watch->snapshot.st_size ||
+                   current.st_ino != watch->snapshot.st_ino;
+    if (changed) watch->snapshot = current;
+    return changed ? 1 : 0;
 #endif
 }
 

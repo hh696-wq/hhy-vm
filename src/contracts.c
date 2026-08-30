@@ -95,6 +95,8 @@ static const HhyCallableContract contracts[] = {
       "HttpRequest, Map", "HttpRequest", "main"),
     C("send", 1, 1, HHY_EFFECT_NETWORK, false, true, true, true,
       "HttpRequest", "HttpResponse", "main"),
+    C("send_to", 2, 2, HHY_EFFECT_CUSTOM, false, true, true, true,
+      "HttpRequest, Path", "HttpResponse", "main"),
     C("response_body", 1, 1, HHY_EFFECT_NONE, false, false, true, false,
       "HttpResponse", "String", "main"),
     C("response_bytes", 1, 1, HHY_EFFECT_NONE, false, false, true, false,

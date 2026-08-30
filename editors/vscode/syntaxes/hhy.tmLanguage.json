@@ -243,7 +243,7 @@
     "builtins": {
       "patterns": [
         {
-          "match": "\\b(?:regex_captures|encode_json|print_error|regex_match|parse_json|read_text|save_text|contains|distinct|flat_map|group_by|collect|inspect|is_type|require|sort_by|timeout|append|length|reduce|stream|count|first|print|where|exit|pick|send|take|type|get|map|put|run)\\b",
+          "match": "\\b(?:regex_captures|encode_json|print_error|regex_match|parse_json|read_text|save_text|contains|distinct|flat_map|group_by|collect|inspect|is_type|require|send_to|sort_by|timeout|append|length|reduce|stream|count|first|print|where|exit|pick|send|take|type|get|map|put|run)\\b",
           "name": "support.function.builtin.hhy"
         }
       ]

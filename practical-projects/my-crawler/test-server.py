@@ -15,6 +15,9 @@ PAGES = {
     "/final?b=2&a=1": b'''<!doctype html><html><body><main><article>
 <section class="card"><h2 id="three">Third item</h2></section>
 </article></main></body></html>''',
+    "/render": b'''<!doctype html><html><body><main><article id="content"></article></main>
+<script>document.querySelector("#content").innerHTML = '<section class="card"><h2 id="rendered">Rendered item</h2></section>';</script>
+</body></html>''',
 }
 
 class Handler(http.server.BaseHTTPRequestHandler):

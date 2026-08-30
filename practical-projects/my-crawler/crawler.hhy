@@ -29,6 +29,8 @@ try {
             rejected_urls: result.stats.rejected_urls,
             limited_urls: result.stats.limited_urls,
             max_depth_reached: result.stats.max_depth_reached
+            , resumed: result.stats.resumed
+            , completed: result.stats.completed
         }
     }
 

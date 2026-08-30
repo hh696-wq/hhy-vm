@@ -9,6 +9,42 @@ permissions:
   contents: read
 
 jobs:
+  windows-msys2:
+    name: Windows x86_64 MSYS2 build and smoke
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install MSYS2 build environment
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          install: >-
+            base-devel
+            gcc
+            libcurl-devel
+            libgc-devel
+            libpcre2-devel
+            jansson-devel
+            openssl-devel
+
+      - name: Build HHY on Windows
+        run: make clean && make
+
+      - name: Windows parser and runtime smoke
+        run: |
+          ./build/hhy --version
+          ./build/hhy check examples/*.hhy tests/valid/*.hhy
+          ./build/hhy run tests/valid/basic.hhy
+          ./build/hhy run tests/valid/regex.hhy
+          ./build/hhy run tests/valid/json-flow.hhy
+
   linux:
     name: Linux ${{ matrix.package_arch }} native sanitizer and release
     strategy:
@@ -63,7 +99,11 @@ jobs:
         run: make clean && make test
 
       - name: Safe crawler project acceptance
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
         run: |
+          npm ci --prefix practical-projects/my-crawler/renderer
+          npm exec --prefix practical-projects/my-crawler/renderer -- playwright install --with-deps chromium
           ./practical-projects/my-crawler/self-test.sh
           ./practical-projects/sitegraph-auditor/self-test.sh
 
@@ -125,7 +165,11 @@ jobs:
         run: make clean && make test
 
       - name: Safe crawler project acceptance
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
         run: |
+          npm ci --prefix practical-projects/my-crawler/renderer
+          npm exec --prefix practical-projects/my-crawler/renderer -- playwright install chromium
           ./practical-projects/my-crawler/self-test.sh
           ./practical-projects/sitegraph-auditor/self-test.sh
 

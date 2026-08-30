@@ -954,6 +954,11 @@ if command -v python3 >/dev/null 2>&1; then
         "2") ;;
         *) fail "HTTP JSON Flow returned unexpected content: $http_output" ;;
     esac
+    rm -f tests/output/http-stream.json
+    http_stream_output=$("$HHY_BIN" run tests/valid/http-stream-to-file.hhy \
+        "http://127.0.0.1:$http_port/users.json" tests/output/http-stream.json)
+    [ "$http_stream_output" = "2" ] || fail "streaming HTTP output returned unexpected content"
+    [ -s tests/output/http-stream.json ] || fail "streaming HTTP output file was not written"
     resource_unwind_output=$("$HHY_BIN" run --limit max_open_files=4 --limit max_processes=1 \
         tests/valid/resource-unwind.hhy "http://127.0.0.1:$http_port")
     [ "$resource_unwind_output" = "true

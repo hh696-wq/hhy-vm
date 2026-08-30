@@ -14,7 +14,60 @@ fn normalize_config(config) {
     normalized = put(normalized, "max_frontier", bounded_positive(config.max_frontier, 100, 20000))
     normalized = put(normalized, "max_links_per_page", bounded_positive(config.max_links_per_page, 200, 5000))
     normalized = put(normalized, "max_results", bounded_positive(config.max_results, 100, 10000))
+    normalized = put(normalized, "resume", config.resume == true)
+    normalized = put(normalized, "javascript_rendering", config.javascript_rendering == true)
+    normalized = put(normalized, "max_batches_per_run", bounded_positive(config.max_batches_per_run, 1000000, 1000000))
     return normalized
+}
+
+fn checkpoint_key(config) {
+    return {
+        seeds: config.seeds,
+        allowed_domains: config.allowed_domains,
+        allowed_path_prefixes: config.allowed_path_prefixes,
+        max_depth: config.max_depth,
+        max_pages: config.max_pages,
+        max_frontier: config.max_frontier,
+        max_links_per_page: config.max_links_per_page,
+        max_results: config.max_results,
+        parallelism: config.parallelism,
+        follow_selector: config.follow_selector,
+        root_selector: config.root_selector,
+        schema: config.schema,
+        user_agent: config.user_agent,
+        allow_private_networks: config.allow_private_networks,
+        response_directory: config.response_directory,
+        javascript_rendering: config.javascript_rendering,
+        renderer_script: config.renderer_script
+    } |> encode_json
+}
+
+fn checkpoint_fail(message) {
+    return require({}, message)
+}
+
+fn load_checkpoint(config) {
+    if config.resume != true or config.checkpoint_path == null { return null }
+    let loaded = attempt { read_text(path(config.checkpoint_path)) |> parse_json }
+    if loaded.ok != true { return checkpoint_fail("crawler checkpoint cannot be read") }
+    let value = loaded.value
+    if value.version != 1 { return checkpoint_fail("crawler checkpoint version is incompatible") }
+    if value.config_key != checkpoint_key(config) {
+        return checkpoint_fail("crawler checkpoint configuration does not match")
+    }
+    if type(value.frontier) != "List" or type(value.fingerprints) != "List" or type(value.pages) != "List" {
+        return checkpoint_fail("crawler checkpoint state is invalid")
+    }
+    return value
+}
+
+fn save_checkpoint(config, state) {
+    if config.checkpoint_path == null { return null }
+    let document = put(state, "version", 1)
+        |> put("config_key", checkpoint_key(config))
+        |> encode_json({ pretty: true })
+    document |> save_text(path(config.checkpoint_path), { atomic: true, create_parents: true })
+    return null
 }
 
 fn path_allowed(path_value, prefixes) {
@@ -40,30 +93,63 @@ fn candidate(url, base, config) {
     return { ok: true, reason: null, value: value }
 }
 
-fn fetch_page(task, config) {
-    let fetched = attempt {
-        http.get(task.url, {
-                headers: { "User-Agent": config.user_agent },
-                allow_private_networks: config.allow_private_networks
-        })
-            |> timeout(10s)
-            |> retry({ count: 2, backoff: 500ms })
-            |> send
-            |> response_body
-    }
-    if fetched.ok != true {
-        return { ok: false, url: task.url, depth: task.depth, records: [], links: [], error: fetched.error.message }
-    }
-    let parsed = attempt { html.extract(fetched.value, config.root_selector, config.schema, { max_results: config.max_results }) }
+fn extract_page(task, config, source) {
+    let parsed = attempt { html.extract(source, config.root_selector, config.schema, { max_results: config.max_results }) }
     if parsed.ok != true {
         return { ok: false, url: task.url, depth: task.depth, records: [], links: [], error: parsed.error.message }
     }
-    let links = html.attr_all(fetched.value, config.follow_selector, "href", { max_results: config.max_links_per_page })
+    let links = html.attr_all(source, config.follow_selector, "href", { max_results: config.max_links_per_page })
     let page_records = parsed.value
         |> stream
         |> map { record -> put(record, "source_url", task.url) }
         |> collect
     return { ok: true, url: task.url, depth: task.depth, records: page_records, links: links, error: null }
+}
+
+fn fetch_page(task, config) {
+    if config.javascript_rendering == true {
+        let rendered = attempt {
+            run([
+                    "node",
+                    config.renderer_script,
+                    task.url,
+                    encode_json(config.allowed_domains),
+                    config.allow_private_networks == true |> encode_json
+            ])
+        }
+        if rendered.ok != true {
+            return { ok: false, url: task.url, depth: task.depth, records: [], links: [], error: rendered.error.message }
+        }
+        if rendered.value.exit_code != 0 {
+            return { ok: false, url: task.url, depth: task.depth, records: [], links: [], error: rendered.value.stderr }
+        }
+        return extract_page(task, config, rendered.value.stdout)
+    }
+    let fetched = attempt {
+        let request = http.get(task.url, {
+                headers: { "User-Agent": config.user_agent },
+                allow_private_networks: config.allow_private_networks
+        })
+            |> timeout(10s)
+            |> retry({ count: 2, backoff: 500ms })
+        let mut source = null
+        if config.response_directory == null {
+            source = request |> send |> response_body
+        } else {
+            let fingerprint = url_resolve(task.url).fingerprint
+            let destination = path_join(path(config.response_directory), fingerprint + ".html")
+            let response = request |> send_to(destination)
+            if response.ok != true {
+                response |> response_body
+            }
+            source = response.path |> read_text
+        }
+        source
+    }
+    if fetched.ok != true {
+        return { ok: false, url: task.url, depth: task.depth, records: [], links: [], error: fetched.error.message }
+    }
+    return extract_page(task, config, fetched.value)
 }
 
 export fn crawl(raw_config) {
@@ -75,20 +161,50 @@ export fn crawl(raw_config) {
     let mut duplicates = 0
     let mut rejected = 0
     let mut limited = 0
+    let mut depth = 0
+    let mut batches = 0
 
-    for seed in config.seeds {
-        let checked = candidate(seed, seed, config)
-        if checked.ok == true and not contains(fingerprints, checked.value.fingerprint) {
-            frontier = append(frontier, { url: checked.value.url, depth: 0 })
-            fingerprints = append(fingerprints, checked.value.fingerprint)
-            discovered = discovered + 1
-        } else {
-            rejected = rejected + 1
+    let restored = load_checkpoint(config)
+    if restored != null {
+        frontier = restored.frontier
+        fingerprints = restored.fingerprints
+        pages = restored.pages
+        discovered = restored.discovered
+        duplicates = restored.duplicates
+        rejected = restored.rejected
+        limited = restored.limited
+        depth = restored.depth
+        if restored.completed == true {
+            return {
+                pages: pages,
+                stats: {
+                    discovered_urls: discovered,
+                    unique_fingerprints: length(fingerprints),
+                    duplicate_urls: duplicates,
+                    rejected_urls: rejected,
+                    limited_urls: limited,
+                    max_depth_reached: depth - 1,
+                    resumed: true,
+                    completed: true
+                }
+            }
         }
     }
 
-    let mut depth = 0
-    while length(frontier) > 0 and depth <= config.max_depth and length(pages) < config.max_pages {
+    if restored == null {
+        for seed in config.seeds {
+            let checked = candidate(seed, seed, config)
+            if checked.ok == true and not contains(fingerprints, checked.value.fingerprint) {
+                frontier = append(frontier, { url: checked.value.url, depth: 0 })
+                fingerprints = append(fingerprints, checked.value.fingerprint)
+                discovered = discovered + 1
+            } else {
+                rejected = rejected + 1
+            }
+        }
+    }
+
+    while length(frontier) > 0 and depth <= config.max_depth and length(pages) < config.max_pages and batches < config.max_batches_per_run {
         let remaining = config.max_pages - length(pages)
         let batch = frontier
             |> stream
@@ -118,7 +234,31 @@ export fn crawl(raw_config) {
             }
         }
         depth = depth + 1
+        batches = batches + 1
+        save_checkpoint(config, {
+                completed: false,
+                frontier: frontier,
+                fingerprints: fingerprints,
+                pages: pages,
+                discovered: discovered,
+                duplicates: duplicates,
+                rejected: rejected,
+                limited: limited,
+                depth: depth
+        })
     }
+    let completed = length(frontier) == 0 or depth > config.max_depth or length(pages) >= config.max_pages
+    save_checkpoint(config, {
+            completed: completed,
+            frontier: frontier,
+            fingerprints: fingerprints,
+            pages: pages,
+            discovered: discovered,
+            duplicates: duplicates,
+            rejected: rejected,
+            limited: limited,
+            depth: depth
+    })
     return {
         pages: pages,
         stats: {
@@ -127,7 +267,9 @@ export fn crawl(raw_config) {
             duplicate_urls: duplicates,
             rejected_urls: rejected,
             limited_urls: limited,
-            max_depth_reached: depth - 1
+            max_depth_reached: depth - 1,
+            resumed: restored != null,
+            completed: completed
         }
     }
 }

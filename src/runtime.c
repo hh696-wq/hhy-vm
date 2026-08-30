@@ -2671,8 +2671,12 @@ static int atomic_rename(const char *source, const char *target, bool overwrite)
     if (overwrite) return rename(source, target);
 #ifdef __APPLE__
     return renamex_np(source, target, RENAME_EXCL);
-#else
+#elif defined(__linux__)
     return renameat2(AT_FDCWD, source, AT_FDCWD, target, RENAME_NOREPLACE);
+#else
+    struct stat existing;
+    if (lstat(target, &existing) == 0) { errno = EEXIST; return -1; }
+    return rename(source, target);
 #endif
 }
 
@@ -3458,6 +3462,7 @@ static Value csv_encode_row(Runtime *rt, const HhyNode *site, Value fields,
 }
 
 typedef struct { char *data; size_t length; size_t maximum; bool too_large; } CurlBuffer;
+typedef struct { FILE *file; size_t length; size_t maximum; bool too_large; bool failed; } CurlFileSink;
 typedef struct { Runtime *rt; const HhyNode *site; } CurlProgress;
 typedef struct { bool blocked_private; } CurlNetworkGuard;
 
@@ -3513,6 +3518,22 @@ static size_t hhy_curl_write(char *data, size_t size, size_t count, void *contex
     memcpy(buffer->data + buffer->length, data, incoming);
     buffer->length += incoming;
     buffer->data[buffer->length] = '\0';
+    return incoming;
+}
+
+static size_t hhy_curl_write_file(char *data, size_t size, size_t count, void *context) {
+    CurlFileSink *sink = context;
+    if (size != 0 && count > SIZE_MAX / size) return 0;
+    size_t incoming = size * count;
+    if (incoming > sink->maximum || sink->length > sink->maximum - incoming) {
+        sink->too_large = true;
+        return 0;
+    }
+    if (incoming != 0 && fwrite(data, 1, incoming, sink->file) != incoming) {
+        sink->failed = true;
+        return 0;
+    }
+    sink->length += incoming;
     return incoming;
 }
 
@@ -3772,7 +3793,7 @@ static Value redact_http_url(Runtime *rt, Value url) {
     return result;
 }
 
-static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
+static Value http_send(Runtime *rt, const HhyNode *site, Value request, Value output) {
     if (request.kind != V_HTTP_REQUEST) {
         runtime_type_error(rt, site, "send expects HttpRequest"); return null_value();
     }
@@ -3783,6 +3804,10 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
     Value headers = map_get(request, "headers"), redirects = map_get(request, "follow_redirects");
     Value proxy = map_get(request, "proxy"), maximum = map_get(request, "max_body");
     Value allow_private = map_get(request, "allow_private_networks");
+    bool streaming = output.kind == V_PATH;
+    if (output.kind != V_NULL && !streaming) {
+        runtime_type_error(rt, site, "send_to output must be Path"); return null_value();
+    }
     if (!rt->effect_allowed) {
         const char *keys[] = {"status", "bytes", "ok", "dry_run", "method", "url",
                               "timeout", "retry_count"};
@@ -3791,22 +3816,72 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
                           timeout, retry};
         return map_with_entries(rt, V_HTTP_RESPONSE, 8, keys, values);
     }
+    /* Validate before opening a streaming temporary file. An error may be
+       caught by `attempt`, so cleanup cannot be deferred until Runtime exit. */
+    if (headers.kind == V_MAP) {
+        for (size_t i = 0; i < headers.as.map->count; i++) {
+            Value value = headers.as.map->values[i];
+            if (value.kind != V_STRING) {
+                runtime_type_error(rt, site, "HTTP header values must be String");
+                return null_value();
+            }
+            if (memchr(headers.as.map->keys[i], '\0', headers.as.map->key_lengths[i]) != NULL ||
+                memchr(headers.as.map->keys[i], '\r', headers.as.map->key_lengths[i]) != NULL ||
+                memchr(headers.as.map->keys[i], '\n', headers.as.map->key_lengths[i]) != NULL ||
+                memchr(value.as.string, '\r', value.string_length) != NULL ||
+                memchr(value.as.string, '\n', value.string_length) != NULL || string_has_nul(value)) {
+                runtime_value_error(rt, site, "HTTP headers cannot contain U+0000, CR, or LF");
+                return null_value();
+            }
+        }
+    }
     int attempts = retry.kind == V_INT && retry.as.integer > 0 ? (int)retry.as.integer + 1 : 1;
     CURLcode code = CURLE_OK;
     long status = 0;
     CurlBuffer buffer = {.maximum = maximum.kind == V_BYTES
         ? (size_t)maximum.as.number : rt->limits.max_http_body};
+    CurlFileSink file_sink = {.maximum = buffer.maximum};
+    char *temporary = NULL;
     CurlProgress progress = {.rt = rt, .site = site};
     for (int attempt = 0; attempt < attempts; attempt++) {
         free(buffer.data); buffer.data = NULL; buffer.length = 0; buffer.too_large = false;
+        file_sink = (CurlFileSink){.maximum = buffer.maximum};
+        RuntimeCleanup *file_cleanup = NULL;
+        int file_descriptor = -1;
+        if (streaming) {
+            if (!ensure_parent_directories(rt, site, output.as.string)) return null_value();
+            size_t path_length = output.string_length;
+            temporary = hhy_alloc(path_length + 18);
+            snprintf(temporary, path_length + 18, "%s.hhy-tmp-XXXXXX", output.as.string);
+            file_descriptor = mkstemp(temporary);
+            if (file_descriptor < 0) {
+                free(temporary); temporary = NULL;
+                runtime_io_error(rt, site, "cannot create HTTP output file"); return null_value();
+            }
+            file_sink.file = runtime_fdopen(rt, site, file_descriptor, "wb");
+            if (file_sink.file == NULL) {
+                close(file_descriptor); unlink(temporary); free(temporary); temporary = NULL;
+                if (!rt->failed) runtime_io_error(rt, site, "cannot open HTTP output file");
+                return null_value();
+            }
+            file_cleanup = runtime_register_temporary(rt, file_sink.file, temporary);
+        }
         CURL *curl = curl_easy_init();
-        if (curl == NULL) { runtime_error_kind(rt, site, "HttpError", "HHY_HTTP_INIT", "cannot initialize HTTP client"); return null_value(); }
+        if (curl == NULL) {
+            if (streaming) {
+                runtime_unregister_temporary(rt, file_cleanup);
+                runtime_fclose(rt, file_sink.file);
+                unlink(temporary); free(temporary); temporary = NULL;
+            }
+            runtime_error_kind(rt, site, "HttpError", "HHY_HTTP_INIT", "cannot initialize HTTP client");
+            return null_value();
+        }
         curl_easy_setopt(curl, CURLOPT_URL, url.as.string);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION,
                          redirects.kind == V_BOOL && redirects.as.boolean ? 1L : 0L);
         curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 10L);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, hhy_curl_write);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buffer);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, streaming ? hhy_curl_write_file : hhy_curl_write);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, streaming ? (void *)&file_sink : (void *)&buffer);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "HHY/" HHY_VERSION);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, hhy_curl_progress);
@@ -3824,18 +3899,6 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
         if (headers.kind == V_MAP) {
             for (size_t i = 0; i < headers.as.map->count; i++) {
                 Value value = headers.as.map->values[i];
-                if (value.kind != V_STRING) {
-                    curl_slist_free_all(header_list); curl_easy_cleanup(curl); free(buffer.data);
-                    runtime_type_error(rt, site, "HTTP header values must be String"); return null_value();
-                }
-                if (memchr(headers.as.map->keys[i], '\0', headers.as.map->key_lengths[i]) != NULL ||
-                    memchr(headers.as.map->keys[i], '\r', headers.as.map->key_lengths[i]) != NULL ||
-                    memchr(headers.as.map->keys[i], '\n', headers.as.map->key_lengths[i]) != NULL ||
-                    memchr(value.as.string, '\r', value.string_length) != NULL ||
-                    memchr(value.as.string, '\n', value.string_length) != NULL || string_has_nul(value)) {
-                    curl_slist_free_all(header_list); curl_easy_cleanup(curl); free(buffer.data);
-                    runtime_value_error(rt, site, "HTTP headers cannot contain U+0000, CR, or LF"); return null_value();
-                }
                 size_t needed = headers.as.map->key_lengths[i] + value.string_length + 3;
                 char *line = hhy_alloc(needed);
                 snprintf(line, needed, "%s: %s", headers.as.map->keys[i], value.as.string);
@@ -3853,13 +3916,23 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
         if (code == CURLE_OK) curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
         curl_slist_free_all(header_list);
         curl_easy_cleanup(curl);
+        if (streaming) {
+            bool file_ok = !file_sink.failed && fflush(file_sink.file) == 0 &&
+                           fsync(file_descriptor) == 0;
+            runtime_unregister_temporary(rt, file_cleanup);
+            if (runtime_fclose(rt, file_sink.file) != 0) file_ok = false;
+            file_sink.file = NULL;
+            if (!file_ok && code == CURLE_OK) code = CURLE_WRITE_ERROR;
+        }
         if (network_guard.blocked_private) {
             free(buffer.data);
+            if (temporary != NULL) { unlink(temporary); free(temporary); temporary = NULL; }
             runtime_error_kind(rt, site, "HttpError", "HHY_HTTP_PRIVATE_NETWORK",
                                "HTTP connection to a private, loopback, or link-local address is blocked");
             return null_value();
         }
         if (code == CURLE_OK && status < 500 && status != 429) break;
+        if (temporary != NULL) { unlink(temporary); free(temporary); temporary = NULL; }
         if (attempt + 1 < attempts && backoff.kind == V_DURATION && backoff.as.number > 0) {
             (void)runtime_wait_ns(rt, site, (uint64_t)backoff.as.number);
             if (rt->failed) break;
@@ -3867,7 +3940,8 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
     }
     if (code != CURLE_OK) {
         free(buffer.data);
-        if (buffer.too_large)
+        if (temporary != NULL) { unlink(temporary); free(temporary); }
+        if (buffer.too_large || file_sink.too_large)
             runtime_error_kind(rt, site, "ResourceLimitError", "HHY_HTTP_BODY_LIMIT",
                                "HTTP response body exceeds 16 MiB limit");
         else
@@ -3880,6 +3954,19 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
         bytes_buffer_value(rt, buffer.data, buffer.length),
         bool_value(status >= 200 && status < 300)
     };
+    if (streaming) {
+        if (atomic_rename(temporary, output.as.string, true) != 0) {
+            unlink(temporary); free(temporary); free(buffer.data);
+            runtime_io_error(rt, site, "cannot atomically publish HTTP output file");
+            return null_value();
+        }
+        free(temporary);
+        const char *stream_keys[] = {"status", "bytes", "ok", "path", "size"};
+        Value stream_values[] = {int_value(status), bytes_buffer_value(rt, NULL, 0),
+            bool_value(status >= 200 && status < 300), output, int_value((int64_t)file_sink.length)};
+        free(buffer.data);
+        return map_with_entries(rt, V_HTTP_RESPONSE, 5, stream_keys, stream_values);
+    }
     free(buffer.data);
     return map_with_entries(rt, V_HTTP_RESPONSE, 3, keys, values);
 }
@@ -5127,7 +5214,13 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
     }
     if (strcmp(name, "send") == 0) {
         if (argc != 1) { runtime_type_error(rt, site, "send expects one HttpRequest"); return null_value(); }
-        return http_send(rt, site, argv[0]);
+        return http_send(rt, site, argv[0], null_value());
+    }
+    if (strcmp(name, "send_to") == 0) {
+        if (argc != 2 || argv[1].kind != V_PATH) {
+            runtime_type_error(rt, site, "send_to expects HttpRequest and Path"); return null_value();
+        }
+        return http_send(rt, site, argv[0], argv[1]);
     }
     if (strcmp(name, "response_body") == 0) {
         if (argc != 1 || argv[0].kind != V_HTTP_RESPONSE) {

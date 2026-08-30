@@ -666,6 +666,7 @@ http.delete(String, Map?) -> HttpRequest
 timeout(HttpRequest, Duration) -> HttpRequest
 retry(HttpRequest, Map) -> HttpRequest
 send(HttpRequest) -> HttpResponse
+send_to(HttpRequest, Path) -> HttpResponse
 response_body(HttpResponse) -> String
 response_bytes(HttpResponse) -> BytesBuffer`
 };
@@ -764,6 +765,7 @@ const callableDescriptions: Record<string, Record<Language, string>> = {
   timeout: { zh: "返回设置请求超时的新 HttpRequest。", en: "Return a new HttpRequest with its timeout configured." },
   retry: { zh: "返回配置重试次数和退避的新 HttpRequest。", en: "Return a new HttpRequest configured with retry count and backoff." },
   send: { zh: "执行 HttpRequest 网络副作用并返回 HttpResponse。", en: "Perform the HttpRequest network effect and return HttpResponse." },
+  send_to: { zh: "把 HTTP body 流式写入原子文件，返回包含 path 和 size 的 HttpResponse。", en: "Stream the HTTP body into an atomic file and return an HttpResponse with path and size." },
   response_body: { zh: "验证响应状态并把有界 body 解码为 UTF-8 String。", en: "Validate response status and decode the bounded body as UTF-8 String." },
   response_bytes: { zh: "验证响应状态并返回有界二进制 BytesBuffer。", en: "Validate response status and return the bounded binary BytesBuffer." }
 };
@@ -1214,7 +1216,7 @@ export const chapters: Chapter[] = [
           { type: "note", text: "重试不是让失败消失。为每个请求设置 timeout，谨慎评估 POST 幂等性，并让最终错误保留 URL（脱敏）、方法、尝试次数和 Flow stage。" }
         ] },
         { title: "HttpResponse 与响应 body", blocks: [
-          { type: "p", text: "send 返回 HttpResponse。使用 response_body 读取 UTF-8 文本，使用 response_bytes 读取图片、压缩包等二进制。两者都会验证响应状态；非成功状态产生 HttpStatusError。" },
+          { type: "p", text: "send 返回内存中的 HttpResponse。使用 response_body 读取 UTF-8 文本，使用 response_bytes 读取二进制；send_to(request, path) 则在 curl 回调中直接写同目录临时文件，成功后原子发布，响应只保留 path 和 size。" },
           { type: "code", language: "hhy", code: "http.get(\"https://api.example.com/status\")\n    |> timeout(3s)\n    |> send\n    |> response_body\n    |> parse_json\n    |> print" }
         ] },
         { title: "查阅完整 API", blocks: [{ type: "link", href: "/zh/learn/standard-library#fn-http-get", label: "HTTP API Reference →", description: "查阅请求构造、timeout、retry、send 和响应读取函数。" }] }
@@ -1233,7 +1235,7 @@ export const chapters: Chapter[] = [
           { type: "note", text: "Retries do not erase failure. Give every request a timeout, evaluate POST idempotency, and preserve method, redacted URL, attempts, and Flow stage in the final Error." }
         ] },
         { title: "HttpResponse and response bodies", blocks: [
-          { type: "p", text: "send returns HttpResponse. Use response_body for UTF-8 text and response_bytes for images, archives, and other binary data. Both validate response status; non-success raises HttpStatusError." },
+          { type: "p", text: "send returns an in-memory HttpResponse. Use response_body for UTF-8 text and response_bytes for binary data; send_to(request, path) writes directly from curl into a sibling temporary file and atomically publishes it, returning only path and size." },
           { type: "code", language: "hhy", code: "http.get(\"https://api.example.com/status\")\n    |> timeout(3s)\n    |> send\n    |> response_body\n    |> parse_json\n    |> print" }
         ] },
         { title: "Look up the complete API", blocks: [{ type: "link", href: "/en/learn/standard-library#fn-http-get", label: "HTTP API Reference →", description: "Look up request builders, timeout, retry, send, and response readers." }] }
@@ -2176,7 +2178,7 @@ export const chapters: Chapter[] = [
           { type: "link", href: "/zh/learn/sitegraph-auditor-project", label: "进入 SiteGraph Auditor 挑战项目", description: "继续完成站点图谱、内容质量审计、SSRF 负例和 CI 门禁。" }
         ] },
         { title: "适用范围与明确边界", blocks: [
-          { type: "p", text: "当前适合文档站、博客、知识库和服务端渲染页面的静态采集。实现采用内存 Frontier 和完整响应缓冲，暂不支持 JavaScript 渲染、持久队列或断点恢复。" },
+          { type: "p", text: "当前支持内存或原子 checkpoint Frontier、严格配置匹配的断点恢复，以及 send_to 流式响应文件。可选 Playwright Renderer 能执行 JavaScript；它与无副作用的 Lexbor HTML 扩展隔离，并对主文档、重定向和子资源执行域名与 DNS 私网检查。" },
           { type: "note", text: "不要用它绕过 robots.txt、登录、验证码或反爬策略。只采集你有权访问的站点，并保持可识别 User-Agent、保守并发和明确页面上限。" }
         ] }
       ],
@@ -2208,7 +2210,7 @@ export const chapters: Chapter[] = [
           { type: "link", href: "/en/learn/sitegraph-auditor-project", label: "Open the SiteGraph Auditor challenge", description: "Continue with a site graph, content-quality audit, negative SSRF test, and CI gate." }
         ] },
         { title: "Scope and explicit boundaries", blocks: [
-          { type: "p", text: "The current stack fits documentation sites, blogs, knowledge bases, and server-rendered pages. It uses an in-memory frontier and buffered responses; JavaScript rendering, persistent queues, and resume are not implemented." },
+          { type: "p", text: "The crawler supports an in-memory or atomically checkpointed frontier, strict configuration-matched resume, and send_to response files. An optional Playwright renderer executes JavaScript separately from the side-effect-free Lexbor extension and applies domain plus DNS private-network checks to documents, redirects, and subresources." },
           { type: "note", text: "Do not use it to bypass robots.txt, authentication, CAPTCHAs, or anti-bot controls. Crawl only authorized sites with an identifiable User-Agent, conservative concurrency, and explicit page budgets." }
         ] }
       ]

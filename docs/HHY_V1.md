@@ -441,7 +441,7 @@ files read_lines processes watch stdin_lines range
 ```text
 stream map flat_map for_each split trim replace lower upper
 parse_json encode_json parse_csv encode_csv get pick
-stdout_lines response_body response_bytes
+stdout_lines response_body response_bytes send_to
 ```
 
 过滤：
@@ -693,6 +693,7 @@ http.get("https://api.example.com/users")
 - `http.get/post/put/delete` 只构造 HttpRequest，不发送网络请求。
 - `timeout` 和 `retry` 修改请求执行计划。
 - `send(HttpRequest)` 是真正的网络副作用，返回 HttpResponse。
+- `send_to(HttpRequest, Path)` 将响应体直接流式写入同目录临时文件，成功后原子发布；返回的 HttpResponse 提供 `path` 和 `size`，不持有完整 body。
 - `response_body` 验证状态并返回 String；非成功状态默认产生 HttpStatusError。
 - `response_bytes` 返回 BytesBuffer。
 - retry 默认只作用于连接错误、timeout、429 和部分 5xx。

@@ -46,7 +46,7 @@ contexts:
       scope: constant.numeric.float.hhy
     - match: '\b(?:\d(?:[\d_]*\d)?|\d)\b'
       scope: constant.numeric.integer.hhy
-    - match: '\b(?:regex_captures|encode_json|print_error|regex_match|parse_json|read_text|save_text|contains|distinct|flat_map|group_by|collect|inspect|is_type|require|sort_by|timeout|append|length|reduce|stream|count|first|print|where|exit|pick|send|take|type|get|map|put|run)\b'
+    - match: '\b(?:regex_captures|encode_json|print_error|regex_match|parse_json|read_text|save_text|contains|distinct|flat_map|group_by|collect|inspect|is_type|require|send_to|sort_by|timeout|append|length|reduce|stream|count|first|print|where|exit|pick|send|take|type|get|map|put|run)\b'
       scope: support.function.builtin.hhy
     - match: '\b([A-Za-z_][A-Za-z0-9_]*)(?=\s*\()'
       captures:

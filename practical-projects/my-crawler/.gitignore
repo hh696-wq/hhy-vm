@@ -1,3 +1,4 @@
 .hhy-extensions/
 output/
 __pycache__/
+renderer/node_modules/

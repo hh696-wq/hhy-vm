@@ -24,7 +24,9 @@ make
 
 Crawler 发出的请求默认设置 `allow_private_networks: false`。Runtime 在 libcurl 建立每一次实际连接时检查解析后的 IPv4/IPv6 地址，因此初始 URL和重定向目标都不能连接 loopback、私网或 link-local 地址。只有本机 fixture 测试显式开启该选项。
 
-当前边界很明确：响应体完整缓冲，适合 API 与静态 HTML；不执行 JavaScript，不规避 robots.txt、登录验证或反爬策略。请只抓取你有权访问的站点，并使用可识别的 User-Agent 与保守并发。
+设置 `response_directory` 后，Runtime 使用 `send_to` 将响应流式写入原子文件，Crawler 再按需读取并交给 HTML 扩展，避免 HTTP 传输阶段持有第二份完整 BytesBuffer。设置 `checkpoint_path` 后，每个 Frontier 批次都会原子保存队列、指纹、页面和统计；`resume: true` 仅在版本与安全配置摘要完全匹配时恢复。
+
+需要执行页面 JavaScript 时，可安装 `renderer/` 中锁定版本的 Playwright，并设置 `javascript_rendering: true`。Renderer 独立于无副作用的 Lexbor HTML 扩展；主文档、重定向与子资源都必须通过 allowed_domains 和 DNS 私网检查。不规避 robots.txt、登录验证、验证码或反爬策略。
 
 ## 验证
 
@@ -32,4 +34,4 @@ Crawler 发出的请求默认设置 `allow_private_networks: false`。Runtime �
 ./practical-projects/my-crawler/self-test.sh
 ```
 
-自测使用本机三层 fixture：覆盖相对 URL、`..` 规范化、fragment 去重、跨域拒绝、深度 Frontier、页面硬上限和三页记录抽取；另以关闭私网开关的请求证明 loopback 会被 Runtime 拒绝。测试完全确定性，不依赖公网。
+自测使用本机 fixture：覆盖三层 Frontier、流式响应文件、原子 checkpoint、断点恢复、动态 JavaScript 内容抽取及 SSRF 默认拒绝。测试完全确定性，不依赖公网。

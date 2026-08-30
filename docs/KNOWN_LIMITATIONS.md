@@ -8,9 +8,9 @@
 ## 平台
 
 - 正式目标仅为 macOS arm64、Linux arm64 和 Linux x86_64。
-- Windows、macOS x86_64 和其他 Unix 不在 v1.0 支持矩阵中。
+- Windows x86_64 通过 MSYS2 POSIX 环境执行构建与基础运行时 smoke；这不等同于原生 Win32 发行包。macOS x86_64 和其他 Unix 仍不在正式支持矩阵中。
 - File.created 依赖操作系统与文件系统；无法可靠取得时返回 Null，绝不使用 modified 伪造。
-- watch 事件由 kqueue 或 inotify 归一化；操作系统可能合并短时间内重复发生的底层事件。
+- watch 事件在 macOS/Linux 由 kqueue 或 inotify 归一化；其他 POSIX 环境使用文件状态轮询降级，递归目录监听能力有限。操作系统可能合并短时间内重复发生的底层事件。
 - Unicode 大小写转换使用平台宽字符表；UTF-8 有效性和 code-point length 是确定的，但 v1.0 不承诺跨 Unicode 数据库版本完全一致的大小写映射，也不支持 grapheme-cluster 索引。
 
 ## Runtime 与 Flow
@@ -24,12 +24,14 @@
 ## I/O、网络与数据
 
 - 文本、源码、路径、环境变量和命令文本必须是有效 UTF-8；任意二进制数据使用 BytesBuffer。
-- HTTP response body 在 v1.0 中有界缓冲，默认上限 16 MiB；超大响应尚不是 streaming body。
+- `send` 仍将 HTTP response body 有界缓冲到内存；`send_to` 可直接流式写入同目录临时文件并原子发布，但两者都受默认 16 MiB body 上限约束。HTML 解析仍会把单页源码物化为 String。
 - HTTP 使用 libcurl 和系统 CA，HHY 不提供自定义 TLS 实现。
 - 通用 HTTP 为兼容现有本机自动化默认允许私网；面向不可信 URL 的抓取器必须显式设置 `allow_private_networks: false`，官方 my-crawler 已默认启用该保护。
 - Regex 使用 PCRE2，并受 pattern、subject、match、depth、heap 和 capture 上限约束。
 - CSV 支持流式 record，但 v1.0 不进行 schema 推断或自动数值类型转换。
 - files 默认不跟随目录符号链接；显式开启后仍会检测并跳过目录循环。
+- 官方 my-crawler 的 checkpoint 是单进程、批次边界的完整状态快照，不是分布式队列或并发写入协议；恢复会校验行为与安全配置指纹。
+- JavaScript 渲染由隔离的可选 Playwright renderer 完成，需要 Node.js 与 Chromium。renderer 会检查主文档、重定向和子资源的域名及 DNS 地址，但 DNS 检查不能替代操作系统级网络沙箱；处理敌对页面时应额外使用容器或网络命名空间限制出口。
 
 ## 扩展与兼容
 

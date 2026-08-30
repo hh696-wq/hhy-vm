@@ -22,7 +22,9 @@ Edit `config/hhylang.json`. `follow_selector` discovers links; domain, path, dep
 
 Crawler requests set `allow_private_networks: false`. The Runtime checks the resolved IPv4/IPv6 address for every actual libcurl connection, including redirects, and rejects private, loopback, and link-local destinations. Local fixtures opt in explicitly.
 
-The current boundary is deliberate: response bodies are buffered and the framework targets APIs and static HTML. It does not execute JavaScript or bypass robots.txt, authentication, or anti-bot controls. Crawl only sites you are authorized to access, identify the client, and keep concurrency conservative.
+With `response_directory`, Runtime `send_to` streams the transport body into an atomic file before the crawler reads it for HTML extraction. `checkpoint_path` persists the frontier, fingerprints, pages, and statistics after each batch; `resume: true` restores only a version- and configuration-matched checkpoint.
+
+Optional JavaScript rendering uses the separately installed, version-locked Playwright adapter in `renderer/`. Every document, redirect, and subresource remains subject to the domain and DNS private-network policy. It does not bypass robots.txt, authentication, CAPTCHAs, or anti-bot controls.
 
 ## Verify
 
@@ -30,4 +32,4 @@ The current boundary is deliberate: response bodies are buffered and the framewo
 ./practical-projects/my-crawler/self-test.sh
 ```
 
-The three-level local fixture verifies normalization, discovery, frontier traversal, duplicate fingerprints, domain rejection, limits, extraction, and an actual blocked loopback request. It does not depend on the public internet.
+The local fixture verifies three-level traversal, streamed response files, atomic checkpoint/resume, real JavaScript-generated content, and an actually blocked loopback request. It does not depend on the public internet.

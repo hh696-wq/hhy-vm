@@ -20,6 +20,6 @@
   },
   "operators": ["|>", "??", "->", "..", "==", "!=", "<=", ">=", "+", "-", "*", "/", "%", "=", "<", ">"],
   "builtins": [
-    "append", "collect", "contains", "count", "distinct", "encode_json", "exit", "first", "flat_map", "get", "group_by", "inspect", "is_type", "length", "map", "parse_json", "pick", "print", "print_error", "put", "read_text", "reduce", "regex_captures", "regex_match", "require", "run", "save_text", "send", "sort_by", "stream", "take", "timeout", "type", "where"
+    "append", "collect", "contains", "count", "distinct", "encode_json", "exit", "first", "flat_map", "get", "group_by", "inspect", "is_type", "length", "map", "parse_json", "pick", "print", "print_error", "put", "read_text", "reduce", "regex_captures", "regex_match", "require", "run", "save_text", "send", "send_to", "sort_by", "stream", "take", "timeout", "type", "where"
   ]
 }

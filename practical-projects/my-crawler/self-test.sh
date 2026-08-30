@@ -49,6 +49,78 @@ HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" check "$project_dir/crawler.hhy"
 HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" run "$project_dir/crawler.hhy" \
     "$workspace/config.json" "$workspace/records.json" "$workspace/report.json" "$workspace/failures.json"
 python3 "$project_dir/test-report.py" "$workspace/records.json" "$workspace/report.json" "$workspace/failures.json"
+
+python3 - "$workspace/config.json" "$workspace/config-partial.json" "$workspace/config-resume.json" "$workspace/checkpoint.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    config = json.load(source)
+config["checkpoint_path"] = sys.argv[4]
+config["max_batches_per_run"] = 1
+with open(sys.argv[2], "w", encoding="utf-8") as target:
+    json.dump(config, target)
+config["resume"] = True
+config["max_batches_per_run"] = 100
+with open(sys.argv[3], "w", encoding="utf-8") as target:
+    json.dump(config, target)
+PY
+HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" run "$project_dir/crawler.hhy" \
+    "$workspace/config-partial.json" "$workspace/partial-records.json" \
+    "$workspace/partial-report.json" "$workspace/partial-failures.json"
+python3 - "$workspace/partial-report.json" "$workspace/checkpoint.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    report = json.load(source)
+with open(sys.argv[2], encoding="utf-8") as source:
+    checkpoint = json.load(source)
+assert report["stats"]["completed"] is False
+assert checkpoint["completed"] is False
+assert checkpoint["frontier"]
+PY
+HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" run "$project_dir/crawler.hhy" \
+    "$workspace/config-resume.json" "$workspace/resumed-records.json" \
+    "$workspace/resumed-report.json" "$workspace/resumed-failures.json"
+python3 "$project_dir/test-report.py" "$workspace/resumed-records.json" "$workspace/resumed-report.json" "$workspace/resumed-failures.json"
+python3 - "$workspace/resumed-report.json" "$workspace/checkpoint.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    report = json.load(source)
+with open(sys.argv[2], encoding="utf-8") as source:
+    checkpoint = json.load(source)
+assert report["stats"]["resumed"] is True
+assert report["stats"]["completed"] is True
+assert checkpoint["completed"] is True
+PY
+python3 - "$workspace/config.json" "$workspace/config-renderer.json" "$project_dir/renderer/render.mjs" "$port" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    config = json.load(source)
+config["seeds"] = [f"http://127.0.0.1:{sys.argv[4]}/render"]
+config["max_depth"] = 1
+config["max_pages"] = 1
+config["javascript_rendering"] = True
+config["renderer_script"] = sys.argv[3]
+with open(sys.argv[2], "w", encoding="utf-8") as target:
+    json.dump(config, target)
+PY
+HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" run "$project_dir/crawler.hhy" \
+    "$workspace/config-renderer.json" "$workspace/rendered-records.json" \
+    "$workspace/rendered-report.json" "$workspace/rendered-failures.json"
+python3 - "$workspace/rendered-records.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    records = json.load(source)
+assert records[0]["title"] == "Rendered item"
+PY
 cat > "$workspace/ssrf.hhy" <<EOF
 http.get("http://127.0.0.1:$port/page", { allow_private_networks: false }) |> send |> print
 EOF
