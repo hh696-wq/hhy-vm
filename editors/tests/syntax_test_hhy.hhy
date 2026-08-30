@@ -1,0 +1,27 @@
+# SYNTAX TEST "Packages/HHY/HHY.sublime-syntax"
+#! hhy
+
+fn collect_metrics(input) {
+#^ storage.type.function.hhy
+    let enabled = true
+#    ^^^ storage.modifier.hhy
+#                  ^^^^ constant.language.hhy
+    let hex = 0x2A
+#              ^^^^ constant.numeric.integer.hexadecimal.hhy
+    let bits = 0b1010
+#               ^^^^^^ constant.numeric.integer.binary.hhy
+    let ratio = 12.5
+#                ^^^^ constant.numeric.float.hhy
+    let percent = 99.5%
+#                  ^^^^^ constant.numeric.percentage.hhy
+    let memory = 1.5gib
+#                 ^^^^^^ constant.numeric.bytes.hhy
+    let delay = 250ms
+#                ^^^^^ constant.numeric.duration.hhy
+    print("done") # comment
+#    ^^^^^ support.function.builtin.hhy
+#                  ^^^^^^^^^ comment.line.number-sign.hhy
+    return input |> map
+#    ^^^^^^ keyword.control.hhy
+#                 ^^ keyword.operator.hhy
+}

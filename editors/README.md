@@ -7,11 +7,11 @@ Editor language support for HHY, generated from one repository-owned syntax sour
 - VS Code: TextMate grammar, language configuration and snippets.
 - Sublime Text: `.sublime-syntax`, comment/indent preferences and function snippet.
 
-Sublime Text 4200 uses a minimal safety grammar after a native incremental-
-lexer crash and runaway catalogue crawlers were observed on macOS arm64. It
-retains comments, strings, keywords, simple integers, builtins, operators, and
-snippets; richer Regex, number/unit, call, and member highlighting remains
-available in VS Code.
+Sublime Text 4200 uses a linear safety grammar after a native incremental lexer
+crash and runaway catalogue crawlers were observed on macOS arm64. It retains
+comments, strings, keywords, numbers and units, builtins, operators, and
+snippets. Regex literals, call/member lookarounds, and capture-based declaration
+highlighting remain exclusive to VS Code.
 
 Version 0.1.0 is intentionally process-free. It does not start `hhy`, format files, publish diagnostics or implement an LSP.
 
@@ -25,6 +25,7 @@ The editor packages use the HHY repository's Apache-2.0 license.
 cd editors
 npm run generate
 npm run check
+npm run test:sublime-package
 ```
 
 Generated files carry a warning and must not be edited directly:
@@ -33,6 +34,15 @@ Generated files carry a warning and must not be edited directly:
 - `sublime/HHY.sublime-syntax`
 
 The verification script compares keywords and literal suffixes with `src/lexer.c`, validates plugin metadata, checks generated-file freshness and asks the real HHY binary to check every fixture.
+
+`tests/syntax_test_hhy.hhy` is a native Sublime syntax-test fixture for Build
+4200. Package verification also checks the final archive allowlist and compares
+every packaged file byte-for-byte with its source.
+
+To run the native fixture, copy `sublime/` to `Packages/HHY`, copy
+`tests/syntax_test_hhy.hhy` into that directory, open the fixture in Sublime
+Text 4200, and choose **Tools → Build**. Sublime's built-in `run_syntax_tests`
+runner reports every scope assertion and exercises the real syntax engine.
 
 ## Regex versus division
 

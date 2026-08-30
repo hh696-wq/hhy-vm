@@ -78,10 +78,10 @@ const includeOrder = [
 ];
 
 // Sublime Text 4200 on arm64 crashed and spawned runaway catalogue crawlers
-// when indexing the richer grammar. Its package therefore uses a deliberately
-// minimal, linear rule set. Do not add captures, lookarounds, nested numeric
-// expressions, or Regex-literal parsing here without testing the catalogue
-// crawler on Build 4200. The VS Code grammar remains fully featured.
+// when indexing the richer grammar. Keep this profile free of captures,
+// lookarounds, nested repetition and Regex-literal parsing. Numeric rules below
+// are deliberately flat: each repeated section consumes a concrete character.
+// The VS Code grammar remains fully featured.
 const sublimePatterns = {
   shebang: patterns.shebang,
   comment: patterns.comment,
@@ -92,7 +92,13 @@ const sublimePatterns = {
   control: patterns.control,
   wordOperator: patterns.wordOperator,
   constants: patterns.constants,
-  number: { match: "\\b[0-9][0-9_]*\\b", name: "constant.numeric.integer.hhy" },
+  bytes: { match: `\\b[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?(?:${byteUnits})\\b`, name: "constant.numeric.bytes.hhy" },
+  duration: { match: `\\b[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?(?:${durationUnits})\\b`, name: "constant.numeric.duration.hhy" },
+  percent: { match: "\\b[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?%", name: "constant.numeric.percentage.hhy" },
+  hexadecimal: patterns.hexadecimal,
+  binary: patterns.binary,
+  float: { match: "\\b[0-9][0-9_]*\\.[0-9][0-9_]*\\b", name: "constant.numeric.float.hhy" },
+  integer: { match: "\\b[0-9][0-9_]*\\b", name: "constant.numeric.integer.hhy" },
   builtins: patterns.builtins,
   operator: patterns.operator
 };

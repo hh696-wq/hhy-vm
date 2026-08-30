@@ -10,7 +10,8 @@
     "check": "npm run check:generated && npm test",
     "prepare:dist": "node scripts/prepare-dist.mjs",
     "package:sublime": "node scripts/package-sublime.mjs",
+    "test:sublime-package": "npm run package:sublime && node tests/verify-package.mjs",
     "package:vscode": "cd vscode && npx --yes @vscode/vsce package --out ../dist/hhy-language-support-0.1.0.vsix",
-    "package": "npm run check && npm run prepare:dist && npm run package:vscode && npm run package:sublime"
+    "package": "npm run check && npm run prepare:dist && npm run package:vscode && npm run test:sublime-package"
   }
 }

@@ -17,6 +17,7 @@ const snippets = readJson("vscode/snippets/hhy.json");
 const lexer = fs.readFileSync(path.join(repo, "src", "lexer.c"), "utf8");
 const contracts = fs.readFileSync(path.join(repo, "src", "contracts.c"), "utf8");
 const sublime = fs.readFileSync(path.join(root, "sublime", "HHY.sublime-syntax"), "utf8");
+const sublimeSyntaxTest = fs.readFileSync(path.join(root, "tests", "syntax_test_hhy.hhy"), "utf8");
 
 assert.equal(source.language.id, "hhy");
 assert.equal(grammar.scopeName, "source.hhy");
@@ -37,6 +38,18 @@ assert.doesNotMatch(sublime, /\(\?<|\(\?=/, "Sublime 4200 safety grammar must no
 assert.doesNotMatch(sublime, /captures:/, "Sublime 4200 safety grammar must not contain capture rules");
 assert.match(sublime, /storage\.type\.function\.hhy/, "Sublime safety grammar must highlight fn");
 assert.match(sublime, /constant\.numeric\.integer\.hhy/, "Sublime safety grammar must highlight simple integers");
+for (const scope of [
+  "constant.numeric.integer.hexadecimal.hhy",
+  "constant.numeric.integer.binary.hhy",
+  "constant.numeric.float.hhy",
+  "constant.numeric.percentage.hhy",
+  "constant.numeric.bytes.hhy",
+  "constant.numeric.duration.hhy"
+]) {
+  assert.ok(sublime.includes(scope), `Sublime safety grammar must include ${scope}`);
+  assert.ok(sublimeSyntaxTest.includes(scope), `Sublime syntax test must cover ${scope}`);
+}
+assert.match(sublimeSyntaxTest, /^# SYNTAX TEST "Packages\/HHY\/HHY\.sublime-syntax"$/m);
 
 const lexerKeywords = [...lexer.matchAll(/\{"([a-z]+)", HHY_T_[A-Z_]+\}/g)].map((match) => match[1]);
 const sourceKeywords = Object.values(source.keywords).flat().sort();

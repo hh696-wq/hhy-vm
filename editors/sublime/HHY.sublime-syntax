@@ -27,6 +27,18 @@ contexts:
       scope: keyword.operator.logical.hhy
     - match: '\b(?:false|true|null)\b'
       scope: constant.language.hhy
+    - match: '\b[0-9][0-9_]*(?:\.[0-9][0-9_]*)?(?:kib|mib|gib|tib|kb|mb|gb|tb|b)\b'
+      scope: constant.numeric.bytes.hhy
+    - match: '\b[0-9][0-9_]*(?:\.[0-9][0-9_]*)?(?:min|ns|us|ms|s|h|d)\b'
+      scope: constant.numeric.duration.hhy
+    - match: '\b[0-9][0-9_]*(?:\.[0-9][0-9_]*)?%'
+      scope: constant.numeric.percentage.hhy
+    - match: '\b0[xX][0-9A-Fa-f_]+\b'
+      scope: constant.numeric.integer.hexadecimal.hhy
+    - match: '\b0[bB][01_]+\b'
+      scope: constant.numeric.integer.binary.hhy
+    - match: '\b[0-9][0-9_]*\.[0-9][0-9_]*\b'
+      scope: constant.numeric.float.hhy
     - match: '\b[0-9][0-9_]*\b'
       scope: constant.numeric.integer.hhy
     - match: '\b(?:regex_captures|encode_json|print_error|regex_match|parse_json|read_text|save_text|contains|distinct|flat_map|group_by|collect|inspect|is_type|require|send_to|sort_by|timeout|append|length|reduce|stream|count|first|print|where|exit|pick|send|take|type|get|map|put|run)\b'
