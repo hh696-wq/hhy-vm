@@ -30,7 +30,7 @@ jobs:
             gcc
             libcurl-devel
             libgc-devel
-            libpcre2-devel
+            pcre2-devel
             jansson-devel
             openssl-devel
 
