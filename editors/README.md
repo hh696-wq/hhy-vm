@@ -7,6 +7,11 @@ Editor language support for HHY, generated from one repository-owned syntax sour
 - VS Code: TextMate grammar, language configuration and snippets.
 - Sublime Text: `.sublime-syntax`, comment/indent preferences and function snippet.
 
+Sublime Text 4200 uses a conservative safety grammar without Regex-literal,
+function-call, or member-access lookaround highlighting. This avoids a native
+incremental-lexer crash observed on macOS arm64 while retaining comments,
+strings, keywords, declarations, units, numbers, operators, and snippets.
+
 Version 0.1.0 is intentionally process-free. It does not start `hhy`, format files, publish diagnostics or implement an LSP.
 
 The editor packages use the HHY repository's Apache-2.0 license.

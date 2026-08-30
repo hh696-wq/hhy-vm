@@ -120,7 +120,7 @@
     "regex": {
       "patterns": [
         {
-          "match": "(^|\\b(?:let|return|throw|attempt|in|and|or|not)\\s+|[=(,:\\[!&|?{};>]\\s*)(/(?:\\\\.|\\[(?:\\\\.|[^\\]\\\\])*\\]|[^/\\\\\\n])+/[imsu]*)",
+          "match": "(^|\\b(?:let|return|throw|attempt|in|and|or|not)\\s+|[=(,:\\[!&|?{};>]\\s*)(/(?:\\\\.|[^/\\\\\\n])+/[imsu]*)",
           "captures": {
             "2": {
               "name": "string.regexp.hhy"

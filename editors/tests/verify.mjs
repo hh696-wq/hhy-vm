@@ -27,6 +27,13 @@ assert.equal(languageConfiguration.comments.lineComment, "#");
 assert.ok(Object.keys(snippets).length >= 5);
 assert.match(sublime, /^%YAML 1\.2/);
 assert.match(sublime, /scope: source\.hhy/);
+assert.doesNotMatch(
+  sublime,
+  /\\\[\(\?:\\\\\.\|\[\^\\\]\\\\\]\)\*\\\]/,
+  "Sublime Regex highlighting must not contain the nested character-class repetition that crashes Build 4200"
+);
+assert.doesNotMatch(sublime, /string\.regexp\.hhy/, "Sublime 4200 safety grammar must not enable Regex-literal highlighting");
+assert.doesNotMatch(sublime, /\(\?<|\(\?=/, "Sublime 4200 safety grammar must not contain lookarounds");
 
 const lexerKeywords = [...lexer.matchAll(/\{"([a-z]+)", HHY_T_[A-Z_]+\}/g)].map((match) => match[1]);
 const sourceKeywords = Object.values(source.keywords).flat().sort();

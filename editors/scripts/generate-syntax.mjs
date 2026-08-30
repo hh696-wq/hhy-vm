@@ -16,7 +16,12 @@ const generatedHeader = "Generated from editors/syntax/hhy-syntax.json. Do not e
 const byteUnits = alternatives(source.literals.byteUnits);
 const durationUnits = alternatives(source.literals.durationUnits);
 const regexFlags = source.literals.regexFlags.join("");
-const regexBody = String.raw`/(?:\\.|\[(?:\\.|[^\]\\])*\]|[^/\\\n])+/[${regexFlags}]*`;
+// Keep editor highlighting deliberately linear. Nested repetition for complete
+// character-class parsing can trigger pathological backtracking in Sublime's
+// incremental lexer (and has crashed Sublime Text 4200 during catalogue scans).
+// HHY's real Lexer remains the authority; false negatives in complex Regex
+// literals are preferable to destabilizing the editor.
+const regexBody = String.raw`/(?:\\.|[^/\\\n])+/[${regexFlags}]*`;
 const regexPrefix = String.raw`(^|\b(?:let|return|throw|attempt|in|and|or|not)\s+|[=(,:\[!&|?{};>]\s*)(${regexBody})`;
 const decimal = String.raw`(?:\d(?:[\d_]*\d)?|\d)`;
 
@@ -72,6 +77,20 @@ const includeOrder = [
   "functionCall", "member", "operator"
 ];
 
+// Sublime Text 4200 on arm64 can crash inside its incremental backtracking
+// lexer while cataloguing the full TextMate-style rule set. Keep its grammar
+// intentionally conservative: no Regex-literal rule and no lookarounds. Unit
+// literals use linear patterns without nested optional/repeated groups.
+const sublimePatterns = {
+  ...patterns,
+  bytes: { match: `\\b\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:${byteUnits})\\b`, name: "constant.numeric.bytes.hhy" },
+  duration: { match: `\\b\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:${durationUnits})\\b`, name: "constant.numeric.duration.hhy" },
+  percent: { match: "\\b\\d[\\d_]*(?:\\.\\d[\\d_]*)?%", name: "constant.numeric.percentage.hhy" },
+  float: { match: "\\b\\d[\\d_]*\\.\\d[\\d_]*\\b", name: "constant.numeric.float.hhy" },
+  integer: { match: "\\b\\d[\\d_]*\\b", name: "constant.numeric.integer.hhy" }
+};
+const sublimeIncludeOrder = includeOrder.filter((name) => !["regex", "functionCall", "member"].includes(name));
+
 const grammar = {
   $schema: "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   name: source.language.name,
@@ -85,8 +104,8 @@ const grammar = {
 
 const yamlQuote = (value) => `'${value.replaceAll("'", "''")}'`;
 const scopeFor = (pattern) => pattern.name ?? pattern.captures?.["1"]?.name;
-const sublimeRules = includeOrder.flatMap((name) => {
-  const pattern = patterns[name];
+const sublimeRules = sublimeIncludeOrder.flatMap((name) => {
+  const pattern = sublimePatterns[name];
   if (pattern.begin) {
     return [
       `    - match: ${yamlQuote(pattern.begin)}`,
