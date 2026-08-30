@@ -57,4 +57,23 @@ if "$hhy_bin" run "$workspace/ssrf.hhy" >"$workspace/ssrf.out" 2>&1; then
     exit 1
 fi
 grep "private, loopback, or link-local" "$workspace/ssrf.out" >/dev/null
+
+python3 - "$workspace/config.json" "$workspace/config-default-deny.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    config = json.load(source)
+config.pop("allow_private_networks")
+with open(sys.argv[2], "w", encoding="utf-8") as target:
+    json.dump(config, target)
+PY
+if HHY_EXTENSION_HOME="$extension_home" "$hhy_bin" run "$project_dir/crawler.hhy" \
+    "$workspace/config-default-deny.json" "$workspace/denied-records.json" \
+    "$workspace/denied-report.json" "$workspace/denied-failures.json" \
+    >"$workspace/default-deny.out" 2>&1; then
+    echo "Crawler unexpectedly allowed loopback when allow_private_networks was omitted" >&2
+    exit 1
+fi
+grep "private, loopback, or link-local" "$workspace/denied-failures.json" >/dev/null
 echo "HHY Collector Framework self-test passed"

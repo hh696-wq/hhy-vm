@@ -87,7 +87,7 @@ struct WatchItem {
 };
 typedef struct { pid_t pid; FILE *file; bool active; } ParallelJob;
 typedef struct { size_t count; Value *items; } List;
-typedef struct {
+typedef struct MapStorage {
     size_t count;
     char **keys;
     size_t *key_lengths;
@@ -95,7 +95,7 @@ typedef struct {
     size_t *slots;
     size_t slot_count;
     uint64_t index_magic;
-} Map;
+} MapStorage;
 typedef struct {
     const char *builtin;
     const HhyNode *node;
@@ -115,13 +115,15 @@ struct Value {
         struct { char *pattern; uint32_t flags; } regex;
         List list;
         struct { int64_t start; int64_t end; } range;
-        Map map;
+        MapStorage *map;
         Function function;
         Stream *stream;
         struct { unsigned char *data; size_t length; } bytes_buffer;
         struct { int64_t nanoseconds; int32_t offset_minutes; } datetime;
     } as;
 };
+
+_Static_assert(sizeof(Value) <= 56, "Value layout regression: Map storage must remain indirect");
 
 typedef enum {
     STREAM_LIST, STREAM_RANGE, STREAM_MAP, STREAM_WHERE, STREAM_TAKE,
@@ -232,6 +234,7 @@ struct Runtime {
     char *emergency_error_keys[8];
     size_t emergency_error_key_lengths[8];
     Value emergency_error_values[8];
+    MapStorage emergency_error_map;
     RuntimeCleanup *cleanups;
     const HhyCallableContract *current_contract;
     HhyProfiler *profiler;
@@ -262,7 +265,8 @@ static Value bool_value(bool b) { Value v = {.kind = V_BOOL}; v.as.boolean = b; 
 static Value int_value(int64_t n) { Value v = {.kind = V_INT}; v.as.integer = n; return v; }
 static Value float_value(double n) { Value v = {.kind = V_FLOAT}; v.as.number = n; return v; }
 static void *rt_alloc(Runtime *rt, size_t size);
-static void map_build_index(Runtime *rt, Map *map);
+static MapStorage *map_storage_new(Runtime *rt, size_t count);
+static void map_build_index(Runtime *rt, MapStorage *map);
 static char *rt_strndup(Runtime *rt, const char *text, size_t length);
 static Value string_n(Runtime *rt, const char *text, size_t length);
 static Value list_new(Runtime *rt, size_t count);
@@ -290,9 +294,9 @@ static json_t *value_to_protocol_json(Runtime *rt, const HhyNode *site, Value va
         }
         case V_MAP: {
             json_t *object = json_object();
-            for (size_t i = 0; i < value.as.map.count; i++) {
-                char *key = hhy_strndup(value.as.map.keys[i], value.as.map.key_lengths[i]);
-                json_t *item = value_to_protocol_json(rt, site, value.as.map.values[i]);
+            for (size_t i = 0; i < value.as.map->count; i++) {
+                char *key = hhy_strndup(value.as.map->keys[i], value.as.map->key_lengths[i]);
+                json_t *item = value_to_protocol_json(rt, site, value.as.map->values[i]);
                 int result = item == NULL ? -1 : json_object_set_new(object, key, item);
                 free(key);
                 if (result != 0) {
@@ -323,16 +327,17 @@ static Value protocol_json_to_value(Runtime *rt, const HhyNode *site, json_t *va
     }
     if (json_is_object(value)) {
         size_t count = json_object_size(value); Value result = {.kind = V_MAP};
-        result.as.map.count = count; result.as.map.keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
-        result.as.map.key_lengths = count ? rt_alloc(rt, count * sizeof(size_t)) : NULL;
-        result.as.map.values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
+        result.as.map = map_storage_new(rt, count);
+        result.as.map->count = count; result.as.map->keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
+        result.as.map->key_lengths = count ? rt_alloc(rt, count * sizeof(size_t)) : NULL;
+        result.as.map->values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
         const char *key; json_t *item; size_t index = 0;
         json_object_foreach(value, key, item) {
-            result.as.map.key_lengths[index] = strlen(key);
-            result.as.map.keys[index] = rt_strndup(rt, key, result.as.map.key_lengths[index]);
-            result.as.map.values[index] = protocol_json_to_value(rt, site, item); index++;
+            result.as.map->key_lengths[index] = strlen(key);
+            result.as.map->keys[index] = rt_strndup(rt, key, result.as.map->key_lengths[index]);
+            result.as.map->values[index] = protocol_json_to_value(rt, site, item); index++;
         }
-        map_build_index(rt, &result.as.map);
+        map_build_index(rt, result.as.map);
         return result;
     }
     runtime_value_error(rt, site, "extension returned an unsupported protocol value");
@@ -348,10 +353,11 @@ static void runtime_memory_limit(Runtime *rt) {
     rt->failed = true;
     rt->exit_code = 1;
     rt->error_value.kind = V_ERROR;
-    rt->error_value.as.map.count = 8;
-    rt->error_value.as.map.keys = rt->emergency_error_keys;
-    rt->error_value.as.map.key_lengths = rt->emergency_error_key_lengths;
-    rt->error_value.as.map.values = rt->emergency_error_values;
+    rt->error_value.as.map = &rt->emergency_error_map;
+    rt->error_value.as.map->count = 8;
+    rt->error_value.as.map->keys = rt->emergency_error_keys;
+    rt->error_value.as.map->key_lengths = rt->emergency_error_key_lengths;
+    rt->error_value.as.map->values = rt->emergency_error_values;
     for (size_t i = 0; i < 8; i++) {
         rt->emergency_error_keys[i] = (char *)names[i];
         rt->emergency_error_key_lengths[i] = strlen(names[i]);
@@ -408,6 +414,12 @@ static void *rt_alloc(Runtime *rt, size_t size) {
                                 rt->memory_baseline + rt->memory_observed_local);
     memset(pointer, 0, size);
     return pointer;
+}
+
+static MapStorage *map_storage_new(Runtime *rt, size_t count) {
+    MapStorage *map = rt_alloc(rt, sizeof(*map));
+    map->count = count;
+    return map;
 }
 
 static void *rt_alloc_atomic(Runtime *rt, size_t size) {
@@ -574,24 +586,25 @@ static void runtime_error_kind(Runtime *rt, const HhyNode *node, const char *kin
     }
     const char *names[] = {"kind", "code", "message", "source", "stage", "cause", "stack", "context"};
     rt->error_value.kind = V_ERROR;
-    rt->error_value.as.map.count = 8;
-    rt->error_value.as.map.keys = rt_alloc(rt, 8 * sizeof(char *));
-    rt->error_value.as.map.key_lengths = rt_alloc(rt, 8 * sizeof(size_t));
-    rt->error_value.as.map.values = rt_alloc(rt, 8 * sizeof(Value));
+    rt->error_value.as.map = map_storage_new(rt, 8);
+    rt->error_value.as.map->count = 8;
+    rt->error_value.as.map->keys = rt_alloc(rt, 8 * sizeof(char *));
+    rt->error_value.as.map->key_lengths = rt_alloc(rt, 8 * sizeof(size_t));
+    rt->error_value.as.map->values = rt_alloc(rt, 8 * sizeof(Value));
     for (size_t i = 0; i < 8; i++) {
-        rt->error_value.as.map.keys[i] = rt_strndup(rt, names[i], strlen(names[i]));
-        rt->error_value.as.map.key_lengths[i] = strlen(names[i]);
+        rt->error_value.as.map->keys[i] = rt_strndup(rt, names[i], strlen(names[i]));
+        rt->error_value.as.map->key_lengths[i] = strlen(names[i]);
     }
-    rt->error_value.as.map.values[0] = string_value(rt, kind);
-    rt->error_value.as.map.values[1] = string_value(rt, code);
-    rt->error_value.as.map.values[2] = string_value(rt, message);
-    rt->error_value.as.map.values[3] = string_value(rt, rt->source ? rt->source->path : "<runtime>");
-    rt->error_value.as.map.values[4] = string_value(rt,
+    rt->error_value.as.map->values[0] = string_value(rt, kind);
+    rt->error_value.as.map->values[1] = string_value(rt, code);
+    rt->error_value.as.map->values[2] = string_value(rt, message);
+    rt->error_value.as.map->values[3] = string_value(rt, rt->source ? rt->source->path : "<runtime>");
+    rt->error_value.as.map->values[4] = string_value(rt,
         rt->current_contract != NULL ? rt->current_contract->name :
         (node == NULL ? "Runtime" : hhy_node_kind_name(node->kind)));
-    rt->error_value.as.map.values[5] = null_value();
-    rt->error_value.as.map.values[6] = null_value();
-    rt->error_value.as.map.values[7] = null_value();
+    rt->error_value.as.map->values[5] = null_value();
+    rt->error_value.as.map->values[6] = null_value();
+    rt->error_value.as.map->values[7] = null_value();
     rt->error_line = node == NULL ? 0 : node->token.line;
     rt->error_column = node == NULL ? 0 : node->token.column;
 }
@@ -941,11 +954,11 @@ static void print_value(FILE *stream, Value value, bool json) {
                 break;
             }
             fputc('{', stream);
-            for (size_t i = 0; i < value.as.map.count; i++) {
+            for (size_t i = 0; i < value.as.map->count; i++) {
                 if (i > 0) fputs(", ", stream);
-                print_string_json(stream, value.as.map.keys[i], value.as.map.key_lengths[i]);
+                print_string_json(stream, value.as.map->keys[i], value.as.map->key_lengths[i]);
                 fputs(": ", stream);
-                print_value(stream, value.as.map.values[i], true);
+                print_value(stream, value.as.map->values[i], true);
             }
             fputc('}', stream);
             break;
@@ -979,15 +992,15 @@ static bool json_encode_value(FILE *stream, Value value, bool pretty, int depth)
             fputc(']', stream); return true;
         case V_MAP:
             fputc('{', stream);
-            for (size_t i = 0; i < value.as.map.count; i++) {
+            for (size_t i = 0; i < value.as.map->count; i++) {
                 if (i) fputc(',', stream);
                 if (pretty) { fputc('\n', stream); json_indent(stream, depth + 1); }
                 else if (i) fputc(' ', stream);
-                print_string_json(stream, value.as.map.keys[i], value.as.map.key_lengths[i]);
+                print_string_json(stream, value.as.map->keys[i], value.as.map->key_lengths[i]);
                 fputs(": ", stream);
-                if (!json_encode_value(stream, value.as.map.values[i], pretty, depth + 1)) return false;
+                if (!json_encode_value(stream, value.as.map->values[i], pretty, depth + 1)) return false;
             }
-            if (pretty && value.as.map.count) { fputc('\n', stream); json_indent(stream, depth); }
+            if (pretty && value.as.map->count) { fputc('\n', stream); json_indent(stream, depth); }
             fputc('}', stream); return true;
         default: return false;
     }
@@ -1177,14 +1190,14 @@ static bool equal_values_depth(Value a, Value b, size_t depth) {
             return true;
         case V_MAP: case V_RESULT: case V_FILE: case V_DIRECTORY: case V_FILE_EVENT: case V_PROCESS:
         case V_COMMAND_RESULT:
-            if (a.as.map.count != b.as.map.count) return false;
-            for (size_t i = 0; i < a.as.map.count; i++) {
+            if (a.as.map->count != b.as.map->count) return false;
+            for (size_t i = 0; i < a.as.map->count; i++) {
                 bool found = false;
-                for (size_t j = 0; j < b.as.map.count; j++) {
-                    if (a.as.map.key_lengths[i] != b.as.map.key_lengths[j] ||
-                        memcmp(a.as.map.keys[i], b.as.map.keys[j], a.as.map.key_lengths[i]) != 0)
+                for (size_t j = 0; j < b.as.map->count; j++) {
+                    if (a.as.map->key_lengths[i] != b.as.map->key_lengths[j] ||
+                        memcmp(a.as.map->keys[i], b.as.map->keys[j], a.as.map->key_lengths[i]) != 0)
                         continue;
-                    if (!equal_values_depth(a.as.map.values[i], b.as.map.values[j], depth + 1))
+                    if (!equal_values_depth(a.as.map->values[i], b.as.map->values[j], depth + 1))
                         return false;
                     found = true;
                     break;
@@ -1450,7 +1463,7 @@ static uint64_t hash_key_bytes(const char *key, size_t key_length) {
     return hash;
 }
 
-static void map_build_index(Runtime *rt, Map *map) {
+static void map_build_index(Runtime *rt, MapStorage *map) {
     if (map->count < 8) return;
     size_t slots = 16;
     while (slots < map->count * 2) slots *= 2;
@@ -1467,23 +1480,23 @@ static void map_build_index(Runtime *rt, Map *map) {
 static bool map_lookup_n(Value map, const char *key, size_t key_length, Value *out) {
     if (!record_kind(map.kind))
         return false;
-    if (map.as.map.index_magic == UINT64_C(0x4848594d41504958)) {
-        size_t slot = (size_t)(hash_key_bytes(key, key_length) & (map.as.map.slot_count - 1));
-        while (map.as.map.slots[slot] != 0) {
-            size_t i = map.as.map.slots[slot] - 1;
-            if (map.as.map.key_lengths[i] == key_length &&
-                memcmp(map.as.map.keys[i], key, key_length) == 0) {
-                *out = map.as.map.values[i];
+    if (map.as.map->index_magic == UINT64_C(0x4848594d41504958)) {
+        size_t slot = (size_t)(hash_key_bytes(key, key_length) & (map.as.map->slot_count - 1));
+        while (map.as.map->slots[slot] != 0) {
+            size_t i = map.as.map->slots[slot] - 1;
+            if (map.as.map->key_lengths[i] == key_length &&
+                memcmp(map.as.map->keys[i], key, key_length) == 0) {
+                *out = map.as.map->values[i];
                 return true;
             }
-            slot = (slot + 1) & (map.as.map.slot_count - 1);
+            slot = (slot + 1) & (map.as.map->slot_count - 1);
         }
         return false;
     }
-    for (size_t i = 0; i < map.as.map.count; i++) {
-        if (map.as.map.key_lengths[i] == key_length &&
-            memcmp(map.as.map.keys[i], key, key_length) == 0) {
-            *out = map.as.map.values[i];
+    for (size_t i = 0; i < map.as.map->count; i++) {
+        if (map.as.map->key_lengths[i] == key_length &&
+            memcmp(map.as.map->keys[i], key, key_length) == 0) {
+            *out = map.as.map->values[i];
             return true;
         }
     }
@@ -1559,13 +1572,13 @@ static bool value_write(FILE *file, Value value) {
         }
         case V_MAP: case V_RESULT: case V_FILE: case V_DIRECTORY: case V_FILE_EVENT: case V_PROCESS:
         case V_COMMAND_RESULT: case V_HTTP_REQUEST: case V_HTTP_RESPONSE: case V_ERROR: {
-            uint64_t count = (uint64_t)value.as.map.count;
+            uint64_t count = (uint64_t)value.as.map->count;
             if (!binary_write(file, &count, sizeof(count))) return false;
-            for (size_t i = 0; i < value.as.map.count; i++) {
-                uint64_t length = (uint64_t)value.as.map.key_lengths[i];
+            for (size_t i = 0; i < value.as.map->count; i++) {
+                uint64_t length = (uint64_t)value.as.map->key_lengths[i];
                 if (!binary_write(file, &length, sizeof(length)) ||
-                    !binary_write(file, value.as.map.keys[i], (size_t)length) ||
-                    !value_write(file, value.as.map.values[i])) return false;
+                    !binary_write(file, value.as.map->keys[i], (size_t)length) ||
+                    !value_write(file, value.as.map->values[i])) return false;
             }
             return true;
         }
@@ -1623,18 +1636,18 @@ static bool value_read(Runtime *rt, FILE *file, Value *out, size_t depth) {
             ValueKind map_kind = out->kind;
             uint64_t count;
             if (!binary_read(file, &count, sizeof(count)) || count > 1000000) return false;
-            out->kind = map_kind; out->as.map.count = (size_t)count;
-            out->as.map.keys = count ? rt_alloc(rt, (size_t)count * sizeof(char *)) : NULL;
-            out->as.map.key_lengths = count ? rt_alloc(rt, (size_t)count * sizeof(size_t)) : NULL;
-            out->as.map.values = count ? rt_alloc(rt, (size_t)count * sizeof(Value)) : NULL;
+            out->kind = map_kind; out->as.map = map_storage_new(rt, (size_t)count);
+            out->as.map->keys = count ? rt_alloc(rt, (size_t)count * sizeof(char *)) : NULL;
+            out->as.map->key_lengths = count ? rt_alloc(rt, (size_t)count * sizeof(size_t)) : NULL;
+            out->as.map->values = count ? rt_alloc(rt, (size_t)count * sizeof(Value)) : NULL;
             for (size_t i = 0; i < (size_t)count; i++) {
                 uint64_t length;
                 if (!binary_read(file, &length, sizeof(length)) || length > 1024 * 1024) return false;
-                out->as.map.keys[i] = rt_alloc(rt, (size_t)length + 1);
-                if (!binary_read(file, out->as.map.keys[i], (size_t)length)) return false;
-                out->as.map.keys[i][length] = '\0';
-                out->as.map.key_lengths[i] = (size_t)length;
-                if (!value_read(rt, file, &out->as.map.values[i], depth + 1)) return false;
+                out->as.map->keys[i] = rt_alloc(rt, (size_t)length + 1);
+                if (!binary_read(file, out->as.map->keys[i], (size_t)length)) return false;
+                out->as.map->keys[i][length] = '\0';
+                out->as.map->key_lengths[i] = (size_t)length;
+                if (!value_read(rt, file, &out->as.map->values[i], depth + 1)) return false;
             }
             return true;
         }
@@ -2069,14 +2082,14 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
             stream_close(stream);
             return false;
         }
-        Value row = {.kind = V_MAP}; row.as.map.count = fields.as.list.count;
-        row.as.map.keys = row.as.map.count ? rt_alloc(rt, row.as.map.count * sizeof(char *)) : NULL;
-        row.as.map.key_lengths = row.as.map.count ? rt_alloc(rt, row.as.map.count * sizeof(size_t)) : NULL;
-        row.as.map.values = row.as.map.count ? rt_alloc(rt, row.as.map.count * sizeof(Value)) : NULL;
-        for (size_t i = 0; i < row.as.map.count; i++) {
-            row.as.map.keys[i] = stream->csv_headers.as.list.items[i].as.string;
-            row.as.map.key_lengths[i] = stream->csv_headers.as.list.items[i].string_length;
-            row.as.map.values[i] = fields.as.list.items[i];
+        Value row = {.kind = V_MAP}; row.as.map = map_storage_new(rt, fields.as.list.count);
+        row.as.map->keys = row.as.map->count ? rt_alloc(rt, row.as.map->count * sizeof(char *)) : NULL;
+        row.as.map->key_lengths = row.as.map->count ? rt_alloc(rt, row.as.map->count * sizeof(size_t)) : NULL;
+        row.as.map->values = row.as.map->count ? rt_alloc(rt, row.as.map->count * sizeof(Value)) : NULL;
+        for (size_t i = 0; i < row.as.map->count; i++) {
+            row.as.map->keys[i] = stream->csv_headers.as.list.items[i].as.string;
+            row.as.map->key_lengths[i] = stream->csv_headers.as.list.items[i].string_length;
+            row.as.map->values[i] = fields.as.list.items[i];
         }
         *out = row;
         return true;
@@ -2096,10 +2109,10 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
         }
         if (!stream->initialized) {
             stream->initialized = true;
-            stream->csv_headers = list_new(rt, row.as.map.count);
-            for (size_t i = 0; i < row.as.map.count; i++)
-                stream->csv_headers.as.list.items[i] = string_n(rt, row.as.map.keys[i],
-                                                                 row.as.map.key_lengths[i]);
+            stream->csv_headers = list_new(rt, row.as.map->count);
+            for (size_t i = 0; i < row.as.map->count; i++)
+                stream->csv_headers.as.list.items[i] = string_n(rt, row.as.map->keys[i],
+                                                                 row.as.map->key_lengths[i]);
             if (stream->csv_use_header && !stream->csv_header_emitted) {
                 stream->csv_header_emitted = true;
                 stream->inner = row;
@@ -2947,7 +2960,10 @@ static Value json_parse_object(JsonParser *p, size_t depth) {
     size_t slot_count = 16;
     size_t *key_slots = hhy_alloc(slot_count * sizeof(size_t));
     memset(key_slots, 0, slot_count * sizeof(size_t));
-    if (json_take(p, '}')) { free(key_lengths); free(key_slots); Value empty = {.kind = V_MAP}; return empty; }
+    if (json_take(p, '}')) {
+        free(key_lengths); free(key_slots);
+        Value empty = {.kind = V_MAP}; empty.as.map = map_storage_new(p->rt, 0); return empty;
+    }
     while (!p->rt->failed) {
         if (count >= HHY_MAX_COLLECTION_ITEMS) {
             json_error(p, "JSON object exceeds 1000000 entry limit"); break;
@@ -2987,16 +3003,16 @@ static Value json_parse_object(JsonParser *p, size_t depth) {
         if (!json_take(p, ',')) { json_error(p, "expected comma or closing brace"); break; }
         json_space(p);
     }
-    Value result = {.kind = V_MAP}; result.as.map.count = count;
-    result.as.map.keys = count ? rt_alloc(p->rt, count * sizeof(char *)) : NULL;
-    result.as.map.key_lengths = count ? rt_alloc(p->rt, count * sizeof(size_t)) : NULL;
-    result.as.map.values = count ? rt_alloc(p->rt, count * sizeof(Value)) : NULL;
+    Value result = {.kind = V_MAP}; result.as.map = map_storage_new(p->rt, count);
+    result.as.map->keys = count ? rt_alloc(p->rt, count * sizeof(char *)) : NULL;
+    result.as.map->key_lengths = count ? rt_alloc(p->rt, count * sizeof(size_t)) : NULL;
+    result.as.map->values = count ? rt_alloc(p->rt, count * sizeof(Value)) : NULL;
     if (count > 0) {
-        memcpy(result.as.map.keys, keys, count * sizeof(char *));
-        memcpy(result.as.map.key_lengths, key_lengths, count * sizeof(size_t));
-        memcpy(result.as.map.values, values, count * sizeof(Value));
+        memcpy(result.as.map->keys, keys, count * sizeof(char *));
+        memcpy(result.as.map->key_lengths, key_lengths, count * sizeof(size_t));
+        memcpy(result.as.map->values, values, count * sizeof(Value));
     }
-    map_build_index(p->rt, &result.as.map);
+    map_build_index(p->rt, result.as.map);
     free(key_lengths); free(key_slots); return result;
 }
 
@@ -3156,12 +3172,12 @@ static Value command_run(Runtime *rt, const HhyNode *site, Value arguments, Valu
             free(command); runtime_type_error(rt, site, "run env must be Map<String, String>"); return null_value();
         }
         if (environment.kind == V_MAP) {
-            for (size_t i = 0; i < environment.as.map.count; i++) {
-                Value value = environment.as.map.values[i];
+            for (size_t i = 0; i < environment.as.map->count; i++) {
+                Value value = environment.as.map->values[i];
                 if (value.kind != V_STRING) {
                     free(command); runtime_type_error(rt, site, "run env values must be String"); return null_value();
                 }
-                if (memchr(environment.as.map.keys[i], '\0', environment.as.map.key_lengths[i]) != NULL ||
+                if (memchr(environment.as.map->keys[i], '\0', environment.as.map->key_lengths[i]) != NULL ||
                     string_has_nul(value)) {
                     free(command); runtime_value_error(rt, site, "run env cannot contain U+0000"); return null_value();
                 }
@@ -3215,9 +3231,9 @@ static Value command_run(Runtime *rt, const HhyNode *site, Value arguments, Valu
             dup2(fileno(stderr_file), STDERR_FILENO) < 0)
             _exit(126);
         if (environment.kind == V_MAP) {
-            for (size_t i = 0; i < environment.as.map.count; i++) {
-                Value value = environment.as.map.values[i];
-                if (value.kind != V_STRING || setenv(environment.as.map.keys[i], value.as.string, 1) != 0)
+            for (size_t i = 0; i < environment.as.map->count; i++) {
+                Value value = environment.as.map->values[i];
+                if (value.kind != V_STRING || setenv(environment.as.map->keys[i], value.as.string, 1) != 0)
                     _exit(126);
             }
         }
@@ -3278,21 +3294,21 @@ static Value command_run(Runtime *rt, const HhyNode *site, Value arguments, Valu
     int exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
     double duration = (double)(finished.tv_sec - started.tv_sec) * 1000000000.0 +
                       (double)(finished.tv_nsec - started.tv_nsec);
-    Value result = {.kind = V_COMMAND_RESULT}; result.as.map.count = 4;
-    result.as.map.keys = rt_alloc(rt, 4 * sizeof(char *));
-    result.as.map.key_lengths = rt_alloc(rt, 4 * sizeof(size_t));
-    result.as.map.values = rt_alloc(rt, 4 * sizeof(Value));
-    result.as.map.keys[0] = rt_strndup(rt, "exit_code", 9);
-    result.as.map.values[0] = int_value(exit_code);
-    result.as.map.keys[1] = rt_strndup(rt, "stdout", 6);
-    result.as.map.values[1] = string_n(rt, stdout_text, stdout_length);
-    result.as.map.keys[2] = rt_strndup(rt, "stderr", 6);
-    result.as.map.values[2] = string_n(rt, stderr_text, stderr_length);
-    result.as.map.keys[3] = rt_strndup(rt, "duration", 8);
-    result.as.map.values[3].kind = V_DURATION;
-    result.as.map.values[3].as.number = duration;
-    result.as.map.key_lengths[0] = 9; result.as.map.key_lengths[1] = 6;
-    result.as.map.key_lengths[2] = 6; result.as.map.key_lengths[3] = 8;
+    Value result = {.kind = V_COMMAND_RESULT}; result.as.map = map_storage_new(rt, 4);
+    result.as.map->keys = rt_alloc(rt, 4 * sizeof(char *));
+    result.as.map->key_lengths = rt_alloc(rt, 4 * sizeof(size_t));
+    result.as.map->values = rt_alloc(rt, 4 * sizeof(Value));
+    result.as.map->keys[0] = rt_strndup(rt, "exit_code", 9);
+    result.as.map->values[0] = int_value(exit_code);
+    result.as.map->keys[1] = rt_strndup(rt, "stdout", 6);
+    result.as.map->values[1] = string_n(rt, stdout_text, stdout_length);
+    result.as.map->keys[2] = rt_strndup(rt, "stderr", 6);
+    result.as.map->values[2] = string_n(rt, stderr_text, stderr_length);
+    result.as.map->keys[3] = rt_strndup(rt, "duration", 8);
+    result.as.map->values[3].kind = V_DURATION;
+    result.as.map->values[3].as.number = duration;
+    result.as.map->key_lengths[0] = 9; result.as.map->key_lengths[1] = 6;
+    result.as.map->key_lengths[2] = 6; result.as.map->key_lengths[3] = 8;
     return result;
 }
 
@@ -3510,18 +3526,18 @@ static int hhy_curl_progress(void *context, curl_off_t download_total,
 
 static Value map_with_entries(Runtime *rt, ValueKind kind, size_t count,
                               const char **keys, Value *values) {
-    Value result = {.kind = kind}; result.as.map.count = count;
+    Value result = {.kind = kind}; result.as.map = map_storage_new(rt, count);
     /* Root pointer-bearing input Values before allocating key metadata. Callers
        commonly pass a short stack array containing freshly allocated strings. */
-    result.as.map.values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
-    if (count) memcpy(result.as.map.values, values, count * sizeof(Value));
-    result.as.map.keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
-    result.as.map.key_lengths = count ? rt_alloc(rt, count * sizeof(size_t)) : NULL;
+    result.as.map->values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
+    if (count) memcpy(result.as.map->values, values, count * sizeof(Value));
+    result.as.map->keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
+    result.as.map->key_lengths = count ? rt_alloc(rt, count * sizeof(size_t)) : NULL;
     for (size_t i = 0; i < count; i++) {
-        result.as.map.keys[i] = rt_strndup(rt, keys[i], strlen(keys[i]));
-        result.as.map.key_lengths[i] = strlen(keys[i]);
+        result.as.map->keys[i] = rt_strndup(rt, keys[i], strlen(keys[i]));
+        result.as.map->key_lengths[i] = strlen(keys[i]);
     }
-    map_build_index(rt, &result.as.map);
+    map_build_index(rt, result.as.map);
     return result;
 }
 
@@ -3561,29 +3577,30 @@ static Value file_value(Runtime *rt, const HhyNode *site, const char *path,
 
 static Value map_put_runtime_n(Runtime *rt, Value source, const char *key, size_t key_length,
                                Value value) {
-    size_t existing = source.as.map.count;
+    size_t existing = source.as.map->count;
     bool replace = false;
     size_t replace_index = 0;
     for (size_t i = 0; i < existing; i++) {
-        if (source.as.map.key_lengths[i] == key_length &&
-            memcmp(source.as.map.keys[i], key, key_length) == 0) {
+        if (source.as.map->key_lengths[i] == key_length &&
+            memcmp(source.as.map->keys[i], key, key_length) == 0) {
             replace = true; replace_index = i; break;
         }
     }
     Value result = {.kind = source.kind};
-    result.as.map.count = existing + (replace ? 0 : 1);
-    result.as.map.keys = rt_alloc(rt, result.as.map.count * sizeof(char *));
-    result.as.map.key_lengths = rt_alloc(rt, result.as.map.count * sizeof(size_t));
-    result.as.map.values = rt_alloc(rt, result.as.map.count * sizeof(Value));
+    result.as.map = map_storage_new(rt, existing + (replace ? 0 : 1));
+    result.as.map->count = existing + (replace ? 0 : 1);
+    result.as.map->keys = rt_alloc(rt, result.as.map->count * sizeof(char *));
+    result.as.map->key_lengths = rt_alloc(rt, result.as.map->count * sizeof(size_t));
+    result.as.map->values = rt_alloc(rt, result.as.map->count * sizeof(Value));
     for (size_t i = 0; i < existing; i++) {
-        result.as.map.keys[i] = source.as.map.keys[i];
-        result.as.map.key_lengths[i] = source.as.map.key_lengths[i];
-        result.as.map.values[i] = i == replace_index && replace ? value : source.as.map.values[i];
+        result.as.map->keys[i] = source.as.map->keys[i];
+        result.as.map->key_lengths[i] = source.as.map->key_lengths[i];
+        result.as.map->values[i] = i == replace_index && replace ? value : source.as.map->values[i];
     }
     if (!replace) {
-        result.as.map.keys[existing] = rt_strndup(rt, key, key_length);
-        result.as.map.key_lengths[existing] = key_length;
-        result.as.map.values[existing] = value;
+        result.as.map->keys[existing] = rt_strndup(rt, key, key_length);
+        result.as.map->key_lengths[existing] = key_length;
+        result.as.map->values[existing] = value;
     }
     return result;
 }
@@ -3633,26 +3650,26 @@ static Value url_add_query(Runtime *rt, const HhyNode *site, Value url, Value qu
     }
     size_t length = url.string_length + 1;
     bool has_query = memchr(url.as.string, '?', url.string_length) != NULL;
-    for (size_t i = 0; i < query.as.map.count; i++) {
-        if (!query_scalar(query.as.map.values[i])) {
+    for (size_t i = 0; i < query.as.map->count; i++) {
+        if (!query_scalar(query.as.map->values[i])) {
             runtime_type_error(rt, site, "HTTP query values must be scalar"); return null_value();
         }
-        char *value = query_text(rt, query.as.map.values[i]);
-        size_t value_length = query.as.map.values[i].kind == V_STRING
-            ? query.as.map.values[i].string_length : strlen(value);
-        length += url_encoded_length(query.as.map.keys[i], query.as.map.key_lengths[i]) + 1 +
+        char *value = query_text(rt, query.as.map->values[i]);
+        size_t value_length = query.as.map->values[i].kind == V_STRING
+            ? query.as.map->values[i].string_length : strlen(value);
+        length += url_encoded_length(query.as.map->keys[i], query.as.map->key_lengths[i]) + 1 +
                   url_encoded_length(value, value_length) + (i ? 1 : 0);
     }
     char *text = rt_alloc(rt, length + 1);
     char *out = text;
     size_t base = url.string_length; memcpy(out, url.as.string, base); out += base;
     *out++ = has_query ? '&' : '?';
-    for (size_t i = 0; i < query.as.map.count; i++) {
+    for (size_t i = 0; i < query.as.map->count; i++) {
         if (i) *out++ = '&';
-        out = url_encode_into(out, query.as.map.keys[i], query.as.map.key_lengths[i]); *out++ = '=';
-        char *value = query_text(rt, query.as.map.values[i]);
-        size_t value_length = query.as.map.values[i].kind == V_STRING
-            ? query.as.map.values[i].string_length : strlen(value);
+        out = url_encode_into(out, query.as.map->keys[i], query.as.map->key_lengths[i]); *out++ = '=';
+        char *value = query_text(rt, query.as.map->values[i]);
+        size_t value_length = query.as.map->values[i].kind == V_STRING
+            ? query.as.map->values[i].string_length : strlen(value);
         out = url_encode_into(out, value, value_length);
     }
     *out = '\0';
@@ -3805,23 +3822,23 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request) {
         if (proxy.kind == V_STRING) curl_easy_setopt(curl, CURLOPT_PROXY, proxy.as.string);
         struct curl_slist *header_list = NULL;
         if (headers.kind == V_MAP) {
-            for (size_t i = 0; i < headers.as.map.count; i++) {
-                Value value = headers.as.map.values[i];
+            for (size_t i = 0; i < headers.as.map->count; i++) {
+                Value value = headers.as.map->values[i];
                 if (value.kind != V_STRING) {
                     curl_slist_free_all(header_list); curl_easy_cleanup(curl); free(buffer.data);
                     runtime_type_error(rt, site, "HTTP header values must be String"); return null_value();
                 }
-                if (memchr(headers.as.map.keys[i], '\0', headers.as.map.key_lengths[i]) != NULL ||
-                    memchr(headers.as.map.keys[i], '\r', headers.as.map.key_lengths[i]) != NULL ||
-                    memchr(headers.as.map.keys[i], '\n', headers.as.map.key_lengths[i]) != NULL ||
+                if (memchr(headers.as.map->keys[i], '\0', headers.as.map->key_lengths[i]) != NULL ||
+                    memchr(headers.as.map->keys[i], '\r', headers.as.map->key_lengths[i]) != NULL ||
+                    memchr(headers.as.map->keys[i], '\n', headers.as.map->key_lengths[i]) != NULL ||
                     memchr(value.as.string, '\r', value.string_length) != NULL ||
                     memchr(value.as.string, '\n', value.string_length) != NULL || string_has_nul(value)) {
                     curl_slist_free_all(header_list); curl_easy_cleanup(curl); free(buffer.data);
                     runtime_value_error(rt, site, "HTTP headers cannot contain U+0000, CR, or LF"); return null_value();
                 }
-                size_t needed = headers.as.map.key_lengths[i] + value.string_length + 3;
+                size_t needed = headers.as.map->key_lengths[i] + value.string_length + 3;
                 char *line = hhy_alloc(needed);
-                snprintf(line, needed, "%s: %s", headers.as.map.keys[i], value.as.string);
+                snprintf(line, needed, "%s: %s", headers.as.map->keys[i], value.as.string);
                 header_list = curl_slist_append(header_list, line); free(line);
             }
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, header_list);
@@ -4133,7 +4150,7 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
             return int_value((int64_t)count);
         }
         if (argv[0].kind == V_LIST) return int_value((int64_t)argv[0].as.list.count);
-        if (argv[0].kind == V_MAP) return int_value((int64_t)argv[0].as.map.count);
+        if (argv[0].kind == V_MAP) return int_value((int64_t)argv[0].as.map->count);
         runtime_type_error(rt, site, "length expects String, List or Map"); return null_value();
     }
     if (strcmp(name, "type") == 0) {
@@ -4185,12 +4202,12 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
             runtime_type_error(rt, site, "stream expects List, Map or Range"); return null_value();
         }
         if (argv[0].kind == V_MAP) {
-            Value entries = list_new(rt, argv[0].as.map.count);
-            for (size_t i = 0; i < argv[0].as.map.count; i++) {
+            Value entries = list_new(rt, argv[0].as.map->count);
+            for (size_t i = 0; i < argv[0].as.map->count; i++) {
                 const char *keys[] = {"key", "value"};
-                Value values[] = {string_n(rt, argv[0].as.map.keys[i],
-                                           argv[0].as.map.key_lengths[i]),
-                                  argv[0].as.map.values[i]};
+                Value values[] = {string_n(rt, argv[0].as.map->keys[i],
+                                           argv[0].as.map->key_lengths[i]),
+                                  argv[0].as.map->values[i]};
                 entries.as.list.items[i] = map_with_entries(rt, V_MAP, 2, keys, values);
             }
             return stream_value(rt, STREAM_LIST, entries, null_value(), env);
@@ -4555,25 +4572,25 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
         if (name_count > 0) {
             pcre2_pattern_info(compiled, PCRE2_INFO_NAMETABLE, &name_table);
             pcre2_pattern_info(compiled, PCRE2_INFO_NAMEENTRYSIZE, &entry_size);
-            Value named = {.kind = V_MAP, .as.map.count = name_count};
-            named.as.map.keys = rt_alloc(rt, name_count * sizeof(char *));
-            named.as.map.key_lengths = rt_alloc(rt, name_count * sizeof(size_t));
-            named.as.map.values = rt_alloc(rt, name_count * sizeof(Value));
+            Value named = {.kind = V_MAP}; named.as.map = map_storage_new(rt, name_count);
+            named.as.map->keys = rt_alloc(rt, name_count * sizeof(char *));
+            named.as.map->key_lengths = rt_alloc(rt, name_count * sizeof(size_t));
+            named.as.map->values = rt_alloc(rt, name_count * sizeof(Value));
             for (uint32_t i = 0; i < name_count; i++) {
                 PCRE2_SPTR entry = name_table + i * entry_size;
                 uint32_t group = ((uint32_t)entry[0] << 8) | entry[1];
-                named.as.map.keys[i] = rt_strndup(rt, (const char *)(entry + 2),
+                named.as.map->keys[i] = rt_strndup(rt, (const char *)(entry + 2),
                                                   strlen((const char *)(entry + 2)));
-                named.as.map.key_lengths[i] = strlen((const char *)(entry + 2));
+                named.as.map->key_lengths[i] = strlen((const char *)(entry + 2));
                 PCRE2_SIZE start = matches[group * 2], end = matches[group * 2 + 1];
-                if (start == PCRE2_UNSET) named.as.map.values[i] = null_value();
+                if (start == PCRE2_UNSET) named.as.map->values[i] = null_value();
                 else {
                     const char *group_keys[] = {"match", "start", "end"};
                     Value group_values[] = {
                         string_n(rt, argv[0].as.string + start, (size_t)(end - start)),
                         int_value((int64_t)start), int_value((int64_t)end)
                     };
-                    named.as.map.values[i] = map_with_entries(rt, V_MAP, 3,
+                    named.as.map->values[i] = map_with_entries(rt, V_MAP, 3,
                                                               group_keys, group_values);
                 }
             }
@@ -4705,11 +4722,12 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
             runtime_type_error(rt, site, "pick expects Map and List<String>"); return null_value();
         }
         Value result = {.kind = V_MAP};
-        result.as.map.keys = argv[1].as.list.count
+        result.as.map = map_storage_new(rt, 0);
+        result.as.map->keys = argv[1].as.list.count
             ? rt_alloc(rt, argv[1].as.list.count * sizeof(char *)) : NULL;
-        result.as.map.key_lengths = argv[1].as.list.count
+        result.as.map->key_lengths = argv[1].as.list.count
             ? rt_alloc(rt, argv[1].as.list.count * sizeof(size_t)) : NULL;
-        result.as.map.values = argv[1].as.list.count
+        result.as.map->values = argv[1].as.list.count
             ? rt_alloc(rt, argv[1].as.list.count * sizeof(Value)) : NULL;
         for (size_t i = 0; i < argv[1].as.list.count; i++) {
             Value key = argv[1].as.list.items[i];
@@ -4718,9 +4736,9 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
             }
             Value selected;
             if (!map_lookup_n(argv[0], key.as.string, key.string_length, &selected)) continue;
-            result.as.map.keys[result.as.map.count] = rt_strndup(rt, key.as.string, key.string_length);
-            result.as.map.key_lengths[result.as.map.count] = key.string_length;
-            result.as.map.values[result.as.map.count++] = selected;
+            result.as.map->keys[result.as.map->count] = rt_strndup(rt, key.as.string, key.string_length);
+            result.as.map->key_lengths[result.as.map->count] = key.string_length;
+            result.as.map->values[result.as.map->count++] = selected;
         }
         return result;
     }
@@ -4728,10 +4746,10 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
         if (argc != 2 || argv[0].kind != V_MAP || argv[1].kind != V_STRING) {
             runtime_type_error(rt, site, "require expects Map and String key"); return null_value();
         }
-        for (size_t i = 0; i < argv[0].as.map.count; i++)
-            if (argv[0].as.map.key_lengths[i] == argv[1].string_length &&
-                memcmp(argv[0].as.map.keys[i], argv[1].as.string, argv[1].string_length) == 0)
-                return argv[0].as.map.values[i];
+        for (size_t i = 0; i < argv[0].as.map->count; i++)
+            if (argv[0].as.map->key_lengths[i] == argv[1].string_length &&
+                memcmp(argv[0].as.map->keys[i], argv[1].as.string, argv[1].string_length) == 0)
+                return argv[0].as.map->values[i];
         runtime_error_kind(rt, site, "KeyError", "HHY_MAP_KEY",
                            "required Map key is missing"); return null_value();
     }
@@ -4745,23 +4763,23 @@ static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *nam
         if (argc != 2 || argv[0].kind != V_MAP || argv[1].kind != V_STRING) {
             runtime_type_error(rt, site, "remove_key expects Map and String key"); return null_value();
         }
-        size_t count = argv[0].as.map.count;
-        for (size_t i = 0; i < argv[0].as.map.count; i++)
-            if (argv[0].as.map.key_lengths[i] == argv[1].string_length &&
-                memcmp(argv[0].as.map.keys[i], argv[1].as.string, argv[1].string_length) == 0) {
+        size_t count = argv[0].as.map->count;
+        for (size_t i = 0; i < argv[0].as.map->count; i++)
+            if (argv[0].as.map->key_lengths[i] == argv[1].string_length &&
+                memcmp(argv[0].as.map->keys[i], argv[1].as.string, argv[1].string_length) == 0) {
                 count--; break;
             }
-        Value result = {.kind = V_MAP}; result.as.map.count = count;
-        result.as.map.keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
-        result.as.map.key_lengths = count ? rt_alloc(rt, count * sizeof(size_t)) : NULL;
-        result.as.map.values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
+        Value result = {.kind = V_MAP}; result.as.map = map_storage_new(rt, count);
+        result.as.map->keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
+        result.as.map->key_lengths = count ? rt_alloc(rt, count * sizeof(size_t)) : NULL;
+        result.as.map->values = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
         size_t out = 0;
-        for (size_t i = 0; i < argv[0].as.map.count; i++) {
-            if (argv[0].as.map.key_lengths[i] == argv[1].string_length &&
-                memcmp(argv[0].as.map.keys[i], argv[1].as.string, argv[1].string_length) == 0) continue;
-            result.as.map.keys[out] = argv[0].as.map.keys[i];
-            result.as.map.key_lengths[out] = argv[0].as.map.key_lengths[i];
-            result.as.map.values[out++] = argv[0].as.map.values[i];
+        for (size_t i = 0; i < argv[0].as.map->count; i++) {
+            if (argv[0].as.map->key_lengths[i] == argv[1].string_length &&
+                memcmp(argv[0].as.map->keys[i], argv[1].as.string, argv[1].string_length) == 0) continue;
+            result.as.map->keys[out] = argv[0].as.map->keys[i];
+            result.as.map->key_lengths[out] = argv[0].as.map->key_lengths[i];
+            result.as.map->values[out++] = argv[0].as.map->values[i];
         }
         return result;
     }
@@ -5317,30 +5335,30 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
             return value;
         }
         case HHY_N_MAP: {
-            Value value = {.kind = V_MAP}; value.as.map.count = node->child_count;
-            value.as.map.keys = node->child_count ? rt_alloc(rt, node->child_count * sizeof(char *)) : NULL;
-            value.as.map.key_lengths = node->child_count ? rt_alloc(rt, node->child_count * sizeof(size_t)) : NULL;
-            value.as.map.values = node->child_count ? rt_alloc(rt, node->child_count * sizeof(Value)) : NULL;
+            Value value = {.kind = V_MAP}; value.as.map = map_storage_new(rt, node->child_count);
+            value.as.map->keys = node->child_count ? rt_alloc(rt, node->child_count * sizeof(char *)) : NULL;
+            value.as.map->key_lengths = node->child_count ? rt_alloc(rt, node->child_count * sizeof(size_t)) : NULL;
+            value.as.map->values = node->child_count ? rt_alloc(rt, node->child_count * sizeof(Value)) : NULL;
             for (size_t i = 0; i < node->child_count; i++) {
                 const HhyNode *entry = node->children[i]; HhyToken key = entry->token;
                 if (key.kind == HHY_T_STRING) {
-                    Value decoded = decode_string(rt, key); value.as.map.keys[i] = decoded.as.string;
-                    value.as.map.key_lengths[i] = decoded.string_length;
+                    Value decoded = decode_string(rt, key); value.as.map->keys[i] = decoded.as.string;
+                    value.as.map->key_lengths[i] = decoded.string_length;
                 } else {
-                    value.as.map.keys[i] = token_text(rt, key);
-                    value.as.map.key_lengths[i] = key.length;
+                    value.as.map->keys[i] = token_text(rt, key);
+                    value.as.map->key_lengths[i] = key.length;
                 }
                 for (size_t previous = 0; previous < i; previous++) {
-                    if (value.as.map.key_lengths[previous] == value.as.map.key_lengths[i] &&
-                        memcmp(value.as.map.keys[previous], value.as.map.keys[i],
-                               value.as.map.key_lengths[i]) == 0) {
+                    if (value.as.map->key_lengths[previous] == value.as.map->key_lengths[i] &&
+                        memcmp(value.as.map->keys[previous], value.as.map->keys[i],
+                               value.as.map->key_lengths[i]) == 0) {
                         runtime_value_error(rt, entry, "duplicate Map key");
                         return null_value();
                     }
                 }
-                value.as.map.values[i] = eval(rt, env, entry->children[0]);
+                value.as.map->values[i] = eval(rt, env, entry->children[0]);
             }
-            map_build_index(rt, &value.as.map);
+            map_build_index(rt, value.as.map);
             return value;
         }
         case HHY_N_MEMBER: {
@@ -5474,13 +5492,13 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
             int outer_exit = rt->exit_code; rt->failed = false; rt->exit_code = 0;
             Value result = exec_node(rt, env, node->children[0]); bool failed = rt->failed; Value error = rt->error_value;
             rt->failed = outer_failed; rt->error_value = outer_error; rt->exit_code = outer_exit;
-            Value map = {.kind = V_RESULT}; map.as.map.count = 3;
-            map.as.map.keys = rt_alloc(rt, 3 * sizeof(char *)); map.as.map.values = rt_alloc(rt, 3 * sizeof(Value));
-            map.as.map.key_lengths = rt_alloc(rt, 3 * sizeof(size_t));
-            map.as.map.keys[0] = rt_strndup(rt,"ok",2); map.as.map.values[0] = bool_value(!failed);
-            map.as.map.keys[1] = rt_strndup(rt,"value",5); map.as.map.values[1] = failed ? null_value() : result;
-            map.as.map.keys[2] = rt_strndup(rt,"error",5); map.as.map.values[2] = failed ? error : null_value();
-            map.as.map.key_lengths[0] = 2; map.as.map.key_lengths[1] = 5; map.as.map.key_lengths[2] = 5;
+            Value map = {.kind = V_RESULT}; map.as.map = map_storage_new(rt, 3);
+            map.as.map->keys = rt_alloc(rt, 3 * sizeof(char *)); map.as.map->values = rt_alloc(rt, 3 * sizeof(Value));
+            map.as.map->key_lengths = rt_alloc(rt, 3 * sizeof(size_t));
+            map.as.map->keys[0] = rt_strndup(rt,"ok",2); map.as.map->values[0] = bool_value(!failed);
+            map.as.map->keys[1] = rt_strndup(rt,"value",5); map.as.map->values[1] = failed ? null_value() : result;
+            map.as.map->keys[2] = rt_strndup(rt,"error",5); map.as.map->values[2] = failed ? error : null_value();
+            map.as.map->key_lengths[0] = 2; map.as.map->key_lengths[1] = 5; map.as.map->key_lengths[2] = 5;
             return map;
         }
         default: return exec_node(rt, env, node);
@@ -5662,10 +5680,11 @@ static Module *module_load(Runtime *rt, const HhyNode *site, const char *request
     for (size_t i = 0; i < module->program->child_count; i++)
         if (module->program->children[i]->kind == HHY_N_EXPORT_DECL) export_count++;
     module->exports.kind = V_MAP;
-    module->exports.as.map.count = export_count;
-    module->exports.as.map.keys = export_count ? rt_alloc(rt, export_count * sizeof(char *)) : NULL;
-    module->exports.as.map.key_lengths = export_count ? rt_alloc(rt, export_count * sizeof(size_t)) : NULL;
-    module->exports.as.map.values = export_count ? rt_alloc(rt, export_count * sizeof(Value)) : NULL;
+    module->exports.as.map = map_storage_new(rt, export_count);
+    module->exports.as.map->count = export_count;
+    module->exports.as.map->keys = export_count ? rt_alloc(rt, export_count * sizeof(char *)) : NULL;
+    module->exports.as.map->key_lengths = export_count ? rt_alloc(rt, export_count * sizeof(size_t)) : NULL;
+    module->exports.as.map->values = export_count ? rt_alloc(rt, export_count * sizeof(Value)) : NULL;
     size_t exported = 0;
     for (size_t i = 0; i < module->program->child_count; i++) {
         const HhyNode *export_node = module->program->children[i];
@@ -5675,9 +5694,9 @@ static Module *module_load(Runtime *rt, const HhyNode *site, const char *request
         char *name = token_text(rt, declaration->children[name_index]->token);
         Binding *binding = env_local(module->environment, name);
         if (binding == NULL) { runtime_check_error(rt, export_node, "exported binding was not created"); return NULL; }
-        module->exports.as.map.keys[exported] = name;
-        module->exports.as.map.key_lengths[exported] = declaration->children[name_index]->token.length;
-        module->exports.as.map.values[exported] = binding->value;
+        module->exports.as.map->keys[exported] = name;
+        module->exports.as.map->key_lengths[exported] = declaration->children[name_index]->token.length;
+        module->exports.as.map->values[exported] = binding->value;
         exported++;
     }
     module->loading = false;
@@ -5789,10 +5808,10 @@ static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc,
                map_with_entries(rt, V_MAP, 1, datetime_keys, datetime_functions), false);
     size_t environment_count = 0;
     while (environ[environment_count] != NULL) environment_count++;
-    Value environment = {.kind = V_MAP}; environment.as.map.count = environment_count;
-    environment.as.map.keys = environment_count ? rt_alloc(rt, environment_count * sizeof(char *)) : NULL;
-    environment.as.map.key_lengths = environment_count ? rt_alloc(rt, environment_count * sizeof(size_t)) : NULL;
-    environment.as.map.values = environment_count ? rt_alloc(rt, environment_count * sizeof(Value)) : NULL;
+    Value environment = {.kind = V_MAP}; environment.as.map = map_storage_new(rt, environment_count);
+    environment.as.map->keys = environment_count ? rt_alloc(rt, environment_count * sizeof(char *)) : NULL;
+    environment.as.map->key_lengths = environment_count ? rt_alloc(rt, environment_count * sizeof(size_t)) : NULL;
+    environment.as.map->values = environment_count ? rt_alloc(rt, environment_count * sizeof(Value)) : NULL;
     for (size_t i = 0; i < environment_count; i++) {
         const char *separator = strchr(environ[i], '=');
         size_t key_length = separator == NULL ? strlen(environ[i]) : (size_t)(separator - environ[i]);
@@ -5804,9 +5823,9 @@ static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc,
                                "environment variable is not valid UTF-8");
             return global;
         }
-        environment.as.map.keys[i] = rt_strndup(rt, environ[i], key_length);
-        environment.as.map.key_lengths[i] = key_length;
-        environment.as.map.values[i] = string_n(rt, environment_value, value_length);
+        environment.as.map->keys[i] = rt_strndup(rt, environ[i], key_length);
+        environment.as.map->key_lengths[i] = key_length;
+        environment.as.map->values[i] = string_n(rt, environment_value, value_length);
     }
     env_define(rt, global, site, "env", environment, false);
     struct utsname system_name;

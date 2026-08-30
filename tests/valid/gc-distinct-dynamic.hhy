@@ -1,0 +1,6 @@
+0..2000
+    |> stream
+    |> map { value -> encode_json({ value: value }) }
+    |> distinct
+    |> count
+    |> print

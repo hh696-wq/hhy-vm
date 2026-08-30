@@ -43,7 +43,12 @@ fi
 # on some architectures, which is intentionally incompatible with using a
 # conservative collector's forced collection as a root-reachability oracle.
 if [ "${HHY_SKIP_GC_STRESS:-0}" != 1 ]; then
-    for gc_case in tests/valid/advanced-flow.hhy tests/valid/json-flow.hhy tests/valid/csv-flow.hhy; do
+    for gc_case in \
+        tests/valid/advanced-flow.hhy \
+        tests/valid/json-flow.hhy \
+        tests/valid/csv-flow.hhy \
+        tests/valid/gc-distinct-dynamic.hhy \
+        tests/valid/debounce.hhy; do
         gc_expected=$("$HHY_BIN" run "$gc_case")
         gc_actual=$(HHY_GC_STRESS=1 "$HHY_BIN" run "$gc_case")
         [ "$gc_actual" = "$gc_expected" ] ||

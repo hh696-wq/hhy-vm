@@ -1,5 +1,22 @@
 import html
 
+fn bounded_positive(value, fallback, upper_bound) {
+    if type(value) != "Int" or value <= 0 { return fallback }
+    if value > upper_bound { return upper_bound }
+    return value
+}
+
+fn normalize_config(config) {
+    let mut normalized = put(config, "allow_private_networks", config.allow_private_networks == true)
+    normalized = put(normalized, "parallelism", bounded_positive(config.parallelism, 4, 32))
+    normalized = put(normalized, "max_depth", bounded_positive(config.max_depth, 3, 32))
+    normalized = put(normalized, "max_pages", bounded_positive(config.max_pages, 50, 10000))
+    normalized = put(normalized, "max_frontier", bounded_positive(config.max_frontier, 100, 20000))
+    normalized = put(normalized, "max_links_per_page", bounded_positive(config.max_links_per_page, 200, 5000))
+    normalized = put(normalized, "max_results", bounded_positive(config.max_results, 100, 10000))
+    return normalized
+}
+
 fn path_allowed(path_value, prefixes) {
     if length(prefixes) == 0 { return true }
     for prefix in prefixes {
@@ -49,7 +66,8 @@ fn fetch_page(task, config) {
     return { ok: true, url: task.url, depth: task.depth, records: page_records, links: links, error: null }
 }
 
-export fn crawl(config) {
+export fn crawl(raw_config) {
+    let config = normalize_config(raw_config)
     let mut frontier = []
     let mut fingerprints = []
     let mut pages = []
