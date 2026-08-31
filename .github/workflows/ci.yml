@@ -98,7 +98,7 @@ jobs:
           cmake --build /tmp/lexbor-build --parallel 2
           cmake --install /tmp/lexbor-build
           make -C extensions/sample
-          make -C extensions/html
+          make -C extensions/html LEXBOR_PREFIX=/usr/local
           mkdir -p build/registry-target/extensions/sample build/registry-target/extensions/html
           cp -R extensions/sample/hhy.toml extensions/sample/bin build/registry-target/extensions/sample/
           cp -R extensions/html/hhy.toml extensions/html/bin build/registry-target/extensions/html/
