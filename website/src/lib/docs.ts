@@ -2060,18 +2060,25 @@ export const chapters: Chapter[] = [
     slug: "extensions-roadmap",
     order: 20,
     title: { zh: "扩展系统", en: "Extension System" },
-    summary: { zh: `${hhyVersionTag} 本地进程扩展机制：包清单、权限声明、安装完整性、Protocol 1、加载链路与 callable 注册。`, en: `The ${hhyVersionTag} local process-extension model: manifests, capabilities, install integrity, Protocol 1, loading, and callable registration.` },
+    summary: { zh: `${hhyVersionTag} 进程扩展机制：官方签名 Registry、源码编译、包清单、权限声明、Protocol 1 与 callable 注册。`, en: `The ${hhyVersionTag} process-extension model: the signed official Registry, source builds, manifests, capabilities, Protocol 1, and callable registration.` },
     sections: {
       zh: [
         { title: "当前已实现的扩展边界", blocks: [
-          { type: "note", text: `${hhyVersionTag} 已实现本地 install/list/remove、manifest 与 SHA-256 校验、隔离进程握手、动态 callable 注册、同步调用、结构化错误和 shutdown。脚本可以直接 import 已安装的扩展包。` },
-          { type: "table", columns: ["能力", "当前状态", "边界"], rows: [["本地扩展包", "已实现", "仅从本地路径安装；不从远程仓库下载"], ["进程协议", "已实现", "handshake、register、call、call_result、error、shutdown"], ["值传输", "已实现", "Null、Bool、数字、String、List、Map 的 JSON 协议映射"], ["Stream / handle / cancel", "未实现", "属于后续协议扩展"], ["公开 Native ABI", "未承诺", "只有进程协议无法满足且有性能证据时再评估"]] },
+          { type: "note", text: `${hhyVersionTag} 已实现本地 install/list/remove、Ed25519 签名 Registry、manifest 与 SHA-256 校验、隔离进程握手、动态 callable 注册、同步调用、结构化错误和 shutdown。脚本可以直接 import 已安装的扩展包。` },
+          { type: "table", columns: ["能力", "当前状态", "边界"], rows: [["扩展分发", "已实现", "官方签名 Registry 或本地源码构建；安装前验证身份、target、签名与文件哈希"], ["进程协议", "已实现", "handshake、register、call、call_result、error、shutdown"], ["值传输", "已实现", "Null、Bool、数字、String、List、Map 的 JSON 协议映射"], ["Stream / handle / cancel", "未实现", "属于后续协议扩展"], ["公开 Native ABI", "未承诺", "只有进程协议无法满足且有性能证据时再评估"]] },
           { type: "p", text: "包名就是顶级命名空间：package_name 只能注册 package_name.*，不能覆盖 hhy.*、std.*、核心 callable 或其他包。导入未安装的包会得到 ModuleNotFoundError。" }
         ] },
         { title: "现有官方扩展", blocks: [
           { type: "table", columns: ["扩展", "版本", "发布时间", "状态", "能力"], rows: [["database", "0.2.0", "2026-08-26", "已发布", "MySQL/PostgreSQL 查询、写入与事务"], ["html", "0.1.0", "2026-08-27", "已发布", "Lexbor CSS Selector、文本/属性读取与结构化抽取"]] },
           { type: "link", href: "/zh/learn/database-extension", label: "数据库扩展使用指南", description: "安装 database 0.2.0，并完成 MySQL/PostgreSQL 查询、写入与事务。" },
           { type: "link", href: "/zh/learn/html-crawler-framework", label: "HTML 扩展与抓取框架", description: "使用 html 0.1.0、URL 规范化、安全 Frontier、去重和 SSRF 防护构建静态 Spider。" }
+        ] },
+        { title: "在哪里获取扩展", blocks: [
+          { type: "table", columns: ["来源", "适合场景", "地址或操作"], rows: [["HHY 官方 Registry", "下载经过签名、按平台区分的官方扩展", "https://registry.hhylang.dev（索引：/index.json；信任根：/root.json）"], ["GitHub 源码", "查看代码、审计变更或自行编译", "https://github.com/hh696-wq/hhy-vm/tree/main/extensions"], ["本地自行编译", "开发扩展或需要本机依赖组合", "make -C extensions/<name>，然后从本地目录安装"]] },
+          { type: "code", language: "sh", code: "# 从源码构建并安装（示例：html）\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\nmake -C extensions/html\n./build/hhy install ./extensions/html\n\n# 查看已安装扩展\n./build/hhy list" },
+          { type: "link", href: "https://registry.hhylang.dev/index.json", label: "查看官方扩展索引 ↗", description: "同一扩展版本按 darwin-arm64、linux-x86_64、linux-arm64 和 windows-x86_64 分发，安装器只选择当前平台 target。" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/extensions", label: "在 GitHub 查看扩展源码 ↗", description: "包含 sample、html 与 database 的源码、hhy.toml、测试和构建脚本。" },
+          { type: "note", text: "GitHub Release 暂不作为扩展下载入口。官方 Registry 提供签名分发；GitHub 提供可审计源码。自行编译时必须在目标操作系统和架构上构建，不能把 macOS 二进制改名用于 Linux 或 Windows。" }
         ] },
         { title: "安装、查看与移除", blocks: [
           { type: "code", language: "sh", code: "./build/hhy install ./path/to/extension\n./build/hhy list\n./build/hhy remove package-name" },
@@ -2094,14 +2101,21 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "The current extension boundary", blocks: [
-          { type: "note", text: `${hhyVersionTag} implements local install/list/remove, manifest and SHA-256 validation, isolated-process handshakes, dynamic callable registration, synchronous calls, structured errors, and shutdown. Scripts can directly import installed packages.` },
-          { type: "table", columns: ["Capability", "Current status", "Boundary"], rows: [["Local extension packages", "Implemented", "Install from local paths only; no remote registry download"], ["Process protocol", "Implemented", "handshake, register, call, call_result, error, shutdown"], ["Value transport", "Implemented", "JSON protocol mapping for Null, Bool, numbers, String, List, and Map"], ["Stream / handle / cancel", "Not implemented", "Reserved for a future protocol extension"], ["Public Native ABI", "Not committed", "Evaluate only if measurements show the process model is insufficient"]] },
+          { type: "note", text: `${hhyVersionTag} implements local install/list/remove, an Ed25519-signed Registry, manifest and SHA-256 validation, isolated-process handshakes, dynamic callable registration, synchronous calls, structured errors, and shutdown. Scripts can directly import installed packages.` },
+          { type: "table", columns: ["Capability", "Current status", "Boundary"], rows: [["Extension distribution", "Implemented", "Signed official Registry or local source builds; identity, target, signatures, and file hashes are verified before installation"], ["Process protocol", "Implemented", "handshake, register, call, call_result, error, shutdown"], ["Value transport", "Implemented", "JSON protocol mapping for Null, Bool, numbers, String, List, and Map"], ["Stream / handle / cancel", "Not implemented", "Reserved for a future protocol extension"], ["Public Native ABI", "Not committed", "Evaluate only if measurements show the process model is insufficient"]] },
           { type: "p", text: "A package name is its top-level namespace: package_name may register only package_name.* and cannot replace hhy.*, std.*, core callables, or another package. Importing an uninstalled package raises ModuleNotFoundError." }
         ] },
         { title: "Available official extensions", blocks: [
           { type: "table", columns: ["Extension", "Version", "Published", "Status", "Capability"], rows: [["database", "0.2.0", "2026-08-26", "Released", "MySQL/PostgreSQL queries, writes, and transactions"], ["html", "0.1.0", "2026-08-27", "Released", "Lexbor CSS selectors, text/attribute reads, and structured extraction"]] },
           { type: "link", href: "/en/learn/database-extension", label: "Database Extension Guide", description: "Install database 0.2.0 and perform MySQL/PostgreSQL queries, writes, and transactions." },
           { type: "link", href: "/en/learn/html-crawler-framework", label: "HTML Extension and Crawler Framework", description: "Use html 0.1.0 with URL normalization, a safe frontier, deduplication, and SSRF protection." }
+        ] },
+        { title: "Where to get extensions", blocks: [
+          { type: "table", columns: ["Source", "Best for", "Address or action"], rows: [["Official HHY Registry", "Downloading signed official extensions for a specific platform", "https://registry.hhylang.dev (index: /index.json; trust root: /root.json)"], ["GitHub source", "Reviewing code, auditing changes, or building from source", "https://github.com/hh696-wq/hhy-vm/tree/main/extensions"], ["Local source build", "Extension development or a custom local dependency combination", "make -C extensions/<name>, then install the local directory"]] },
+          { type: "code", language: "sh", code: "# Build and install from source (html example)\ngit clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm\nmake\nmake -C extensions/html\n./build/hhy install ./extensions/html\n\n# Inspect installed extensions\n./build/hhy list" },
+          { type: "link", href: "https://registry.hhylang.dev/index.json", label: "Open the official extension index ↗", description: "One extension version may contain darwin-arm64, linux-x86_64, linux-arm64, and windows-x86_64 targets; the installer selects only its native target." },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/extensions", label: "Browse extension source on GitHub ↗", description: "Source, hhy.toml manifests, tests, and build scripts for sample, html, and database." },
+          { type: "note", text: "GitHub Releases are not currently an extension download channel. The official Registry provides signed distribution; GitHub provides auditable source. Build on the destination operating system and architecture—renaming a macOS binary does not make it usable on Linux or Windows." }
         ] },
         { title: "Install, list, and remove", blocks: [
           { type: "code", language: "sh", code: "./build/hhy install ./path/to/extension\n./build/hhy list\n./build/hhy remove package-name" },
