@@ -229,7 +229,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                       </details>
                       <article className="evolution-current">
                         <CurrentIcon size={48} weight="duotone" aria-hidden />
-                        <div className="evolution-current-title"><span><b>{current.version}</b><em>{lang === "zh" ? "当前 · 进行中" : "Current · In progress"}</em></span><time>{current.date}</time><h3>{current.title}</h3></div>
+                        <div className="evolution-current-title"><span><b>{current.version}</b><em>{lang === "zh" ? "当前 · 已验证" : "Current · Verified"}</em></span><time>{current.date}</time><h3>{current.title}</h3></div>
                         <p>{current.detail}</p>
                       </article>
                     </div>
