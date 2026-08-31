@@ -6,7 +6,6 @@ import { createRequire } from "node:module";
 
 const websiteRoot = resolve(import.meta.dirname, "..");
 const repositoryRoot = resolve(websiteRoot, "..");
-const outputRoot = resolve(repositoryRoot, "gitbook", "zh");
 const compileRoot = mkdtempSync(join(tmpdir(), "hhy-gitbook-"));
 const require = createRequire(import.meta.url);
 
@@ -28,7 +27,7 @@ function escapeTable(value) {
   return String(value).replaceAll("|", "\\|").replaceAll("\n", "<br>");
 }
 
-function renderBlock(block, chapter) {
+function renderBlock(block, chapter, language) {
   switch (block.type) {
     case "p": return `${block.text}\n`;
     case "note": return `{% hint style="info" %}\n${block.text}\n{% endhint %}\n`;
@@ -48,38 +47,45 @@ function renderBlock(block, chapter) {
     case "extension-flow":
     case "evolution-roadmap":
     case "runtime-performance-roadmap":
-      return `{% hint style="info" %}\n本节的交互式图表请在 [hhylang.dev](https://hhylang.dev/zh/learn/${chapter.slug}) 查看。\n{% endhint %}\n`;
+      return language === "zh"
+        ? `{% hint style="info" %}\n本节的交互式图表请在 [hhylang.dev](https://hhylang.dev/zh/learn/${chapter.slug}) 查看。\n{% endhint %}\n`
+        : `{% hint style="info" %}\nView the interactive diagram for this section on [hhylang.dev](https://hhylang.dev/en/learn/${chapter.slug}).\n{% endhint %}\n`;
     default: throw new Error(`Unsupported documentation block: ${block.type}`);
   }
 }
 
-rmSync(outputRoot, { recursive: true, force: true });
-mkdirSync(resolve(outputRoot, ".gitbook", "assets"), { recursive: true });
-
 const ordered = [...chapters].sort((left, right) => left.order - right.order);
-const summary = ["# 目录", "", "* [HHY 语言手册](README.md)"];
+const packageJson = JSON.parse(readFileSync(resolve(websiteRoot, "package.json"), "utf8"));
 
-for (const chapter of ordered) {
-  const lines = [
-    `# ${chapter.order}. ${chapter.title.zh}`,
-    "",
-    chapter.summary.zh,
-    ""
-  ];
-  for (const [index, section] of chapter.sections.zh.entries()) {
-    lines.push(`## ${chapter.order}.${index + 1} ${section.title}`, "");
-    for (const block of section.blocks) lines.push(renderBlock(block, chapter), "");
+function generateLanguage(language) {
+  const outputRoot = resolve(repositoryRoot, "gitbook", language);
+  const isChinese = language === "zh";
+  rmSync(outputRoot, { recursive: true, force: true });
+  mkdirSync(resolve(outputRoot, ".gitbook", "assets"), { recursive: true });
+  const summary = [isChinese ? "# 目录" : "# Table of contents", "", `* [${isChinese ? "HHY 语言手册" : "HHY Language Manual"}](README.md)`];
+
+  for (const chapter of ordered) {
+    const lines = [`# ${chapter.order}. ${chapter.title[language]}`, "", chapter.summary[language], ""];
+    for (const [index, section] of chapter.sections[language].entries()) {
+      lines.push(`## ${chapter.order}.${index + 1} ${section.title}`, "");
+      for (const block of section.blocks) lines.push(renderBlock(block, chapter, language), "");
+    }
+    const filename = `${String(chapter.order).padStart(2, "0")}-${chapter.slug}.md`;
+    writeFileSync(resolve(outputRoot, filename), lines.join("\n").replace(/\n{4,}/g, "\n\n\n").trimEnd() + "\n");
+    summary.push(`  * [${chapter.order}. ${chapter.title[language]}](${filename})`);
   }
-  const filename = `${String(chapter.order).padStart(2, "0")}-${chapter.slug}.md`;
-  writeFileSync(resolve(outputRoot, filename), lines.join("\n").replace(/\n{4,}/g, "\n\n\n").trimEnd() + "\n");
-  summary.push(`  * [${chapter.order}. ${chapter.title.zh}](${filename})`);
+
+  const readme = isChinese
+    ? `# HHY 语言手册\n\n![HHY Language](.gitbook/assets/hhy-logo.png)\n\nHHY 是一门以 Flow 为语义中心、面向真实系统自动化的开源脚本语言。\n\n本手册同步自 [hhylang.dev 中文打印版](https://hhylang.dev/zh/learn/print)，对应网站版本 **v${packageJson.version}**。\n\n- [快速开始](01-quick-start.md)\n- [GitHub 仓库](https://github.com/hh696-wq/hhy-vm)\n- [下载正式版本](https://github.com/hh696-wq/hhy-vm/releases)\n`
+    : `# HHY Language Manual\n\n![HHY Language](.gitbook/assets/hhy-logo.png)\n\nHHY is an open-source scripting language built around Flow semantics for real system automation.\n\nThis manual is synchronized from the [hhylang.dev English print edition](https://hhylang.dev/en/learn/print) and corresponds to website version **v${packageJson.version}**.\n\n- [Quick Start](01-quick-start.md)\n- [GitHub repository](https://github.com/hh696-wq/hhy-vm)\n- [Stable releases](https://github.com/hh696-wq/hhy-vm/releases)\n`;
+  writeFileSync(resolve(outputRoot, "README.md"), readme);
+  writeFileSync(resolve(outputRoot, "SUMMARY.md"), summary.join("\n") + "\n");
+  copyFileSync(resolve(websiteRoot, "public", "hhy-logo.png"), resolve(outputRoot, ".gitbook", "assets", "hhy-logo.png"));
+  console.log(`Generated ${ordered.length} ${language} GitBook chapters in ${outputRoot}`);
 }
 
-const packageJson = JSON.parse(readFileSync(resolve(websiteRoot, "package.json"), "utf8"));
-writeFileSync(resolve(outputRoot, "README.md"), `# HHY 语言手册\n\n![HHY Language](.gitbook/assets/hhy-logo.png)\n\nHHY 是一门以 Flow 为语义中心、面向真实系统自动化的开源脚本语言。\n\n本手册同步自 [hhylang.dev 中文打印版](https://hhylang.dev/zh/learn/print)，对应网站版本 **v${packageJson.version}**。\n\n- [快速开始](01-quick-start.md)\n- [GitHub 仓库](https://github.com/hh696-wq/hhy-vm)\n- [下载正式版本](https://github.com/hh696-wq/hhy-vm/releases)\n`);
-writeFileSync(resolve(outputRoot, "SUMMARY.md"), summary.join("\n") + "\n");
-copyFileSync(resolve(websiteRoot, "public", "hhy-logo.png"), resolve(outputRoot, ".gitbook", "assets", "hhy-logo.png"));
+generateLanguage("zh");
+generateLanguage("en");
 writeFileSync(resolve(repositoryRoot, ".gitbook.yaml"), "root: ./gitbook/zh/\n\nstructure:\n  readme: README.md\n  summary: SUMMARY.md\n");
 
 rmSync(compileRoot, { recursive: true, force: true });
-console.log(`Generated ${ordered.length} GitBook chapters in ${outputRoot}`);
