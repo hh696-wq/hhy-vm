@@ -116,6 +116,28 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Build Windows MSYS2 release archive
+        run: sh scripts/build-windows-release.sh
+
+      - name: Verify Windows archive and required notices
+        run: |
+          (cd dist && sha256sum --check *.sha256)
+          tar -tzf dist/*.tar.gz | grep -E 'bin/hhy.exe$'
+          tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
+          tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
+          tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'
+
+      - name: Upload Windows release evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-windows-x86_64-${{ github.sha }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+
   linux:
     name: Linux ${{ matrix.package_arch }} native sanitizer and release
     strategy:

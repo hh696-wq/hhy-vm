@@ -8,7 +8,7 @@
 ## 平台
 
 - 正式目标仅为 macOS arm64、Linux arm64 和 Linux x86_64。
-- Windows x86_64 通过 MSYS2 POSIX 环境执行构建与基础运行时 smoke；这不等同于原生 Win32 发行包。macOS x86_64 和其他 Unix 仍不在正式支持矩阵中。
+- Windows x86_64 提供经过 CI 验证的 MSYS2 POSIX 发行归档；它包含 Runtime、必要 DLL、sample 与 html 扩展，但不等同于原生 Win32 ABI，且暂不包含 database 扩展。macOS x86_64 和其他 Unix 仍不在正式支持矩阵中。
 - MSYS2 不提供 `ITIMER_PROF`，因此该环境的 profiler 保留调用计数、总 CPU/墙钟时间和堆统计，但不提供信号式 CPU hotspot 采样。
 - File.created 依赖操作系统与文件系统；无法可靠取得时返回 Null，绝不使用 modified 伪造。
 - watch 事件在 macOS/Linux 由 kqueue 或 inotify 归一化；其他 POSIX 环境使用文件状态轮询降级，递归目录监听能力有限。操作系统可能合并短时间内重复发生的底层事件。
