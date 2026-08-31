@@ -43,7 +43,7 @@ PACKAGE := hhy-$(VERSION)-$(SYSTEM)-$(ARCH)
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: all clean extensions test test-debug debug benchmark quality install dist fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
+.PHONY: all clean extensions test test-debug debug benchmark quality install dist registry-package fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
 
 all: $(TARGET)
 
@@ -144,6 +144,9 @@ dist:
 	else \
 		(cd dist && shasum -a 256 $(PACKAGE).tar.gz > $(PACKAGE).tar.gz.sha256); \
 	fi
+
+registry-package: extensions
+	python3 scripts/build-registry-package.py
 
 clean:
 	rm -f src/*.o

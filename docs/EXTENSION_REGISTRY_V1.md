@@ -31,6 +31,10 @@ hhy install --yes --registry ./registry-snapshot \
 
 测试通过临时 Ed25519 密钥生成 fixture，并覆盖依赖顺序、零副作用 dry-run、索引篡改和 payload 篡改拒绝。私钥绝不能进入正式 Registry 或客户端。
 
+宝塔静态站点部署包可在项目根目录执行 `make registry-package` 生成。产物位于
+`build/registry/hhy-registry-bt-<version>.tar.gz`，可直接上传并解压到站点根目录；
+首次运行生成的正式签名私钥保存在 Git 忽略的 `.hhy-private/`，不会进入部署包。
+
 ## English
 
 HHY v1.2.0 adds a static, signed official Registry while preserving local-path development installs. A snapshot may live in a repository, a CI artifact, or later on a static HTTPS origin; the first implementation does not require a domain.
@@ -43,3 +47,7 @@ HHY v1.2.0 adds a static, signed official Registry while preserving local-path d
 - Packages are verified in same-filesystem staging directories and committed by atomic rename. A graph-level failure removes packages added by that transaction and never replaces an existing package.
 
 Lockfiles, offline caches, explicit upgrades, and user-visible version rollback remain v1.2.1 work. Open third-party publishing, delegated publisher keys, rotation, and revocation are intentionally outside this official-only v1 schema.
+
+Run `make registry-package` to create a BT-ready archive under `build/registry/`.
+The first run creates the persistent signing key under the Git-ignored
+`.hhy-private/` directory; that key is never included in the deployment archive.
