@@ -121,7 +121,8 @@ static bool sha256_file(const char *path, char output[65]) {
         if (count < sizeof(buffer)) { if (ferror(file)) ok = false; break; }
     }
     if (ok) ok = EVP_DigestFinal_ex(context, digest, &length) == 1 && length == 32;
-    if (file != NULL) fclose(file); EVP_MD_CTX_free(context);
+    if (file != NULL) fclose(file);
+    EVP_MD_CTX_free(context);
     if (!ok) return false;
     for (size_t i = 0; i < 32; i++) snprintf(output + i * 2, 3, "%02x", digest[i]);
     output[64] = '\0'; return true;
