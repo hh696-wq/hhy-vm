@@ -30,6 +30,7 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
   const projectChapters = chapters.filter((chapter) => chapterKind(chapter) === "project").sort((a, b) => a.order - b.order);
   const referenceChapters = chapters.filter((chapter) => chapterKind(chapter) === "reference").sort((a, b) => a.order - b.order);
   const extensionChapters = chapters.filter((chapter) => chapterKind(chapter) === "extension").sort((a, b) => a.order - b.order);
+  const reportChapters = chapters.filter((chapter) => chapterKind(chapter) === "report").sort((a, b) => a.order - b.order);
   const roadmapChapters = chapters.filter((chapter) => chapterKind(chapter) === "roadmap").sort((a, b) => a.order - b.order);
   const toolingChapters = chapters.filter((chapter) => chapterKind(chapter) === "tooling").sort((a, b) => a.order - b.order);
 
@@ -90,7 +91,7 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
         ))}
       </div>
       <h2 className="docs-index-heading reference-heading">{lang === "zh" ? "扩展" : "Extensions"}</h2>
-      <p className="docs-index-description">{lang === "zh" ? "学习 HHY v1.1.8 的进程扩展、可恢复 Spider、编辑器工具与 Runtime 治理基线。" : "Learn the HHY v1.1.8 process extensions, resumable spider, editor tooling, and Runtime governance baseline."}</p>
+      <p className="docs-index-description">{lang === "zh" ? "学习 HHY v1.2.0 的签名扩展分发、进程扩展、编辑器工具与 Runtime 治理基线。" : "Learn HHY v1.2.0 signed extension distribution, process extensions, editor tooling, and Runtime governance."}</p>
       <div className="chapter-grid">
         {extensionChapters.map((chapter) => (
           <Link href={`/${lang}/learn/${chapter.slug}`} className="chapter-card" key={chapter.slug}>
@@ -122,6 +123,18 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
             <h2>{chapter.title[lang]}</h2>
             <p>{chapter.summary[lang]}</p>
             <strong>{lang === "zh" ? "安装语言支持" : "Install language support"}<ArrowRight size={17} /></strong>
+          </Link>
+        ))}
+      </div>
+      <h2 className="docs-index-heading reference-heading">{lang === "zh" ? "语言报告" : "Language Reports"}</h2>
+      <p className="docs-index-description">{lang === "zh" ? "发布跨版本的语言治理、性能基线、Runtime 健康度、兼容性与工程质量报告；版本号仅作为采样点。" : "Cross-release reports on language governance, performance baselines, Runtime health, compatibility, and engineering quality; versions identify sampling points only."}</p>
+      <div className="chapter-grid">
+        {reportChapters.map((chapter) => (
+          <Link href={`/${lang}/learn/${chapter.slug}`} className="chapter-card report-card" key={chapter.slug}>
+            <span>{String(chapter.order).padStart(2, "0")}</span>
+            <h2>{chapter.title[lang]}</h2>
+            <p>{chapter.summary[lang]}</p>
+            <strong>{lang === "zh" ? "阅读总体报告" : "Read report"}<ArrowRight size={17} /></strong>
           </Link>
         ))}
       </div>

@@ -106,6 +106,8 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
               ? (lang === "zh" ? "HHY 参考" : "HHY Reference")
             : chapterKind(chapter) === "extension"
               ? (lang === "zh" ? `HHY 扩展 · 当前版本 v${hhyVersion}` : `HHY Extension · Current version v${hhyVersion}`)
+            : chapterKind(chapter) === "report"
+              ? (lang === "zh" ? "HHY 语言报告" : "HHY Language Report")
             : chapterKind(chapter) === "roadmap"
               ? (lang === "zh" ? "HHY 路线图" : "HHY Roadmap")
               : (lang === "zh" ? "HHY 工具" : "HHY Tooling")}</p>
@@ -184,7 +186,8 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.1.5", date: "2026-08-30", title: "可恢复 Spider 与浏览器渲染", detail: "持久 Frontier、断点恢复、流式落盘、可选 Playwright 与 Windows MSYS2 构建证据", icon: ShieldCheck },
                     { version: "v1.1.6", date: "2026-08-31", title: "稳定基线与测试治理", detail: "宿主能力探测、分层 CI、机器可读性能基线与发布一致性门禁", icon: ShieldCheck },
                     { version: "v1.1.7", date: "2026-08-31", title: "诊断与编辑器基线", detail: "版本化 JSON diagnostics、Contract Registry JSON、LSP 与 VS Code 编辑闭环", icon: ShieldCheck },
-                    { version: "v1.1.8", date: "2026-08-31", title: "Runtime 渐进治理", detail: "首个模块边界、内部所有权规则、GC/sanitizer 与性能回归门禁", icon: ShieldCheck }
+                    { version: "v1.1.8", date: "2026-08-31", title: "Runtime 渐进治理", detail: "首个模块边界、内部所有权规则、GC/sanitizer 与性能回归门禁", icon: ShieldCheck },
+                    { version: "v1.2.0", date: "2026-08-31", title: "官方扩展分发与签名", detail: "Ed25519 签名 Registry、传递依赖解析、dry-run 与事务式安装", icon: Handshake }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
@@ -196,15 +199,16 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.1.5", date: "2026-08-30", title: "Resumable spider and browser rendering", detail: "Persistent frontier, resume, streamed files, optional Playwright, and Windows MSYS2 build evidence", icon: ShieldCheck },
                     { version: "v1.1.6", date: "2026-08-31", title: "Stable engineering baseline", detail: "Host capability probes, layered CI, machine-readable performance baselines, and release consistency gates", icon: ShieldCheck },
                     { version: "v1.1.7", date: "2026-08-31", title: "Diagnostics and editor baseline", detail: "Versioned JSON diagnostics, Contract Registry JSON, LSP, and a VS Code editing loop", icon: ShieldCheck },
-                    { version: "v1.1.8", date: "2026-08-31", title: "Gradual Runtime governance", detail: "First module boundary, internal ownership rules, GC/sanitizer, and a performance-regression gate", icon: ShieldCheck }
+                    { version: "v1.1.8", date: "2026-08-31", title: "Gradual Runtime governance", detail: "First module boundary, internal ownership rules, GC/sanitizer, and a performance-regression gate", icon: ShieldCheck },
+                    { version: "v1.2.0", date: "2026-08-31", title: "Official extension distribution and signing", detail: "Ed25519-signed Registry, transitive resolution, dry runs, and transaction-safe installs", icon: Handshake }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
-                    { version: "v1.2", window: "v1.1.x 验收后", title: "官方扩展包分发与工具链", items: ["官方扩展签名与发布者验证", "依赖解析和远程索引", "离线锁定、可复现安装与回滚"], icon: Handshake },
+                    { version: "v1.2.1", window: "v1.2.0 验收后", title: "锁定、离线与安全回滚", items: ["Lockfile 与精确依赖图", "离线缓存和可复现安装", "显式升级与版本回滚"], icon: Handshake },
                     { version: "v2.0", window: "生态证据充分后", title: "生态开放与 ABI 决策", items: ["以真实集成测量进程协议边界", "评估 embedding / FFI", "仅在必要时发布 Native ABI"], icon: RocketLaunch }
                   ]
                   : [
-                    { version: "v1.2", window: "After v1.1.x acceptance", title: "Official extension distribution and tooling", items: ["Official extension signatures and publisher verification", "Dependency resolution and remote index", "Offline lock, reproducible install, and rollback"], icon: Handshake },
+                    { version: "v1.2.1", window: "After v1.2.0 acceptance", title: "Locking, offline installs, and safe rollback", items: ["Lockfiles and exact dependency graphs", "Offline caches and reproducible installs", "Explicit upgrades and version rollback"], icon: Handshake },
                     { version: "v2.0", window: "After sufficient ecosystem evidence", title: "Ecosystem and ABI decision", items: ["Measure process-protocol limits with real integrations", "Evaluate embedding / FFI", "Publish a Native ABI only if necessary"], icon: RocketLaunch }
                   ];
                 const principles = lang === "zh"
@@ -244,7 +248,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                       ))}
                     </div>
                     <div className="evolution-principles"><strong><ShieldCheck size={30} weight="duotone" />{lang === "zh" ? "演进原则" : "Evolution principles"}</strong>{principles.map((principle, principleIndex) => <span key={principle}><b>{principleIndex + 1}</b>{principle}</span>)}</div>
-                    <figcaption>{lang === "zh" ? "演进顺序：v1.1.6 稳定基线 → v1.1.7 编辑器基线 → v1.1.8 Runtime 治理 → 官方扩展工具链 → 生态 ABI 决策" : "Evolution order: v1.1.6 stable baseline → v1.1.7 editor baseline → v1.1.8 Runtime governance → official extension tooling → ecosystem ABI decision"}</figcaption>
+                    <figcaption>{lang === "zh" ? "演进顺序：v1.1.8 Runtime 治理 → v1.2.0 签名分发 → v1.2.1 锁定与回滚 → 生态 ABI 决策" : "Evolution order: v1.1.8 Runtime governance → v1.2.0 signed distribution → v1.2.1 locking and rollback → ecosystem ABI decision"}</figcaption>
                   </figure>
                 );
               }

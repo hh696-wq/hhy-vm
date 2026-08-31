@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Language } from "@/lib/i18n";
 import { ui } from "@/lib/i18n";
-import { hhyVersionLabel, hhyVersionTag } from "@/lib/release";
+import { hhyCoreCallableCount, hhyCurrentRelease, hhyVersionLabel, hhyVersionTag } from "@/lib/release";
 import { QuickInstall } from "@/components/quick-install";
 
 const siteGraphSnippet = `1  try {
@@ -23,6 +23,7 @@ const siteGraphSnippet = `1  try {
 
 export function HomePage({ language }: { language: Language }) {
   const copy = ui[language];
+  const release = hhyCurrentRelease[language];
   const zh = language === "zh";
   const flow = [
     { label: "URL", icon: GlobeHemisphereWest },
@@ -81,8 +82,8 @@ export function HomePage({ language }: { language: Language }) {
       <section className="editorial-grid section-shell">
         <article className="release-story">
           <div className="story-label"><CheckCircle size={18} weight="duotone" />{zh ? "当前版本" : "Current release"}</div>
-          <h2>{hhyVersionTag} · {zh ? "可恢复 Spider" : "Resumable spider"}</h2>
-          <p>{zh ? "持久 Frontier、严格断点恢复、流式响应落盘与可选 Playwright JavaScript 渲染，并新增 Windows MSYS2 构建验证。" : "Persistent frontier state, strict resume, streamed response files, optional Playwright JavaScript rendering, and Windows MSYS2 build verification."}</p>
+          <h2>{hhyVersionTag} · {release.title}</h2>
+          <p>{release.summary}</p>
           <div className="release-art"><Image src="/hhy-logo.png" alt="" width={420} height={280} /></div>
           <Link href={`/${language}/learn/language-vm-roadmap`}>{zh ? "查看版本路线图" : "View release roadmap"}<ArrowRight size={17} /></Link>
         </article>
@@ -90,7 +91,7 @@ export function HomePage({ language }: { language: Language }) {
         <div className="editorial-stack">
           <article className="editorial-story">
             <div className="story-label"><Code size={18} weight="duotone" />{zh ? "参考" : "Reference"}</div>
-            <h2>{zh ? "完整的 95 个核心 callable" : "All 95 core callables"}</h2>
+            <h2>{zh ? `完整的 ${hhyCoreCallableCount} 个核心 callable` : `All ${hhyCoreCallableCount} core callables`}</h2>
             <p>{zh ? "来自 Runtime Callable Contract Registry 的完整签名与用途。" : "Complete signatures and purposes from the Runtime Callable Contract Registry."}</p>
             <Link href={`/${language}/learn/standard-library`}>{zh ? "浏览函数索引" : "Browse function index"}<ArrowRight size={16} /></Link>
           </article>

@@ -200,7 +200,8 @@ static void print_capabilities(const char *capabilities) {
     }
 }
 
-int hhy_package_install(const char *source, bool assume_yes) {
+int hhy_package_install(const char *source, const HhyPackageInstallOptions *options) {
+    const bool assume_yes = options != NULL && options->assume_yes;
     char resolved[PATH_MAX], manifest_path[PATH_MAX], executable[PATH_MAX]; Manifest manifest;
     if (realpath(source, resolved) == NULL ||
         snprintf(manifest_path, sizeof(manifest_path), "%s/hhy.toml", resolved) >= (int)sizeof(manifest_path) ||
@@ -220,19 +221,26 @@ int hhy_package_install(const char *source, bool assume_yes) {
     printf("Package: %s %s\nAuthor: %s\nProtocol: %s\nCapabilities:\n%s",
            manifest.name, manifest.version, manifest.author, manifest.protocol,
            manifest.capabilities[0] ? manifest.capabilities : "  none\n");
+    if (options != NULL && options->dry_run) {
+        printf("Plan: install local package %s %s\n", manifest.name, manifest.version);
+        return 0;
+    }
     if (!assume_yes) {
         char answer[16]; fputs("Install this local extension? [y/N] ", stdout); fflush(stdout);
         if (fgets(answer, sizeof(answer), stdin) == NULL || (answer[0] != 'y' && answer[0] != 'Y')) return 3;
     }
-    char home[PATH_MAX], target[PATH_MAX], target_bin[PATH_MAX], target_manifest[PATH_MAX];
+    char home[PATH_MAX], target[PATH_MAX], staging[PATH_MAX], target_bin[PATH_MAX], target_manifest[PATH_MAX];
     if (!hhy_package_home(home, sizeof(home)) || !make_home(home) ||
         snprintf(target, sizeof(target), "%s/%s", home, manifest.name) >= (int)sizeof(target) ||
-        snprintf(target_bin, sizeof(target_bin), "%s/bin", target) >= (int)sizeof(target_bin) ||
-        snprintf(target_manifest, sizeof(target_manifest), "%s/hhy.toml", target) >= (int)sizeof(target_manifest)) {
+        snprintf(staging, sizeof(staging), "%s/.hhy-stage-%ld-%s", home, (long)getpid(), manifest.name) >= (int)sizeof(staging) ||
+        snprintf(target_bin, sizeof(target_bin), "%s/bin", staging) >= (int)sizeof(target_bin) ||
+        snprintf(target_manifest, sizeof(target_manifest), "%s/hhy.toml", staging) >= (int)sizeof(target_manifest)) {
         fputs("hhy: cannot prepare extension home\n", stderr); return 4;
     }
     if (access(target, F_OK) == 0) { fputs("hhy: package is already installed; remove it first\n", stderr); return 3; }
-    if (!make_directory(target) || !make_directory(target_bin)) { fputs("hhy: cannot create package directory\n", stderr); return 4; }
+    if (access(staging, F_OK) == 0 || !make_directory(staging) || !make_directory(target_bin)) {
+        fputs("hhy: cannot create package staging directory\n", stderr); return 4;
+    }
     const char *basename = strrchr(manifest.command, '/'); basename = basename ? basename + 1 : manifest.command;
     char target_executable[PATH_MAX];
     bool ok = snprintf(target_executable, sizeof(target_executable), "%s/%s", target_bin, basename) < (int)sizeof(target_executable) &&
@@ -241,14 +249,14 @@ int hhy_package_install(const char *source, bool assume_yes) {
     ok = ok && sha256_file(executable, source_hash) && sha256_file(target_executable, installed_hash) &&
          strcmp(source_hash, installed_hash) == 0 && sha256_file(target_manifest, manifest_hash);
     if (!ok) {
-        unlink(target_executable); unlink(target_manifest); rmdir(target_bin); rmdir(target);
+        unlink(target_executable); unlink(target_manifest); rmdir(target_bin); rmdir(staging);
         fputs("hhy: extension copy or integrity verification failed\n", stderr); return 4;
     }
     char hash_path[PATH_MAX], source_lib[PATH_MAX], target_lib[PATH_MAX];
-    if (snprintf(hash_path, sizeof(hash_path), "%s/SHA256", target) >= (int)sizeof(hash_path) ||
+    if (snprintf(hash_path, sizeof(hash_path), "%s/SHA256", staging) >= (int)sizeof(hash_path) ||
         snprintf(source_lib, sizeof(source_lib), "%s/lib", resolved) >= (int)sizeof(source_lib) ||
-        snprintf(target_lib, sizeof(target_lib), "%s/lib", target) >= (int)sizeof(target_lib)) {
-        unlink(target_executable); unlink(target_manifest); rmdir(target_bin); rmdir(target);
+        snprintf(target_lib, sizeof(target_lib), "%s/lib", staging) >= (int)sizeof(target_lib)) {
+        unlink(target_executable); unlink(target_manifest); rmdir(target_bin); rmdir(staging);
         fputs("hhy: extension package path is too long\n", stderr); return 4;
     }
     FILE *hash = fopen(hash_path, "wb");
@@ -259,8 +267,13 @@ int hhy_package_install(const char *source, bool assume_yes) {
     if (hash != NULL && fclose(hash) != 0) hash_ok = false;
     if (!hash_ok) {
         unlink(hash_path); clear_flat_directory(target_lib); unlink(target_executable);
-        unlink(target_manifest); rmdir(target_bin); rmdir(target);
+        unlink(target_manifest); rmdir(target_bin); rmdir(staging);
         fputs("hhy: cannot write extension integrity record\n", stderr); return 4;
+    }
+    if (rename(staging, target) != 0) {
+        unlink(hash_path); clear_flat_directory(target_lib); unlink(target_executable);
+        unlink(target_manifest); rmdir(target_bin); rmdir(staging);
+        fputs("hhy: cannot commit staged extension install\n", stderr); return 4;
     }
     printf("Installed %s %s\n", manifest.name, manifest.version); return 0;
 }

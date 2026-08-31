@@ -1,6 +1,6 @@
 # HHY v1.1 第三方依赖
 
-> 当前稳定版本：`1.1.8`；依赖政策适用于 v1.x。
+> 当前开发版本：`1.2.0`；依赖政策适用于 v1.x。
 
 HHY 核心运行时保持小依赖面，只在协议、安全或 Unicode 语义不适合自行实现时使用成熟库。
 
@@ -10,7 +10,7 @@ HHY 核心运行时保持小依赖面，只在协议、安全或 Unicode 语义�
 | PCRE2 8-bit | Regex `i/m/s/u`、命名捕获、执行限制 | BSD 3-Clause | `pcre2.h` 与 `libpcre2-8` | [PCRE2](https://www.pcre.org/) |
 | BDWGC | 长生命周期 HHY value 的保守追踪垃圾回收 | MIT-style permissive | `gc/gc.h` 与 `libgc` | [BDWGC releases](https://github.com/bdwgc/bdwgc/releases) |
 | Jansson | Process Extension Protocol 的确定性 JSON 编解码 | MIT | `jansson.h` 与 `libjansson` | [Jansson](https://digip.org/jansson/) |
-| OpenSSL libcrypto | 本地扩展包 SHA-256 完整性校验 | Apache 2.0 | EVP API 与 `libcrypto` | [OpenSSL](https://www.openssl.org/) |
+| OpenSSL libcrypto | 扩展包 SHA-256 完整性与 Ed25519 Registry 签名校验 | Apache 2.0 | EVP API 与 `libcrypto` | [OpenSSL](https://www.openssl.org/) |
 | libpq（database 扩展） | PostgreSQL 参数化查询 | PostgreSQL License | `libpq-fe.h` 与 `libpq` | [PostgreSQL](https://www.postgresql.org/) |
 | MySQL Client（database 扩展） | MySQL prepared statement | GPL-2.0 with FOSS exception | `mysql.h` 与 `libmysqlclient` | [MySQL](https://www.mysql.com/) |
 | Lexbor（html 扩展） | HTML Living Standard 解析、DOM 与 CSS Selector | Apache-2.0 | `lexbor/html/html.h` 与 `liblexbor` | [Lexbor](https://lexbor.com/) |

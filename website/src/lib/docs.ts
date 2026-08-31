@@ -1,5 +1,5 @@
 import type { Language } from "./i18n";
-import { hhyVersion, hhyVersionLabel, hhyVersionTag } from "./release";
+import { hhyCoreCallableCount, hhyVersion, hhyVersionLabel, hhyVersionTag } from "./release";
 
 export type ChapterSlug =
   | "quick-start"
@@ -24,6 +24,7 @@ export type ChapterSlug =
   | "database-extension"
   | "html-crawler-framework"
   | "language-vm-roadmap"
+  | "language-health-report"
   | "practical-recipes"
   | "cli-reference";
 
@@ -1459,11 +1460,11 @@ export const chapters: Chapter[] = [
     slug: "standard-library",
     order: 18,
     title: { zh: "标准库函数索引", en: "Standard Library Function Index" },
-    summary: { zh: `运行时 Registry 中全部 95 个 ${hhyVersionLabel} 核心 callable 的签名与用途。`, en: `Signatures and purposes for all 95 ${hhyVersionLabel} core callables in the runtime Registry.` },
+    summary: { zh: `运行时 Registry 中全部 ${hhyCoreCallableCount} 个 ${hhyVersionLabel} 核心 callable 的签名与用途。`, en: `Signatures and purposes for all ${hhyCoreCallableCount} ${hhyVersionLabel} core callables in the runtime Registry.` },
     sections: {
       zh: [
         { title: "如何阅读签名", blocks: [
-          { type: "p", text: `本页以 ${hhyVersionLabel} Runtime 的 Callable Contract Registry 为权威来源，共 95 个核心 callable；扩展动态注册的 callable 在各扩展文档中说明。T/U 表示泛型占位值，? 表示可选参数或可空结果，Map? 表示可选 options Map。所有函数都可普通调用；在管道中，左侧值会注入为第一个参数。` },
+          { type: "p", text: `本页以 ${hhyVersionLabel} Runtime 的 Callable Contract Registry 为权威来源，共 ${hhyCoreCallableCount} 个核心 callable；扩展动态注册的 callable 在各扩展文档中说明。T/U 表示泛型占位值，? 表示可选参数或可空结果，Map? 表示可选 options Map。所有函数都可普通调用；在管道中，左侧值会注入为第一个参数。` },
           { type: "note", text: "这是完整 callable 清单，不含 args、env、system 等只读特殊值，也不把 File.path、HttpResponse.status 等只读字段误列为函数。" }
         ] },
         { title: "核心值、集合、环境与控制（22）", blocks: [callableList("stdCore", "zh")] },
@@ -1487,7 +1488,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Reading the signatures", blocks: [
-          { type: "p", text: `This page is sourced from the ${hhyVersionLabel} Runtime Callable Contract Registry and contains all 95 core callables; dynamically registered callables are documented by their extensions. T/U are generic placeholders, ? marks an optional argument or nullable result, and Map? is an optional options Map. Every function supports ordinary calls; a pipe injects its left value as the first argument.` },
+          { type: "p", text: `This page is sourced from the ${hhyVersionLabel} Runtime Callable Contract Registry and contains all ${hhyCoreCallableCount} core callables; dynamically registered callables are documented by their extensions. T/U are generic placeholders, ? marks an optional argument or nullable result, and Map? is an optional options Map. Every function supports ordinary calls; a pipe injects its left value as the first argument.` },
           { type: "note", text: "This is the complete callable list. It excludes read-only special values such as args, env, and system, and does not mislabel read-only fields such as File.path or HttpResponse.status as functions." }
         ] },
         { title: "Core values, collections, environment, and control (22)", blocks: [callableList("stdCore", "en")] },
@@ -2264,14 +2265,68 @@ export const chapters: Chapter[] = [
     }
   },
   {
+    slug: "language-health-report",
+    order: 25,
+    title: { zh: "HHY 语言状态报告 · 2026-08-31", en: "HHY Language Status Report · 2026-08-31" },
+    summary: { zh: "发布 HHY 当前语义、Runtime、性能与工程质量状态，包含可复核的 CI 实测数据。", en: "Published status of HHY semantics, Runtime, performance, and engineering quality with reproducible CI measurements." },
+    sections: {
+      zh: [
+        { title: "发布摘要", blocks: [
+          { type: "note", text: "HHY 当前语言基线为 v1.1.8。核心语义保持稳定，Runtime 已建立资源与所有权治理，结构化诊断和编辑器链路可用，四平台持续验证全绿；本期实测未触发任何性能回归预算。" },
+          { type: "table", columns: ["报告维度", "回答的问题", "当前结论"], rows: [["语言基线", "核心语义是否稳定", "Pipe、Value、Stream、Error 与核心 callable contract 已冻结"], ["Runtime 健康度", "资源、内存与取消边界是否可靠", "具备资源上限、GC stress、sanitizer、fuzz 与显式所有权治理"], ["性能", "性能是否可测且受控", "固定工作负载、五次采样中位数、机器可读证据和阻断式预算已建立"], ["工程治理", "变化是否可审计", "四平台 CI、分层门禁、版本一致性和发行证据已形成闭环"]] }
+        ] },
+        { title: "本期数据概览", blocks: [
+          { type: "table", columns: ["数据项", "结果", "证据口径"], rows: [["核心 callable", "96", "Runtime Callable Contract Registry"], ["网站 HHY 示例", "47 个通过", "每次生产构建执行 Parser/Checker 验证"], ["完整规范代码块", "21 个通过", "docs/HHY_V1.md 文档检查"], ["持续验证平台", "4 个", "macOS arm64、Linux arm64、Linux x86_64、Windows x86_64"], ["性能 workload", "4 项 / 20 次采样", "每项连续 5 次，使用中位数"], ["完整实战项目", "6 个", "端到端 acceptance 与稳定退出码"]] }
+        ] },
+        { title: "总体基线与兼容性", blocks: [
+          { type: "table", columns: ["基线", "稳定承诺", "验证方式"], rows: [["语言语义", "不引入第二套 Pipe、Stream 或 Error 模型", "规范示例、Parser/Checker fixtures 与合法程序回归"], ["Callable contract", "名称、arity、effect、lazy、cancellable 和 threading 可机器读取", "Contract Registry JSON 与 96 项 contract 一致性检查"], ["诊断", "CLI 文本与 JSON/LSP 使用同一 Core 检查路径", "诊断 schema 与 LSP 协议测试"], ["扩展边界", "第三方能力优先走 Process Extension Protocol", "清单完整性、Protocol 1 与官方扩展验收"], ["C ABI", "当前不公开 Runtime 内部 ABI", "只有真实集成证据证明进程协议不足时才重新决策"]] },
+          { type: "p", text: "最新采样点为 v1.1.8。v1.1.6–v1.1.8 提供了支撑本报告的测试、编辑器和 Runtime 治理能力，但它们不是三份彼此独立的总体报告。" }
+        ] },
+        { title: "性能实测", blocks: [
+          { type: "p", text: "采样环境：GitHub Actions Ubuntu 24.04，Linux 6.17 Azure x86_64，4 vCPU，Python 3.12.3；提交 43db191，HHY v1.1.8。每项连续执行 5 次，单位为毫秒。" },
+          { type: "table", columns: ["Workload", "中位数", "最小–最大", "绝对预算", "预算占用"], rows: [["CLI --version", "4.001 ms", "3.948–5.065 ms", "100 ms", "4.0%"], ["Basic Flow", "5.480 ms", "5.363–5.585 ms", "250 ms", "2.2%"], ["Core Flow 100k", "45.020 ms", "44.297–46.172 ms", "500 ms", "9.0%"], ["JSON Flow", "5.543 ms", "5.492–6.255 ms", "250 ms", "2.2%"]] },
+          { type: "table", columns: ["相对指标", "实测", "门槛", "结果"], rows: [["Basic Flow / CLI 启动", "1.37×", "≤ 12×", "通过"], ["Core Flow 100k / CLI 启动", "11.25×", "≤ 20×", "通过"], ["JSON Flow / CLI 启动", "1.39×", "≤ 12×", "通过"]] },
+          { type: "note", text: "这些数字用于跟踪 HHY 自身回归，不用于宣称跨语言性能排名。原始样本保存在对应 GitHub Actions performance baseline artifact 中；预算修改必须附带数据与原因。" }
+        ] },
+        { title: "治理结论与后续观察", blocks: [
+          { type: "list", items: ["总体状态：语言语义稳定，Runtime 与工具链进入证据驱动的渐进治理阶段。", "当前主要风险：Runtime 仍较集中，后续只能按单一稳定职责逐步拆分。", "性能策略：先保持语义与资源边界，再依据 Profiler 和 benchmark 决定优化。", "生态策略：优先完善进程扩展工具链，不提前承诺 Native ABI。", "更新规则：当基线、测量方法或总体风险结论变化时更新本报告，而不是每个补丁版本都复制一份。"] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml", label: "查看持续验证证据", description: "四平台构建、sanitizer、GC stress、fuzz、性能基线、真实项目和发行包证据。" }
+        ] }
+      ],
+      en: [
+        { title: "Release summary", blocks: [
+          { type: "note", text: "The current HHY language baseline is v1.1.8. Core semantics remain stable, Runtime resource and ownership governance is established, structured diagnostics and editor tooling are operational, all four continuous-verification platforms are green, and no performance budget was triggered in this report." },
+          { type: "table", columns: ["Dimension", "Question", "Current conclusion"], rows: [["Language baseline", "Are core semantics stable?", "Pipe, Value, Stream, Error, and core callable contracts are frozen"], ["Runtime health", "Are resource, memory, and cancellation boundaries reliable?", "Resource limits, GC stress, sanitizers, fuzzing, and explicit ownership governance are present"], ["Performance", "Is performance measurable and controlled?", "Fixed workloads, five-sample medians, machine-readable evidence, and blocking budgets are established"], ["Engineering governance", "Are changes auditable?", "Four-platform CI, layered gates, version consistency, and release evidence form a closed loop"]] }
+        ] },
+        { title: "Data at a glance", blocks: [
+          { type: "table", columns: ["Signal", "Result", "Evidence basis"], rows: [["Core callables", "96", "Runtime Callable Contract Registry"], ["Website HHY examples", "47 passing", "Parser/Checker validation on every production build"], ["Complete specification code blocks", "21 passing", "docs/HHY_V1.md documentation check"], ["Continuous-verification platforms", "4", "macOS arm64, Linux arm64, Linux x86_64, Windows x86_64"], ["Performance workloads", "4 / 20 samples", "Five consecutive samples per workload, reported by median"], ["Complete practical projects", "6", "End-to-end acceptance with stable exit status"]] }
+        ] },
+        { title: "Overall baseline and compatibility", blocks: [
+          { type: "table", columns: ["Baseline", "Stable commitment", "Verification"], rows: [["Language semantics", "No second Pipe, Stream, or Error model", "Specification examples, Parser/Checker fixtures, and valid-program regression"], ["Callable contracts", "Names, arity, effect, lazy, cancellable, and threading metadata are machine-readable", "Contract Registry JSON and 96-contract consistency checks"], ["Diagnostics", "CLI text and JSON/LSP share the Core checking path", "Diagnostic schema and LSP protocol tests"], ["Extension boundary", "Third-party capabilities prefer the Process Extension Protocol", "Manifest integrity, Protocol 1, and official-extension acceptance"], ["C ABI", "Runtime internals are not currently a public ABI", "Reconsider only when real integrations prove the process protocol insufficient"]] },
+          { type: "p", text: "The latest sampling point is v1.1.8. Releases v1.1.6–v1.1.8 provide the testing, editor, and Runtime-governance capabilities supporting this report; they are not three separate language-wide reports." }
+        ] },
+        { title: "Measured performance", blocks: [
+          { type: "p", text: "Environment: GitHub Actions Ubuntu 24.04, Linux 6.17 Azure x86_64, 4 vCPUs, Python 3.12.3; commit 43db191, HHY v1.1.8. Each workload ran five consecutive times; values are milliseconds." },
+          { type: "table", columns: ["Workload", "Median", "Min–max", "Absolute budget", "Budget used"], rows: [["CLI --version", "4.001 ms", "3.948–5.065 ms", "100 ms", "4.0%"], ["Basic Flow", "5.480 ms", "5.363–5.585 ms", "250 ms", "2.2%"], ["Core Flow 100k", "45.020 ms", "44.297–46.172 ms", "500 ms", "9.0%"], ["JSON Flow", "5.543 ms", "5.492–6.255 ms", "250 ms", "2.2%"]] },
+          { type: "table", columns: ["Relative signal", "Measured", "Gate", "Result"], rows: [["Basic Flow / CLI startup", "1.37×", "≤ 12×", "Pass"], ["Core Flow 100k / CLI startup", "11.25×", "≤ 20×", "Pass"], ["JSON Flow / CLI startup", "1.39×", "≤ 12×", "Pass"]] },
+          { type: "note", text: "These numbers track HHY regressions; they are not a cross-language ranking claim. Raw samples are retained in the corresponding GitHub Actions performance-baseline artifact. Budget changes require data and an explanation." }
+        ] },
+        { title: "Governance conclusion and watch list", blocks: [
+          { type: "list", items: ["Overall status: language semantics are stable; Runtime and tooling are in evidence-driven gradual governance.", "Primary current risk: Runtime remains concentrated, so future extraction must move one stable responsibility at a time.", "Performance policy: preserve semantics and resource boundaries first, then optimize from Profiler and benchmark evidence.", "Ecosystem policy: improve process-extension tooling before making any Native ABI commitment.", "Update rule: revise this report when the baseline, measurement method, or overall risk conclusion changes—not by copying it for every patch release."] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml", label: "Open continuous verification evidence", description: "Four-platform builds, sanitizers, GC stress, fuzzing, performance baselines, practical projects, and release archives." }
+        ] }
+      ]
+    }
+  },
+  {
     slug: "language-vm-roadmap",
     order: 23,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "v1.1.8 完成 Runtime 渐进治理基线；未来继续推进扩展工具链和有条件的生态 ABI 决策。", en: "v1.1.8 completes the gradual Runtime governance baseline, followed by extension tooling and the conditional ecosystem ABI decision." },
+    summary: { zh: "v1.2.0 正在建立官方扩展签名分发主链路；后续补齐锁定、离线与安全回滚。", en: "v1.2.0 is establishing the signed official-extension distribution path, followed by locking, offline installs, and safe rollback." },
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.1.8 是当前 Runtime 渐进治理版本：建立首个模块边界、内部所有权规则和阻断式性能回归门禁，同时保持 HHY 行为不变。后续方向不承诺发布日期。" },
+          { type: "note", text: "v1.2.0 是当前开发版本：在保持本地扩展兼容的同时，加入 Ed25519 签名 Registry、传递依赖解析、dry-run 和事务式安装。完成状态以跨平台 CI 门槛为准。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2285,8 +2340,9 @@ export const chapters: Chapter[] = [
             ["v1.1.5 · 已发布", "2026-08-30", "可恢复 Spider 与浏览器渲染", "持久 Frontier、断点恢复、流式落盘、可选 Playwright 与 Windows MSYS2 构建证据"],
             ["v1.1.6 · 已完成", "2026-08-31", "稳定基线与测试治理", "宿主能力探测、分层 CI、机器可读性能基线与发布一致性门禁"],
             ["v1.1.7 · 已完成", "2026-08-31", "诊断与编辑器基线", "版本化 JSON diagnostics、Contract Registry JSON、最小 LSP 与 VS Code 编辑闭环"],
-            ["v1.1.8 · 当前", "2026-08-31", "Runtime 渐进治理", "首个模块边界、内部所有权 API、sanitizer/GC stress 与阻断式性能回归门禁"],
-            ["v1.2 · 规划", "完成 v1.1.x 验收后", "官方扩展包分发与工具链", "官方扩展具备签名验证、依赖解析、远程索引、离线锁定、可复现安装以及安全回滚"],
+            ["v1.1.8 · 已完成", "2026-08-31", "Runtime 渐进治理", "首个模块边界、内部所有权 API、sanitizer/GC stress 与阻断式性能回归门禁"],
+            ["v1.2.0 · 当前", "2026-08-31", "官方扩展分发与签名", "命名空间身份、Ed25519 签名索引与包描述、确定性依赖解析、dry-run 和事务式安装"],
+            ["v1.2.1 · 规划", "完成 v1.2.0 验收后", "锁定、离线与安全回滚", "同一 lock 得到同一依赖图；离线可重建；失败升级不破坏旧环境"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
           { type: "p", text: "说明：以上时间为建议窗口，不构成发布承诺。" }
@@ -2301,7 +2357,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.1.8 is the current gradual Runtime-governance release: the first module boundary, internal ownership rules, and a blocking performance-regression gate, with no HHY behavior change. Future directions carry no promised dates." },
+          { type: "note", text: "v1.2.0 is the current development release, adding an Ed25519-signed Registry, transitive resolution, dry runs, and transaction-safe installation while preserving local extension compatibility. Completion depends on cross-platform CI gates." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
@@ -2315,8 +2371,9 @@ export const chapters: Chapter[] = [
             ["v1.1.5 · Released", "2026-08-30", "Resumable spider and browser rendering", "Persistent frontier, resume, streamed files, optional Playwright, and Windows MSYS2 build evidence"],
             ["v1.1.6 · Completed", "2026-08-31", "Stable engineering baseline", "Host capability probes, layered CI, machine-readable performance baselines, and release consistency gates"],
             ["v1.1.7 · Completed", "2026-08-31", "Diagnostics and editor baseline", "Versioned JSON diagnostics, Contract Registry JSON, a minimal LSP, and a VS Code editing loop"],
-            ["v1.1.8 · Current", "2026-08-31", "Gradual Runtime governance", "First module boundary, internal ownership API, sanitizer/GC stress, and a blocking performance-regression gate"],
-            ["v1.2 · Planned", "After v1.1.x acceptance", "Official extension package distribution and tooling", "Official extensions have publisher signatures, dependency resolution, a remote index, offline locking, reproducible installation, and safe rollback"],
+            ["v1.1.8 · Completed", "2026-08-31", "Gradual Runtime governance", "First module boundary, internal ownership API, sanitizer/GC stress, and a blocking performance-regression gate"],
+            ["v1.2.0 · Current", "2026-08-31", "Official extension distribution and signing", "Namespaced identities, Ed25519-signed index and package descriptors, deterministic resolution, dry runs, and transaction-safe installs"],
+            ["v1.2.1 · Planned", "After v1.2.0 acceptance", "Locking, offline installs, and safe rollback", "The same lock produces the same graph; offline rebuilds work; failed upgrades preserve the old environment"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },
           { type: "p", text: "Note: these dates are recommended windows, not release commitments." }
@@ -2337,10 +2394,11 @@ export function getChapter(slug: string): Chapter | undefined {
   return chapters.find((chapter) => chapter.slug === slug);
 }
 
-export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "roadmap" | "tooling" {
+export function chapterKind(chapter: Chapter): "guide" | "project" | "reference" | "extension" | "report" | "roadmap" | "tooling" {
   if (chapter.slug === "flowguard-project" || chapter.slug === "dataflow-etl-project" || chapter.slug === "asset-governance-project" || chapter.slug === "hong-kong-film-companies-project" || chapter.slug === "multi-api-data-collector-project" || chapter.slug === "sitegraph-auditor-project") return "project";
   if (chapter.slug === "editor-support") return "tooling";
   if (chapter.slug === "extensions-roadmap" || chapter.slug === "database-extension" || chapter.slug === "html-crawler-framework") return "extension";
+  if (chapter.slug === "language-health-report") return "report";
   if (chapter.slug === "language-vm-roadmap") return "roadmap";
   return chapter.slug === "syntax-reference" || chapter.slug === "standard-library" || chapter.slug === "cli-reference"
     ? "reference"

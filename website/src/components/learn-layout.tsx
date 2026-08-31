@@ -13,9 +13,10 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
   const projectChapters = chapters.filter((item) => chapterKind(item) === "project").sort((a, b) => a.order - b.order);
   const referenceChapters = chapters.filter((item) => chapterKind(item) === "reference").sort((a, b) => a.order - b.order);
   const extensionChapters = chapters.filter((item) => chapterKind(item) === "extension").sort((a, b) => a.order - b.order);
+  const reportChapters = chapters.filter((item) => chapterKind(item) === "report").sort((a, b) => a.order - b.order);
   const roadmapChapters = chapters.filter((item) => chapterKind(item) === "roadmap").sort((a, b) => a.order - b.order);
   const toolingChapters = chapters.filter((item) => chapterKind(item) === "tooling").sort((a, b) => a.order - b.order);
-  const manualChapters = [...guideChapters, ...projectChapters, ...referenceChapters, ...extensionChapters, ...roadmapChapters, ...toolingChapters];
+  const manualChapters = [...guideChapters, ...projectChapters, ...referenceChapters, ...extensionChapters, ...roadmapChapters, ...toolingChapters, ...reportChapters];
   const currentIndex = chapter ? manualChapters.findIndex((item) => item.slug === chapter.slug) : -1;
   const previous = currentIndex > 0 ? manualChapters[currentIndex - 1] : undefined;
   const next = currentIndex >= 0 && currentIndex < manualChapters.length - 1 ? manualChapters[currentIndex + 1] : undefined;
@@ -51,6 +52,8 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
           {roadmapChapters.map(renderChapterLink)}
           <small className="docs-nav-group">{language === "zh" ? "工具" : "Tooling"}</small>
           {toolingChapters.map(renderChapterLink)}
+          <small className="docs-nav-group">{language === "zh" ? "语言报告" : "Language Reports"}</small>
+          {reportChapters.map(renderChapterLink)}
         </nav>
         <Link className="print-manual-link" href={`/${language}/learn/print`}><FilePdf size={17} />{language === "zh" ? "打印版手册 / PDF" : "Print edition / PDF"}</Link>
         <Link className="spec-link" href="https://github.com/hh696-wq/hhy-vm/blob/main/docs/HHY_V1.md" target="_blank">{language === "zh" ? `${hhyVersionLabel} 完整规范 ↗` : `Full ${hhyVersionLabel} spec ↗`}</Link>
@@ -71,6 +74,8 @@ export function LearnLayout({ language, chapter, children }: { language: Languag
             {roadmapChapters.map(renderMobileChapterLink)}
             <small className="docs-nav-group">{language === "zh" ? "工具" : "Tooling"}</small>
             {toolingChapters.map(renderMobileChapterLink)}
+            <small className="docs-nav-group">{language === "zh" ? "语言报告" : "Language Reports"}</small>
+            {reportChapters.map(renderMobileChapterLink)}
           </nav>
         </details>
         {chapter && currentSections.length ? <ChapterToc language={language} mobile sections={currentSections} /> : null}

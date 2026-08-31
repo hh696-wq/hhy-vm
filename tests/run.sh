@@ -4,6 +4,11 @@ set -eu
 HHY_BIN=${1:-build/hhy}
 extension_test_home=$(mktemp -d)
 trap 'rm -rf "$extension_test_home"' EXIT INT TERM
+if command -v python3 >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1; then
+    sh tests/check-registry.sh "$HHY_BIN"
+else
+    printf '%s\n' 'SKIP[HHY_REGISTRY_CRYPTO]: python3 or openssl CLI is unavailable'
+fi
 HHY_EXTENSION_HOME="$extension_test_home" "$HHY_BIN" install --yes extensions/sample >/dev/null
 HHY_EXTENSION_HOME="$extension_test_home" "$HHY_BIN" install --yes extensions/database >/dev/null
 HHY_EXTENSION_HOME="$extension_test_home" "$HHY_BIN" install --yes extensions/html >/dev/null

@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
 export default async function PrintManualPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
   if (!isLanguage(lang)) notFound();
-  const groupOrder = { guide: 0, project: 1, reference: 2, extension: 3, roadmap: 4, tooling: 5 };
+  const groupOrder = { guide: 0, project: 1, reference: 2, extension: 3, roadmap: 4, tooling: 5, report: 6 };
   const orderedChapters = [...chapters].sort((a, b) => groupOrder[chapterKind(a)] - groupOrder[chapterKind(b)] || a.order - b.order);
   return <PrintManual language={lang} chapters={orderedChapters} />;
 }

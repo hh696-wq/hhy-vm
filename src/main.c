@@ -43,7 +43,7 @@ static void usage(FILE *stream) {
         "  hhy fmt <file.hhy>...     Format source files in place\n"
         "  hhy fmt --check <files>   Verify canonical formatting\n"
         "  hhy contracts --format json  Print callable Contract Registry\n"
-        "  hhy install [--yes] <dir> Install a local process extension\n"
+        "  hhy install [options] <source> Install a local or signed Registry extension\n"
         "  hhy list                  List installed extensions\n"
         "  hhy remove <package>      Remove an installed extension\n"
         "  hhy <file.hhy> [args]     Execute an HHY script\n"
@@ -334,10 +334,22 @@ int main(int argc, char **argv) {
         int result = hhy_repl(); hhy_extensions_shutdown(); return result;
     }
     if (strcmp(argv[1], "install") == 0) {
-        bool assume_yes = argc == 4 && strcmp(argv[2], "--yes") == 0;
-        int path_index = assume_yes ? 3 : 2;
-        if (argc != path_index + 1) { fputs("usage: hhy install [--yes] <local-path>\n", stderr); return 3; }
-        return hhy_package_install(argv[path_index], assume_yes);
+        HhyPackageInstallOptions options = {0}; const char *source = NULL;
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--yes") == 0) options.assume_yes = true;
+            else if (strcmp(argv[i], "--dry-run") == 0) options.dry_run = true;
+            else if (strcmp(argv[i], "--registry") == 0 && i + 1 < argc) options.registry = argv[++i];
+            else if (strcmp(argv[i], "--trust-root") == 0 && i + 1 < argc) options.trust_root = argv[++i];
+            else if (argv[i][0] != '-' && source == NULL) source = argv[i];
+            else { source = NULL; break; }
+        }
+        if (source == NULL) {
+            fputs("usage: hhy install [--yes] [--dry-run] [--registry DIR --trust-root FILE] <package-or-path>\n", stderr);
+            return 3;
+        }
+        if (options.registry != NULL || options.trust_root != NULL)
+            return hhy_registry_install(source, &options);
+        return hhy_package_install(source, &options);
     }
     if (strcmp(argv[1], "list") == 0) {
         if (argc != 2) { fputs("usage: hhy list\n", stderr); return 3; }
