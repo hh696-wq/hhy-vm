@@ -1,0 +1,5 @@
+root: ./gitbook/zh/
+
+structure:
+  readme: README.md
+  summary: SUMMARY.md

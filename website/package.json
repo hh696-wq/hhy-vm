@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:hhy": "node scripts/validate-hhy-examples.mjs",
+    "gitbook:zh": "node scripts/generate-gitbook.mjs",
     "pdf:zh": "npm run build && node scripts/generate-pdf.mjs zh",
     "pdf:en": "npm run build && node scripts/generate-pdf.mjs en",
     "check": "npm run check:hhy && npm run lint && npm run typecheck && npm run build"
