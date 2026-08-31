@@ -28,6 +28,7 @@ export function SiteFooter({ language }: { language: Language }) {
         ))}
         <div className="footer-group">
           <strong>{language === "zh" ? "项目" : "Project"}</strong>
+          <Link href={`/${language}/about`}>{language === "zh" ? "关于 HHY" : "About HHY"}</Link>
           <Link href="https://github.com/hh696-wq/hhy-vm" target="_blank">GitHub</Link>
           <Link href="https://github.com/hh696-wq/hhy-vm/blob/main/docs/HHY_V1.md" target="_blank">{copy.spec}</Link>
           <Link href="https://github.com/hh696-wq/hhy-vm/blob/main/LICENSE" target="_blank">Apache 2.0</Link>

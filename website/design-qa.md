@@ -239,3 +239,14 @@ final result: passed
 3. Fix: retained all five release plans and acceptance content, but adopted the preferred horizontal card anatomy: icon column, compact version/date/status row, title, and concise capability list.
 4. Fix: desktop now uses two wide columns with the final v2.0 decision card spanning the row; mobile collapses to one column without changing reading order.
 5. Post-fix evidence confirms five future cards, the full-width final card, bilingual content parity, and no browser console errors or warnings.
+
+## About HHY luminous brand card · 2026-08-31
+
+final result: passed
+
+- Source visual truth: user-provided luminous HHY card with inset frame and concentric light rings.
+- Route and state: `http://127.0.0.1:9800/zh/about`, light theme.
+- The supplied HHY mark remains unchanged; the card uses the site's pale-blue palette, a bright inset frame, three concentric rings, soft depth, and a compact release badge.
+- Desktop keeps copy and mark balanced. At 390 × 844, the mark appears first and the document has no horizontal overflow.
+- Release state remains selectable text, the logo has alternative text, and primary actions remain functional links.
+- Browser console is empty; ESLint, TypeScript, HHY example validation, and the optimized Next.js build pass.

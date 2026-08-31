@@ -43,7 +43,7 @@ export default async function LanguageHome({ params }: { params: Promise<{ lang:
           alternateName: "HHY",
           applicationCategory: "DeveloperApplication",
           applicationSubCategory: "Programming Language",
-          operatingSystem: "macOS arm64, Linux arm64, Linux x86_64",
+          operatingSystem: "macOS arm64, Linux arm64, Linux x86_64, Windows x86_64 MSYS2",
           softwareVersion: hhyVersion,
           license: "https://www.apache.org/licenses/LICENSE-2.0",
           codeRepository: "https://github.com/hh696-wq/hhy-vm",

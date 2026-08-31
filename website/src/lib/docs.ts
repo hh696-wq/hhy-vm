@@ -2336,11 +2336,11 @@ export const chapters: Chapter[] = [
     slug: "language-vm-roadmap",
     order: 23,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "v1.2.0 已建立官方扩展签名分发主链路；后续补齐锁定、离线与安全回滚。", en: "v1.2.0 establishes the signed official-extension distribution path, followed by locking, offline installs, and safe rollback." },
+    summary: { zh: "v1.2.0 已正式发布官方扩展签名分发主链路；后续补齐锁定、离线与安全回滚。", en: "v1.2.0 officially ships the signed extension-distribution path, followed by locking, offline installs, and safe rollback." },
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.2.0 已完成跨平台验收：在保持本地扩展兼容的同时，加入 Ed25519 签名 Registry、传递依赖解析、dry-run 和事务式安装。未创建 tag、GitHub Release 或正式发布包。" },
+          { type: "note", text: "v1.2.0 已正式发布：在保持本地扩展兼容的同时，加入 Ed25519 签名 Registry、传递依赖解析、dry-run 和事务式安装，并提供 macOS arm64、Linux x86_64、Linux arm64 与 Windows x86_64 MSYS2 归档。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2355,7 +2355,7 @@ export const chapters: Chapter[] = [
             ["v1.1.6 · 已完成", "2026-08-31", "稳定基线与测试治理", "宿主能力探测、分层 CI、机器可读性能基线与发布一致性门禁"],
             ["v1.1.7 · 已完成", "2026-08-31", "诊断与编辑器基线", "版本化 JSON diagnostics、Contract Registry JSON、最小 LSP 与 VS Code 编辑闭环"],
             ["v1.1.8 · 已完成", "2026-08-31", "Runtime 渐进治理", "首个模块边界、内部所有权 API、sanitizer/GC stress 与阻断式性能回归门禁"],
-            ["v1.2.0 · 已完成", "2026-08-31", "官方扩展分发与签名", "命名空间身份、Ed25519 签名索引与包描述、确定性依赖解析、dry-run 和事务式安装"],
+            ["v1.2.0 · 已发布", "2026-08-31", "官方扩展分发与签名", "命名空间身份、Ed25519 签名索引与包描述、确定性依赖解析、dry-run 和事务式安装"],
             ["v1.2.1 · 规划", "完成 v1.2.0 验收后", "锁定、离线与安全回滚", "同一 lock 得到同一依赖图；离线可重建；失败升级不破坏旧环境"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
@@ -2371,7 +2371,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.2.0 has passed cross-platform acceptance, adding an Ed25519-signed Registry, transitive resolution, dry runs, and transaction-safe installation while preserving local extension compatibility. No tag, GitHub Release, or formal release package was created." },
+          { type: "note", text: "v1.2.0 is officially released, adding an Ed25519-signed Registry, transitive resolution, dry runs, and transaction-safe installation while preserving local extension compatibility, with macOS arm64, Linux x86_64, Linux arm64, and Windows x86_64 MSYS2 archives." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
@@ -2386,7 +2386,7 @@ export const chapters: Chapter[] = [
             ["v1.1.6 · Completed", "2026-08-31", "Stable engineering baseline", "Host capability probes, layered CI, machine-readable performance baselines, and release consistency gates"],
             ["v1.1.7 · Completed", "2026-08-31", "Diagnostics and editor baseline", "Versioned JSON diagnostics, Contract Registry JSON, a minimal LSP, and a VS Code editing loop"],
             ["v1.1.8 · Completed", "2026-08-31", "Gradual Runtime governance", "First module boundary, internal ownership API, sanitizer/GC stress, and a blocking performance-regression gate"],
-            ["v1.2.0 · Completed", "2026-08-31", "Official extension distribution and signing", "Namespaced identities, Ed25519-signed index and package descriptors, deterministic resolution, dry runs, and transaction-safe installs"],
+            ["v1.2.0 · Released", "2026-08-31", "Official extension distribution and signing", "Namespaced identities, Ed25519-signed index and package descriptors, deterministic resolution, dry runs, and transaction-safe installs"],
             ["v1.2.1 · Planned", "After v1.2.0 acceptance", "Locking, offline installs, and safe rollback", "The same lock produces the same graph; offline rebuilds work; failed upgrades preserve the old environment"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },
