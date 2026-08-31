@@ -90,7 +90,7 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
         ))}
       </div>
       <h2 className="docs-index-heading reference-heading">{lang === "zh" ? "扩展" : "Extensions"}</h2>
-      <p className="docs-index-description">{lang === "zh" ? "学习 HHY v1.1.6 的进程扩展系统、可恢复 Spider，并直接使用官方数据库与 HTML 扩展。" : "Learn the HHY v1.1.6 process-extension system, resumable spider, and official database and HTML extensions."}</p>
+      <p className="docs-index-description">{lang === "zh" ? "学习 HHY v1.1.7 的进程扩展系统、可恢复 Spider、结构化诊断与编辑器工具。" : "Learn the HHY v1.1.7 process-extension system, resumable spider, structured diagnostics, and editor tooling."}</p>
       <div className="chapter-grid">
         {extensionChapters.map((chapter) => (
           <Link href={`/${lang}/learn/${chapter.slug}`} className="chapter-card" key={chapter.slug}>

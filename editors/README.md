@@ -1,4 +1,4 @@
-# HHY Language Support 0.1.0
+# HHY Language Support 0.2.0
 
 Editor language support for HHY, generated from one repository-owned syntax source and checked against the current HHY Lexer.
 
@@ -13,7 +13,13 @@ comments, strings, keywords, numbers and units, builtins, operators, and
 snippets. Regex literals, call/member lookarounds, and capture-based declaration
 highlighting remain exclusive to VS Code.
 
-Version 0.1.0 is intentionally process-free. It does not start `hhy`, format files, publish diagnostics or implement an LSP.
+VS Code version 0.2.0 includes the HHY language server. It publishes Core
+diagnostics, formats through the canonical formatter, navigates local
+definitions, shows callable Hover information and completes names sourced from
+the Contract Registry. Configure `hhy.executablePath` if the CLI is not on
+`PATH`. Sublime retains the hardened syntax-only package in this release; the
+standalone `editors/lsp/server.mjs` can be connected through the third-party
+Sublime LSP package.
 
 The editor packages use the HHY repository's Apache-2.0 license.
 
@@ -59,7 +65,7 @@ npm run package
 
 Outputs:
 
-- `dist/hhy-language-support-0.1.0.vsix`
+- `dist/hhy-language-support-0.2.0.vsix`
 - `dist/HHY-0.1.0.sublime-package`
 
 `dist/` contains reproducible local build artifacts and is ignored by Git.
@@ -67,7 +73,7 @@ Outputs:
 ## Install VS Code
 
 ```sh
-code --install-extension editors/dist/hhy-language-support-0.1.0.vsix
+code --install-extension editors/dist/hhy-language-support-0.2.0.vsix
 ```
 
 Or use **Extensions → … → Install from VSIX**.

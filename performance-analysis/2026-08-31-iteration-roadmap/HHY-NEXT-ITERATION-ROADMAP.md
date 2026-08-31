@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-当前实施版本：1.1.6
+当前实施版本：1.1.7
 
 适用范围：Language、VM/Runtime、CLI、编辑器、扩展协议、扩展分发、实战项目与生态开放
 
@@ -37,18 +37,18 @@ v2.0    有条件的生态开放与 ABI 决策
 
 ## 2. 版本总表
 
-| 版本 | 核心目标 | 关键交付 | 进入下一阶段的发布门槛 |
-| --- | --- | --- | --- |
-| v1.1.6 | 稳定基线与测试治理 | CI 分层、宿主能力探测、性能基线、发布清理 | 正式平台 CI 全绿；测试无模糊失败；基准可重复 |
-| v1.1.7 | 诊断与编辑器基线 | JSON diagnostics、最小 LSP、Contract 感知补全 | CLI/LSP 诊断一致；中型项目具备编辑闭环 |
-| v1.1.8 | Runtime 渐进治理 | 模块边界、所有权 API、性能回归门禁 | 行为零变化；sanitizer/GC stress 全绿；性能不回退 |
-| v1.2.0 | 官方扩展分发与签名 | 包身份、签名、依赖解析、官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
-| v1.2.1 | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
-| v1.2.2 | 官方复杂扩展验证 | Office 或等价复杂扩展、端到端发行与兼容验证 | 至少一个复杂扩展通过三平台、权限、错误和资源验收 |
-| v1.2.3 | 证据驱动的协议补强 | 按需加入取消、Stream credit、Opaque Handle | 每项新增能力均由真实集成和兼容测试证明 |
-| v1.3 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
-| v1.4 | 条件式 AST → Bytecode VM | 保留语言语义，把 AST lowering 为可验证 Bytecode，并建立新执行引擎 | 真实负载证明 AST dispatch 是主瓶颈；双引擎语义一致 |
-| v2.0 | 生态开放与 ABI 决策 | 进程协议边界报告、Embedding/FFI/Native ABI 决策 | 至少两个真实集成证明进程协议不足，否则不开放 ABI |
+| 版本 | 状态 | 核心目标 | 关键交付 | 进入下一阶段的发布门槛 |
+| --- | --- | --- | --- | --- |
+| v1.1.6 | **已完成 · 2026-08-31** | 稳定基线与测试治理 | CI 分层、宿主能力探测、性能基线、发布清理 | 正式平台 CI 全绿；测试无模糊失败；基准可重复 |
+| v1.1.7 | **已完成 · 2026-08-31** | 诊断与编辑器基线 | JSON diagnostics、最小 LSP、Contract 感知补全 | CLI/LSP 诊断一致；中型项目具备编辑闭环 |
+| v1.1.8 | 规划 | Runtime 渐进治理 | 模块边界、所有权 API、性能回归门禁 | 行为零变化；sanitizer/GC stress 全绿；性能不回退 |
+| v1.2.0 | 规划 | 官方扩展分发与签名 | 包身份、签名、依赖解析、官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
+| v1.2.1 | 规划 | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
+| v1.2.2 | 规划 | 官方复杂扩展验证 | Office 或等价复杂扩展、端到端发行与兼容验证 | 至少一个复杂扩展通过三平台、权限、错误和资源验收 |
+| v1.2.3 | 条件规划 | 证据驱动的协议补强 | 按需加入取消、Stream credit、Opaque Handle | 每项新增能力均由真实集成和兼容测试证明 |
+| v1.3 | 规划 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
+| v1.4 | 条件规划 | AST → Bytecode VM | 保留语言语义，把 AST lowering 为可验证 Bytecode，并建立新执行引擎 | 真实负载证明 AST dispatch 是主瓶颈；双引擎语义一致 |
+| v2.0 | 条件规划 | 生态开放与 ABI 决策 | 进程协议边界报告、Embedding/FFI/Native ABI 决策 | 至少两个真实集成证明进程协议不足，否则不开放 ABI |
 
 总表只列稳定版本和 release train，避免把开发阶段误解为多个并列产品版本。v1.4 的交付阶段单列如下：
 
@@ -69,6 +69,10 @@ v1.1.x 不扩大语言和生态承诺。原先考虑放入 v1.2 的 LSP、结构
 
 ### 3.1 v1.1.6：稳定基线与测试治理
 
+> **状态：已完成（2026-08-31）**<br>
+> 实施提交：`b1f099abd798f625a99b23e44f2173bc13bbfe40`<br>
+> GitHub Actions：[HHY v1.1 release evidence #33350901625](https://github.com/hh696-wq/hhy-vm/actions/runs/33350901625) · [HHY website #33350901628](https://github.com/hh696-wq/hhy-vm/actions/runs/33350901628)
+
 #### 版本目标
 
 把 v1.1.5 之后的代码、测试、文档、网站和发布证据整理为干净、可信、可重复验证的基线。
@@ -84,26 +88,48 @@ v1.1.x 不扩大语言和生态承诺。原先考虑放入 v1.2 的 LSP、结构
 | 发布治理 | 固定版本、包内容、校验和、依赖与三平台证据 | RC checklist、自动一致性检查、发布清单 |
 | 文档一致性 | 检查 README、官网、规范、限制和版本号 | 文档代码块、链接、版本一致性 CI |
 
-#### 性能基线
+#### 已交付的性能基线
 
-- CLI 冷启动与短脚本执行时间；
-- 10 万项 `map`、`where`、`distinct`、`group_by`、`collect`；
-- 1k/10k/100k 宽 Map 构造、末尾键查找与 overwrite；
-- JSON object/array 和 CSV record 解析与输出；
-- HTTP 小响应、16 MiB 边界与 `send_to` 流式落盘；
-- parallel worker 启动、吞吐、取消和提前关闭；
-- GC stress 下 Heap 峰值与关键对象生命周期。
+- CLI `--version` 启动基线；
+- 代表性基础 Flow 执行基线；
+- 10 万项 `map`、`where`、`distinct`、`collect` 核心 Flow；
+- JSON Flow 解析与投影；
+- JSON 报告记录 schema、HHY 版本、commit、平台、架构、Python、CPU 数量及不少于五次样本；
+- GitHub Actions 保存 30 天的跨提交 performance baseline artifact。
+
+以下扩展基准移入 v1.1.8 的性能门禁建设，不作为 v1.1.6 完成状态的虚假声明：宽 Map 分级规模、CSV、HTTP 边界、parallel worker、Heap 峰值与跨提交回退阈值。
 
 #### 发布门槛
 
-- macOS arm64、Linux arm64、Linux x86_64 CI 全绿；
-- Windows MSYS2 核心 smoke 通过；
-- 宿主能力不足只能产生明确 skip；
-- benchmark 连续运行至少三次，记录中位数和环境；
-- 产物、版本、SHA-256、BUILD_INFO 和官网信息一致；
-- 不引入新语言语义或扩展协议承诺。
+- [x] macOS arm64、Linux arm64、Linux x86_64 CI 全绿；
+- [x] Windows MSYS2 核心 smoke 通过；
+- [x] 宿主能力不足产生 `SKIP[HHY_CAP_*]` 明确 reason code；
+- [x] benchmark 连续运行五次，记录中位数、原始样本和环境；
+- [x] 产物、版本、SHA-256、BUILD_INFO、文档和官网信息一致；
+- [x] Release、Debug ASan/UBSan、GC stress、fuzz、Practical Projects 和 Website 验收通过；
+- [x] 未改变 Pipe、Value、Stream、Error、退出码或 Process Extension Protocol 语义；
+- [x] 没有创建 Git tag、GitHub Release 或正式发布包；当前仅完成开发基线与 CI 证据。
+
+#### 完成证据
+
+| 验收项 | 结果 |
+| --- | --- |
+| Quality、Docs、Benchmark | 通过，performance artifact 已上传 |
+| Windows x86_64 MSYS2 | 构建、Parser 和 Runtime smoke 通过 |
+| Linux x86_64 | UBSan、Release suite、coverage fuzz、归档与校验通过 |
+| Linux arm64 | ASan/UBSan、Release suite、coverage fuzz、归档与校验通过 |
+| macOS arm64 | ASan/UBSan、Release suite、fuzz smoke、归档与校验通过 |
+| Practical Projects | my-crawler 与 SiteGraph Auditor 验收通过 |
+| Website | HHY 示例、ESLint、TypeScript、Next.js production build 通过 |
+| 本地受限环境 | `/bin/ps` 与 socket bind 被明确识别并跳过，完整 suite 最终通过 |
+
+备注：工作区内原有、与 v1.1.6 无关的推广截图和历史评审目录被刻意保留为未跟踪文件，没有被删除或混入实施提交；“发布清理”在本版本中指实施变更、构建输出和正式提交边界可审计，而不是擅自删除用户素材。
 
 ### 3.2 v1.1.7：结构化诊断与最小 LSP
+
+> **状态：已完成（2026-08-31）**<br>
+> VS Code 扩展：0.2.0<br>
+> 发布策略：只提交开发版本与 CI artifact，不创建 Git tag 或 GitHub Release
 
 #### 版本目标
 
@@ -112,42 +138,43 @@ v1.1.x 不扩大语言和生态承诺。原先考虑放入 v1.2 的 LSP、结构
 #### CLI 与诊断
 
 - `hhy check --format json` 输出版本化稳定 schema；
-- 诊断包含文件、范围、severity、code、message、stage 和修复提示；
-- Parser、Checker、Resolver 和扩展加载使用统一诊断模型；
-- 显示 callable 的 expected/actual contract；
-- 显示 Pipe 注入后的真实参数位置；
-- 为拼写错误提供最接近的 callable/module；
-- import、扩展缺失、manifest 错误和权限不匹配给出修复建议。
-
-#### 静态检查
-
-- 未使用变量、参数和 import；
-- 重复或遮蔽绑定提示；
-- Result 明显未处理；
-- Stream 明显重复消费；
-- barrier 物化大输入或静态无界 Stream；
-- 非 sendable 值进入 `parallel`；
-- `shell()`、私网 HTTP、缺少 timeout 等安全提示；
-- 已知参数数量、值类别和 effect contract 不匹配。
+- 诊断包含 path、零基 line/character range、severity、稳定 code、message 和 stage；
+- 保留默认文本诊断，JSON 模式捕获同一次 Core Parser/Checker 执行结果；
+- `hhy contracts --format json` 暴露同一 Callable Contract Registry；
+- JSON diagnostics 与 contracts schema 均以 `schema_version: 1` 版本化；
+- 多文件检查聚合到一个机器可读报告，失败继续保持退出码 2。
 
 #### 最小 LSP
 
 - publishDiagnostics；
-- go to definition；
-- document symbols；
-- hover 展示签名、effect、lazy、cancel 和 threading；
-- 补全核心 callable、模块和已安装扩展 callable；
+- 当前文档本地 binding 的 go to definition；
+- Hover 展示 callable input/output、effect、lazy、cancellable 和 threading；
+- 从 Core Contract Registry 加载 callable completion；
 - document formatting / format on save；
-- VS Code 完整接入，Sublime 复用 CLI diagnostics 和格式化。
+- full-document sync 与 didOpen/didChange/didClose；
+- VS Code 0.2.0 使用标准 `vscode-languageclient` 接入；
+- `hhy.executablePath` 支持不在 `PATH` 的 HHY CLI；
+- standalone `editors/lsp/server.mjs` 可供其他 LSP 客户端接入。
 
 #### 发布门槛
 
-- CLI 文本诊断和 LSP diagnostics 由同一语义结果生成；
-- JSON schema 有 fixtures 和兼容测试；
-- 多文件项目完成跳转、补全、检查和格式化闭环；
-- 扩展安装后无需修改编辑器插件即可补全动态 callable；
-- LSP 故障不影响 CLI/Runtime；
-- 合法 v1.1 程序执行结果不变。
+- [x] CLI 文本诊断和 LSP diagnostics 来自同一次 Core 检查路径；
+- [x] JSON diagnostics 与 Contract Registry schema 有兼容断言；
+- [x] LSP diagnostics、definition、Hover、completion、formatting 有协议测试；
+- [x] VS Code extension 通过固定依赖、esbuild bundle 和 VSIX 构建验证；
+- [x] LSP 作为独立进程，故障不影响 CLI/Runtime；
+- [x] 合法 v1.1 程序执行结果不变；Release 与 Debug suite 通过；
+- [x] 不创建 Git tag、GitHub Release 或正式发行包。
+
+#### 后续增强，不计入 v1.1.7 完成声明
+
+- document symbols、workspace symbols 和跨模块 definition；
+- 从已加载第三方扩展动态刷新 completion；
+- 未使用 binding/import、Result 未处理和 Stream 重复消费等新 lint；
+- callable 拼写修复、Pipe 注入参数可视化和 code action；
+- Sublime 原生客户端配置与更多编辑器发行包。
+
+这些能力需要新的 Checker/Workspace index 或扩展生命周期设计，不能为了把“最小 LSP”包装成完整 IDE 而在 v1.1.7 中虚假承诺。
 
 ### 3.3 v1.1.8：Runtime 渐进拆分与性能门禁
 
@@ -700,9 +727,9 @@ hhy bytecode script.hhy
 | 协议质量 | 调用延迟、吞吐、取消延迟、资源泄漏、跨版本兼容率 |
 | 用户验证 | 外部项目数、一周留存、首次失败原因、主要场景、真实放弃案例 |
 
-## 11. 本次验证说明
+## 11. v1.1.6 验证说明
 
-路线评估期间执行：
+初始路线评估期间执行：
 
 ```sh
 make test
@@ -714,7 +741,7 @@ make test
 PermissionError: [Errno 1] Operation not permitted
 ```
 
-该结果符合环境能力限制，而非 Runtime 功能回归。v1.1.6 应将 socket bind 纳入 capability probe，同时在正常 CI runner 中继续强制 HTTP 验收。
+该结果符合环境能力限制，而非 Runtime 功能回归。v1.1.6 已完成对应修复：测试启动时统一探测 process snapshot 和 socket bind；受限宿主输出稳定 `SKIP[HHY_CAP_*]` reason code，具备能力的 GitHub Actions runner 仍强制执行相关验收。修复后本地 Release/Debug suite 以及远端全部平台工作流均通过。
 
 ## 12. 最终优先级
 

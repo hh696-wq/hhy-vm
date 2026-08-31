@@ -93,6 +93,47 @@ case "$qualified_module_error" in
     *) fail "missing qualified module did not report the stable ModuleNotFoundError code" ;;
 esac
 
+if command -v python3 >/dev/null 2>&1; then
+    python3 - "$HHY_BIN" <<'PY' || fail "versioned JSON diagnostics contract is invalid"
+import json
+import subprocess
+import sys
+
+run = subprocess.run(
+    [sys.argv[1], "check", "--format", "json", "tests/invalid/missing-expression.hhy",
+     "tests/invalid-check/undefined-name.hhy"],
+    text=True,
+    capture_output=True,
+)
+assert run.returncode == 2, run
+report = json.loads(run.stdout)
+assert report["schema_version"] == 1
+assert report["tool"] == "hhy"
+assert [item["code"] for item in report["diagnostics"]] == ["HHY_SYNTAX", "HHY_CHECK"]
+for item in report["diagnostics"]:
+    assert item["severity"] in {"error", "warning"}
+    assert set(item["start"]) == {"line", "character"}
+    assert set(item["end"]) == {"line", "character"}
+    assert item["message"]
+assert run.stderr == ""
+
+contracts = subprocess.run(
+    [sys.argv[1], "contracts", "--format", "json"],
+    text=True,
+    capture_output=True,
+    check=True,
+)
+registry = json.loads(contracts.stdout)
+assert registry["schema_version"] == 1
+assert registry["tool"] == "hhy"
+assert len(registry["contracts"]) >= 96
+print_contract = next(item for item in registry["contracts"] if item["name"] == "print")
+assert print_contract["effect"] == "custom"
+assert print_contract["input"] == "Value..."
+assert print_contract["output"] == "Null"
+PY
+fi
+
 "$HHY_BIN" tokens examples/07-language-basics.hhy > tests/output/language-basics.tokens.txt
 cmp -s tests/output/language-basics.tokens.txt tests/fixtures/language-basics.tokens.txt ||
     fail "Lexer token snapshot changed"

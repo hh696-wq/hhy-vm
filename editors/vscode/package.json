@@ -1,20 +1,24 @@
 {
   "name": "hhy-language-support",
   "displayName": "HHY Language Support",
-  "description": "Syntax highlighting, editor configuration, and snippets for HHY.",
-  "version": "0.1.0",
+  "description": "Syntax highlighting, diagnostics, formatting, navigation, hover, and completion for HHY.",
+  "version": "0.2.0",
   "publisher": "hh696-wq",
   "license": "Apache-2.0",
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Programming Languages", "Snippets"],
+  "main": "./extension.cjs",
+  "activationEvents": ["onLanguage:hhy"],
+  "categories": ["Programming Languages", "Snippets", "Linters", "Formatters"],
   "keywords": ["HHY", "language", "syntax", "highlighting"],
   "files": [
     "CHANGELOG.md",
+    "extension.cjs",
     "LICENSE",
     "README.md",
     "language-configuration.json",
+    "lsp/server.mjs",
     "snippets/hhy.json",
     "syntaxes/hhy.tmLanguage.json"
   ],
@@ -22,7 +26,22 @@
     "type": "git",
     "url": "https://github.com/hh696-wq/hhy-vm.git"
   },
+  "devDependencies": {
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.25.9",
+    "vscode-languageclient": "9.0.1"
+  },
   "contributes": {
+    "configuration": {
+      "title": "HHY",
+      "properties": {
+        "hhy.executablePath": {
+          "type": "string",
+          "default": "hhy",
+          "description": "Path to the HHY CLI used for diagnostics and formatting."
+        }
+      }
+    },
     "languages": [
       {
         "id": "hhy",

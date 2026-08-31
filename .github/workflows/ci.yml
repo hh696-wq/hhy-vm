@@ -23,14 +23,30 @@ jobs:
           sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev \
             libjansson-dev libssl-dev
 
+      - name: Install editor packaging dependencies
+        run: npm ci --prefix editors/vscode
+
       - name: Run quality gates and benchmark
         run: make quality
+
+      - name: Build VS Code extension
+        run: |
+          npm run prepare:dist --prefix editors
+          npm run package:vscode --prefix editors
 
       - name: Upload performance baseline
         uses: actions/upload-artifact@v7
         with:
           name: hhy-performance-baseline-${{ github.sha }}
           path: build/benchmarks/baseline.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload VS Code extension
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-vscode-extension-${{ github.sha }}
+          path: editors/dist/hhy-language-support-0.2.0.vsix
           if-no-files-found: error
           retention-days: 30
 

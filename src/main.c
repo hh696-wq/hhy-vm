@@ -1,6 +1,7 @@
 #include "hhy/ast.h"
 #include "hhy/common.h"
 #include "hhy/checker.h"
+#include "hhy/contracts.h"
 #include "hhy/formatter.h"
 #include "hhy/extensions.h"
 #include "hhy/package.h"
@@ -8,6 +9,7 @@
 #include "hhy/runtime.h"
 #include "hhy/token.h"
 
+#include <jansson.h>
 #include <stdio.h>
 #include <errno.h>
 #include <math.h>
@@ -33,10 +35,12 @@ static void usage(FILE *stream) {
         "Pipe Everything.\n\n"
         "Usage:\n"
         "  hhy check <file.hhy>...   Validate syntax and core semantics\n"
+        "  hhy check --format json <files>  Emit versioned JSON diagnostics\n"
         "  hhy ast <file.hhy>        Print the parsed AST\n"
         "  hhy tokens <file.hhy>     Print lexer tokens\n"
         "  hhy fmt <file.hhy>...     Format source files in place\n"
         "  hhy fmt --check <files>   Verify canonical formatting\n"
+        "  hhy contracts --format json  Print callable Contract Registry\n"
         "  hhy install [--yes] <dir> Install a local process extension\n"
         "  hhy list                  List installed extensions\n"
         "  hhy remove <package>      Remove an installed extension\n"
@@ -52,6 +56,116 @@ static void usage(FILE *stream) {
         "  hhy --help                Print this help\n\n"
         "Flow-first system scripting language runtime.\n",
         stream);
+}
+
+static int process_file(const char *path, Command command, bool quiet_success,
+                        int script_argc, char **script_argv, bool dry_run,
+                        const HhyRuntimeLimits *limits,
+                        const HhyProfileOptions *profile);
+
+static void append_captured_diagnostic(json_t *diagnostics, const char *path,
+                                       const char *line) {
+    size_t path_length = strlen(path);
+    unsigned int source_line = 1, source_column = 1;
+    const char *level = "error", *message = line;
+    if (strncmp(line, path, path_length) == 0 && line[path_length] == ':') {
+        const char *cursor = line + path_length + 1;
+        char *end = NULL;
+        unsigned long parsed_line = strtoul(cursor, &end, 10);
+        if (end != cursor && *end == ':') {
+            cursor = end + 1;
+            unsigned long parsed_column = strtoul(cursor, &end, 10);
+            if (end != cursor && strncmp(end, ": ", 2) == 0) {
+                source_line = parsed_line > 0 && parsed_line <= UINT32_MAX ?
+                    (unsigned int)parsed_line : 1;
+                source_column = parsed_column > 0 && parsed_column <= UINT32_MAX ?
+                    (unsigned int)parsed_column : 1;
+                level = end + 2;
+                const char *separator = strstr(level, ": ");
+                if (separator != NULL) message = separator + 2;
+            }
+        }
+    }
+    bool warning = strncmp(level, "warning", 7) == 0;
+    const char *code = strstr(level, "check") != NULL ? "HHY_CHECK" :
+                       strstr(level, "warning") != NULL ? "HHY_CHECK_WARNING" :
+                       strncmp(line, path, path_length) == 0 ? "HHY_SYNTAX" : "HHY_IO";
+    json_t *item = json_pack("{s:s,s:s,s:s,s:s,s:i,s:{s:i,s:i},s:{s:i,s:i}}",
+                             "path", path, "severity", warning ? "warning" : "error",
+                             "code", code, "message", message,
+                             "stage", strstr(level, "check") != NULL ? 3 :
+                                      strncmp(line, path, path_length) == 0 ? 2 : 1,
+                             "start", "line", source_line - 1,
+                                      "character", source_column - 1,
+                             "end", "line", source_line - 1,
+                                    "character", source_column);
+    json_array_append_new(diagnostics, item);
+}
+
+static int process_check_json(int count, char **paths) {
+    json_t *diagnostics = json_array();
+    int result = 0;
+    for (int i = 0; i < count; i++) {
+        FILE *capture = tmpfile();
+        if (capture == NULL) { result = 4; continue; }
+        fflush(stderr);
+        int saved_stderr = dup(STDERR_FILENO);
+        if (saved_stderr < 0 || dup2(fileno(capture), STDERR_FILENO) < 0) {
+            if (saved_stderr >= 0) close(saved_stderr);
+            fclose(capture); result = 4; continue;
+        }
+        int file_result = process_file(paths[i], COMMAND_CHECK, true, 0, NULL,
+                                       false, NULL, NULL);
+        fflush(stderr);
+        dup2(saved_stderr, STDERR_FILENO);
+        close(saved_stderr);
+        rewind(capture);
+        char line[4096];
+        while (fgets(line, sizeof(line), capture) != NULL) {
+            size_t length = strlen(line);
+            while (length > 0 && (line[length - 1] == '\n' || line[length - 1] == '\r'))
+                line[--length] = '\0';
+            if (length == 0 || strncmp(line, "  ", 2) == 0 || line[0] == '^') continue;
+            append_captured_diagnostic(diagnostics, paths[i], line);
+        }
+        fclose(capture);
+        if (file_result != 0) result = file_result;
+    }
+    json_t *root = json_pack("{s:i,s:s,s:o}", "schema_version", 1,
+                             "tool", "hhy", "diagnostics", diagnostics);
+    json_dumpf(root, stdout, JSON_INDENT(2) | JSON_SORT_KEYS);
+    fputc('\n', stdout);
+    json_decref(root);
+    return result;
+}
+
+static int print_contracts_json(void) {
+    json_t *items = json_array();
+    for (size_t i = 0; i < hhy_contract_count(); i++) {
+        const HhyCallableContract *contract = hhy_contract_at(i);
+        json_t *item = json_pack("{s:s,s:i,s:s,s:b,s:b,s:b,s:b,s:s,s:s,s:s}",
+                                 "name", contract->name,
+                                 "minimum_arity", (int)contract->minimum_arity,
+                                 "effect", hhy_effect_name(contract->effect),
+                                 "lazy", contract->lazy,
+                                 "cancellable", contract->cancellable,
+                                 "sendable", contract->sendable,
+                                 "action", contract->action,
+                                 "input", contract->input_contract,
+                                 "output", contract->output_contract,
+                                 "threading", contract->threading);
+        if (contract->maximum_arity == SIZE_MAX)
+            json_object_set_new(item, "maximum_arity", json_null());
+        else
+            json_object_set_new(item, "maximum_arity", json_integer((json_int_t)contract->maximum_arity));
+        json_array_append_new(items, item);
+    }
+    json_t *root = json_pack("{s:i,s:s,s:o}", "schema_version", 1,
+                             "tool", "hhy", "contracts", items);
+    json_dumpf(root, stdout, JSON_INDENT(2) | JSON_SORT_KEYS);
+    fputc('\n', stdout);
+    json_decref(root);
+    return 0;
 }
 
 static bool has_hhy_suffix(const char *path) {
@@ -231,10 +345,17 @@ int main(int argc, char **argv) {
         if (argc != 3) { fputs("usage: hhy remove <package>\n", stderr); return 3; }
         return hhy_package_remove(argv[2]);
     }
+    if (strcmp(argv[1], "contracts") == 0) {
+        if (argc != 4 || strcmp(argv[2], "--format") != 0 || strcmp(argv[3], "json") != 0) {
+            fputs("usage: hhy contracts --format json\n", stderr); return 3;
+        }
+        return print_contracts_json();
+    }
 
     Command command;
     int source_index = 2;
     bool dry_run = false;
+    bool check_json = false;
     bool profile_cpu = false, profile_heap = false, profile_selection = false;
     bool profile_json = false;
     const char *profile_output_path = NULL;
@@ -292,10 +413,20 @@ int main(int argc, char **argv) {
         dry_run = true;
         source_index = 3;
     }
+    if (command == COMMAND_CHECK && source_index == 2 && argc > 3 &&
+        strcmp(argv[2], "--format") == 0 && strcmp(argv[3], "json") == 0) {
+        check_json = true;
+        source_index = 4;
+    }
 
     if (argc <= source_index) {
         fprintf(stderr, "hhy: `%s` requires at least one source file\n", argv[1]);
         return 3;
+    }
+    if (check_json) {
+        int result = process_check_json(argc - source_index, argv + source_index);
+        hhy_extensions_shutdown();
+        return result;
     }
     if (command != COMMAND_CHECK && command != COMMAND_FMT && command != COMMAND_RUN &&
         command != COMMAND_PROFILE &&

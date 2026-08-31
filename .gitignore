@@ -1,8 +1,11 @@
 .DS_Store
 __pycache__/
 *.pyc
+node_modules/
 build/
 dist/
 src/*.o
 tests/output/
 editors/dist/
+editors/vscode/lsp/
+editors/vscode/extension.cjs

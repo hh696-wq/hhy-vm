@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.1.6-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.1.7-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -64,7 +64,7 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前稳定版本是 **V1.1.6**（`1.1.6`），正式支持 macOS arm64、Linux arm64 和
+当前稳定版本是 **V1.1.7**（`1.1.7`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
@@ -187,8 +187,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.1.6-PLATFORM-ARCH.tar.gz
-cd hhy-1.1.6-PLATFORM-ARCH
+tar -xzf hhy-1.1.7-PLATFORM-ARCH.tar.gz
+cd hhy-1.1.7-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -204,6 +204,8 @@ cd hhy-1.1.6-PLATFORM-ARCH
 | `hhy profile <script.hhy> [args...]` | 分析脚本 CPU 热点、调用次数和托管 Heap 分配 |
 | `hhy repl` | 启动交互式环境 |
 | `hhy check <file.hhy>...` | 检查语法和核心语义 |
+| `hhy check --format json <file.hhy>...` | 输出版本化、机器可读的结构化诊断 |
+| `hhy contracts --format json` | 输出工具可消费的 Callable Contract Registry |
 | `hhy fmt <file.hhy>...` | 格式化源码 |
 | `hhy ast <file.hhy>` | 输出抽象语法树 |
 | `hhy tokens <file.hhy>` | 输出词法 Token |
@@ -213,6 +215,11 @@ cd hhy-1.1.6-PLATFORM-ARCH
 | `hhy remove <package>` | 移除扩展包 |
 
 运行 `hhy --help` 查看完整参数和资源限制选项。
+
+VS Code 0.2.0 通过内置 HHY Language Server 提供实时诊断、标准格式化、
+本地定义跳转、Contract-aware Hover 与补全。若 `hhy` 不在 `PATH`，可设置
+`hhy.executablePath`。语言服务器直接消费上述 JSON CLI contract，避免复制
+Parser、Checker 或 Callable Registry 语义。
 
 性能分析默认把报告写入 stderr，保持脚本 stdout 不变：
 
@@ -280,9 +287,10 @@ html.extract(body, "article.product", {
 
 API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
 
-## V1.1.6 状态
+## V1.1.7 状态
 
-V1.0 语言 contract 保持兼容；V1.1.6 在 V1.1.5 可恢复 Spider 之上补齐测试能力探测、
+V1.0 语言 contract 保持兼容；V1.1.7 在 V1.1.6 稳定基线之上提供版本化 JSON diagnostics、
+Contract Registry JSON 和最小 LSP/VS Code 编辑闭环。V1.1.6 已补齐测试能力探测、
 分层 CI、机器可读性能基线与发布一致性门禁。V1.1.5 已完成持久 Frontier、
 批次 checkpoint 与断点恢复、原子流式 HTTP 落盘和独立 Playwright JavaScript 渲染器，
 并增加 Windows x86_64 MSYS2 构建验证。V1.1.3 完成 GC 引用缓冲、Stream 去重状态、Map/JSON

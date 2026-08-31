@@ -9,7 +9,7 @@ on:
       tag:
         description: "Semantic release tag (must match VERSION)"
         required: true
-        default: "v1.1.6"
+        default: "v1.1.7"
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}

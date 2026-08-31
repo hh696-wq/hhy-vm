@@ -91,6 +91,7 @@ quality: $(TARGET)
 	sh tests/check-promotion-assets.sh
 	sh tests/check-docs.sh $(TARGET) docs/HHY_V1.md
 	sh tests/check-docs.sh $(TARGET) README.md
+	npm run check --prefix editors
 	$(MAKE) benchmark
 
 fuzz:
