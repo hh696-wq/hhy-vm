@@ -20,6 +20,17 @@ fail() {
     exit 1
 }
 
+process_snapshot_available=0
+socket_bind_available=0
+if command -v python3 >/dev/null 2>&1; then
+    if python3 tests/capabilities.py process-snapshot --quiet; then
+        process_snapshot_available=1
+    fi
+    if python3 tests/capabilities.py socket-bind --quiet; then
+        socket_bind_available=1
+    fi
+fi
+
 if grep -En 'Value \*[^;=]*= hhy_(alloc|realloc)|Value \*[^;]*hhy_realloc' src/runtime.c >/dev/null; then
     fail "managed Value buffer uses a native allocator"
 fi
@@ -786,7 +797,7 @@ beta") ;;
     *) fail "process output Flow returned unexpected content: $process_output" ;;
 esac
 
-if /bin/ps -axo pid=,pcpu=,rss=,state=,comm= >/dev/null 2>&1; then
+if [ "$process_snapshot_available" -eq 1 ]; then
   logical_record_output=$("$HHY_BIN" run tests/valid/logical-record-types.hhy)
   case "$logical_record_output" in
     "Result
@@ -804,10 +815,10 @@ Process") ;;
       *) fail "logical record types or parallel serialization are incorrect: $logical_record_output" ;;
   esac
 else
-  printf '%s\n' 'SKIP: host denies /bin/ps; process logical-record serialization is covered by CI'
+  printf '%s\n' 'SKIP[HHY_CAP_PROCESS_SNAPSHOT]: host denies /bin/ps; process logical-record serialization is covered by CI'
 fi
 
-if /bin/ps -axo pid=,pcpu=,rss=,state=,comm= >/dev/null 2>&1; then
+if [ "$process_snapshot_available" -eq 1 ]; then
   system_output=$("$HHY_BIN" run tests/valid/system.hhy)
   case "$system_output" in
     "String
@@ -817,7 +828,7 @@ true") ;;
       *) fail "system namespaces or process Stream are incorrect: $system_output" ;;
   esac
 else
-  printf '%s\n' 'SKIP: host denies /bin/ps; system process Stream is covered by CI'
+  printf '%s\n' 'SKIP[HHY_CAP_PROCESS_SNAPSHOT]: host denies /bin/ps; system process Stream is covered by CI'
 fi
 
 module_output=$("$HHY_BIN" run tests/valid/modules.hhy)
@@ -888,14 +899,14 @@ awk 'BEGIN { for (i = 0; i < 90000; i++) print "INFO regular line"; print "ERROR
 [ "$(cat tests/output/acceptance/errors.txt)" = "ERROR acceptance" ] ||
     fail "file/text/units/parallel acceptance scenario failed"
 
-if /bin/ps -axo pid=,pcpu=,rss=,state=,comm= >/dev/null 2>&1; then
+if [ "$process_snapshot_available" -eq 1 ]; then
   acceptance_process_output=$("$HHY_BIN" run tests/acceptance/03-process-system.hhy)
   case "$acceptance_process_output" in
     ''|*[!0-9]*) fail "process/system acceptance scenario returned invalid count" ;;
       0) fail "process/system acceptance scenario found no processes" ;;
   esac
 else
-  printf '%s\n' 'SKIP: host denies /bin/ps; process/system acceptance is covered by CI'
+  printf '%s\n' 'SKIP[HHY_CAP_PROCESS_SNAPSHOT]: host denies /bin/ps; process/system acceptance is covered by CI'
 fi
 
 acceptance_language_output=$("$HHY_BIN" run tests/acceptance/05-language-modules.hhy)
@@ -926,7 +937,7 @@ acceptance_watch_status=$?
 set -e
 [ "$acceptance_watch_status" -eq 0 ] || fail "watch/automation acceptance scenario failed"
 
-if command -v python3 >/dev/null 2>&1; then
+if [ "$socket_bind_available" -eq 1 ]; then
     port_file=tests/output/http-port
     rm -f "$port_file"
     python3 -u tests/http_server.py "$port_file" >tests/output/http-server.log 2>&1 &
@@ -1007,6 +1018,11 @@ PY
     kill "$server_pid" 2>/dev/null || true
     wait "$server_pid" 2>/dev/null || true
     trap - EXIT INT TERM
+elif ! command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' 'SKIP[HHY_CAP_PYTHON]: python3 is unavailable; local HTTP acceptance is covered by CI'
+else
+    socket_reason=$(python3 tests/capabilities.py socket-bind 2>&1 || true)
+    printf '%s\n' "SKIP[HHY_CAP_SOCKET_BIND]: $socket_reason; local HTTP acceptance is covered by CI"
 fi
 
 set +e

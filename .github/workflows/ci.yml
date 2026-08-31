@@ -9,6 +9,31 @@ permissions:
   contents: read
 
 jobs:
+  quality-baseline:
+    name: Quality, documentation, and performance baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install core build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev \
+            libjansson-dev libssl-dev
+
+      - name: Run quality gates and benchmark
+        run: make quality
+
+      - name: Upload performance baseline
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-performance-baseline-${{ github.sha }}
+          path: build/benchmarks/baseline.json
+          if-no-files-found: error
+          retention-days: 30
+
   windows-msys2:
     name: Windows x86_64 MSYS2 build and smoke
     runs-on: windows-2025
@@ -87,33 +112,14 @@ jobs:
           sudo cmake --install /tmp/lexbor-build
           sudo ldconfig
 
-      - name: Validate callable contracts
-        run: |
-          python3 tests/check_contracts.py
-          sh tests/check-promotion-assets.sh
-
       - name: Debug sanitizer suite
         run: make test-debug SANITIZERS=${{ matrix.sanitizers }}
 
       - name: Release suite
         run: make clean && make test
 
-      - name: Safe crawler project acceptance
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
-        run: |
-          npm ci --prefix practical-projects/my-crawler/renderer
-          npm exec --prefix practical-projects/my-crawler/renderer -- playwright install --with-deps chromium
-          ./practical-projects/my-crawler/self-test.sh
-          ./practical-projects/sitegraph-auditor/self-test.sh
-
       - name: Coverage-guided fuzzing
         run: make fuzz-ci FUZZ_CC=clang
-
-      - name: Validate executable documentation
-        run: |
-          sh tests/check-docs.sh build/hhy docs/HHY_V1.md
-          sh tests/check-docs.sh build/hhy README.md
 
       - name: Build checksummed archive
         run: make dist
@@ -153,33 +159,14 @@ jobs:
       - name: Install build dependencies
         run: brew install pcre2 bdw-gc jansson openssl@3 libpq mysql lexbor
 
-      - name: Validate callable contracts
-        run: |
-          python3 tests/check_contracts.py
-          sh tests/check-promotion-assets.sh
-
       - name: Debug ASan and UBSan suite
         run: make test-debug
 
       - name: Release suite
         run: make clean && make test
 
-      - name: Safe crawler project acceptance
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
-        run: |
-          npm ci --prefix practical-projects/my-crawler/renderer
-          npm exec --prefix practical-projects/my-crawler/renderer -- playwright install chromium
-          ./practical-projects/my-crawler/self-test.sh
-          ./practical-projects/sitegraph-auditor/self-test.sh
-
       - name: Deterministic fuzz smoke
         run: make fuzz-smoke
-
-      - name: Validate executable documentation
-        run: |
-          sh tests/check-docs.sh build/hhy docs/HHY_V1.md
-          sh tests/check-docs.sh build/hhy README.md
 
       - name: Build checksummed archive
         run: make dist
@@ -203,3 +190,44 @@ jobs:
             dist/*.sha256
           if-no-files-found: error
           retention-days: 14
+
+  practical-projects:
+    name: Practical projects acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev \
+            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev cmake
+
+      - name: Build pinned HTML dependency
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/lexbor/lexbor/archive/refs/tags/v3.0.0.tar.gz \
+            --output /tmp/lexbor-v3.0.0.tar.gz
+          tar -xzf /tmp/lexbor-v3.0.0.tar.gz -C /tmp
+          cmake -S /tmp/lexbor-3.0.0 -B /tmp/lexbor-build \
+            -DCMAKE_BUILD_TYPE=Release -DLEXBOR_BUILD_TESTS=OFF
+          cmake --build /tmp/lexbor-build --parallel 2
+          sudo cmake --install /tmp/lexbor-build
+          sudo ldconfig
+
+      - name: Build HHY and extensions
+        run: make all extensions
+
+      - name: Install browser fixture runtime
+        run: |
+          npm ci --prefix practical-projects/my-crawler/renderer
+          npm exec --prefix practical-projects/my-crawler/renderer -- playwright install --with-deps chromium
+
+      - name: Run project acceptance
+        run: |
+          ./practical-projects/my-crawler/self-test.sh
+          ./practical-projects/sitegraph-auditor/self-test.sh

@@ -43,7 +43,7 @@ PACKAGE := hhy-$(VERSION)-$(SYSTEM)-$(ARCH)
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: all clean extensions test test-debug debug install dist fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
+.PHONY: all clean extensions test test-debug debug benchmark quality install dist fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
 
 all: $(TARGET)
 
@@ -82,6 +82,16 @@ test: $(TARGET) extensions
 
 test-debug: $(DEBUG_TARGET) extensions
 	HHY_SKIP_GC_STRESS=1 sh tests/run.sh $(DEBUG_TARGET)
+
+benchmark: $(TARGET)
+	python3 scripts/run-benchmarks.py --binary $(TARGET)
+
+quality: $(TARGET)
+	python3 tests/check_contracts.py
+	sh tests/check-promotion-assets.sh
+	sh tests/check-docs.sh $(TARGET) docs/HHY_V1.md
+	sh tests/check-docs.sh $(TARGET) README.md
+	$(MAKE) benchmark
 
 fuzz:
 	@mkdir -p build

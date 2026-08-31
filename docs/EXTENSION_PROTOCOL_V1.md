@@ -1,6 +1,6 @@
 # HHY Process Extension Protocol v1
 
-> Runtime implementation: `1.1.5`
+> Runtime implementation: `1.1.6`
 > Protocol version: `1.0`
 
 Process extensions communicate over UTF-8 JSON Lines. Runtime writes requests to
