@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 
-当前实施版本：1.1.7
+当前实施版本：1.1.8
 
 适用范围：Language、VM/Runtime、CLI、编辑器、扩展协议、扩展分发、实战项目与生态开放
 
@@ -41,7 +41,7 @@ v2.0    有条件的生态开放与 ABI 决策
 | --- | --- | --- | --- | --- |
 | v1.1.6 | **已完成 · 2026-08-31** | 稳定基线与测试治理 | CI 分层、宿主能力探测、性能基线、发布清理 | 正式平台 CI 全绿；测试无模糊失败；基准可重复 |
 | v1.1.7 | **已完成 · 2026-08-31** | 诊断与编辑器基线 | JSON diagnostics、最小 LSP、Contract 感知补全 | CLI/LSP 诊断一致；中型项目具备编辑闭环 |
-| v1.1.8 | 规划 | Runtime 渐进治理 | 模块边界、所有权 API、性能回归门禁 | 行为零变化；sanitizer/GC stress 全绿；性能不回退 |
+| v1.1.8 | **已完成 · 2026-08-31** | Runtime 渐进治理 | 首个模块边界、内部所有权 API、性能回归门禁 | 行为零变化；sanitizer/GC stress 全绿；性能不回退 |
 | v1.2.0 | 规划 | 官方扩展分发与签名 | 包身份、签名、依赖解析、官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
 | v1.2.1 | 规划 | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
 | v1.2.2 | 规划 | 官方复杂扩展验证 | Office 或等价复杂扩展、端到端发行与兼容验证 | 至少一个复杂扩展通过三平台、权限、错误和资源验收 |
@@ -178,9 +178,12 @@ v1.1.x 不扩大语言和生态承诺。原先考虑放入 v1.2 的 LSP、结构
 
 ### 3.3 v1.1.8：Runtime 渐进拆分与性能门禁
 
+> **状态：已完成（2026-08-31）**<br>
+> 发布策略：只提交开发版本与 CI artifact，不创建 Git tag 或 GitHub Release
+
 #### 版本目标
 
-降低超过 6200 行的 `src/runtime.c` 带来的维护风险，同时保持公开行为、性能和内存安全不变。
+建立可持续拆分所需的边界、所有权语言和自动门禁，同时保持公开行为、默认资源限制、性能和内存安全不变。本版本不宣称一次性完成整个 Runtime 拆分。
 
 #### 拆分顺序
 
@@ -198,15 +201,16 @@ Evaluator / Runtime owner / Cleanup
 
 #### 具体内容
 
-- 建立 Value、Map、hash/equality 内部接口；
-- 抽出 Stream `open/next/close`、取消和 barrier 公共逻辑；
-- 将 JSON/CSV 编解码与 evaluator 分离；
-- 隔离 filesystem、process、HTTP 资源生命周期；
-- scanned 与 atomic/native storage 使用具名类型化 API；
-- 为 owned、borrowed、managed、native pointer 制定规则；
-- Runtime owner 统一管理 Stream、Module、Cleanup 和根 CancellationToken；
-- 给关键内部 contract 增加单元测试；
-- benchmark 进入 CI 门禁，基线更新必须显式审批。
+- [x] 将默认资源限制策略抽到 `runtime_limits.c`，形成第一个行为零变化模块边界；
+- [x] 为 borrowed、managed-scanned、managed-atomic、native-owned 制定内部注解；
+- [x] 为 scanned/atomic allocator、数组增长和 Runtime owner teardown 加所有权标注；
+- [x] 静态检查禁止 managed `Value` 数组误用 native allocator；
+- [x] `docs/RUNTIME_GOVERNANCE.md` 固化模块责任和逐职责迁移顺序；
+- [x] benchmark 进入 `make quality` 阻断门禁，检查绝对预算和启动归一化比率；
+- [x] 性能预算独立版本化，修改必须提供显式评审与 benchmark 解释；
+- [x] Runtime owner 继续统一关闭 Stream、Module 和 Cleanup，未新增公开 ABI。
+
+Value/Map、Stream、Codec 和 effectful resource 的物理拆分保留为后续逐步迁移项；只有每一步均满足本节门禁才允许合并，避免以“大爆炸重写”冒充治理完成。
 
 #### 发布门槛
 

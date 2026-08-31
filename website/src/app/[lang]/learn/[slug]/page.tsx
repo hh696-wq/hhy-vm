@@ -11,6 +11,54 @@ import { isLanguage, languages } from "@/lib/i18n";
 import { hhyVersion, hhyVersionTag } from "@/lib/release";
 import { createMetadata, localizedUrl, siteName } from "@/lib/seo";
 
+function RoadmapVersion({ value }: { value: string }) {
+  const [version, ...statuses] = value.split(" · ");
+  return <span className="roadmap-version"><b>{version}</b>{statuses.map((status) => {
+    const statusKey = status === "已发布" || status === "Released"
+      ? "released"
+      : status === "测试中" || status === "Testing"
+        ? "testing"
+        : status === "当前" || status === "Current"
+          ? "current"
+          : status === "规划" || status === "Planned"
+            ? "planned"
+            : "conditional";
+    return <em data-status={statusKey} key={status}>{status}</em>;
+  })}</span>;
+}
+
+function ReleaseLineage({ columns, rows, lang }: { columns: string[]; rows: string[][]; lang: "zh" | "en" }) {
+  const groups = [
+    { label: "v1.0.x", matches: (version: string) => version.startsWith("v1.0.") },
+    { label: "v1.1.x", matches: (version: string) => version.startsWith("v1.1.") },
+    { label: "v1.2.x", matches: (version: string) => version === "v1.2" || version.startsWith("v1.2.") },
+    { label: "v2.0.x", matches: (version: string) => version === "v2.0" || version.startsWith("v2.0.") },
+  ];
+  return <div className="release-lineage">
+    {groups.map((group) => {
+      const releases = rows.filter((row) => group.matches(row[0].split(" · ")[0]));
+      if (releases.length === 0) return null;
+      return <details className="release-lineage-group" key={group.label}>
+        <summary>
+          <span>{group.label}</span>
+          <small>{lang === "zh" ? `${releases.length} 个版本` : `${releases.length} ${releases.length === 1 ? "release" : "releases"}`}</small>
+          <span className="release-lineage-toggle" aria-hidden="true">+</span>
+        </summary>
+        <div className="doc-table-wrap">
+          <table className="doc-table">
+            <thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
+            <tbody>{releases.map((row) => <tr key={row[0]}>{row.map((cell, cellIndex) =>
+              <td data-label={columns[cellIndex]} key={cellIndex}>{cellIndex === 0 && cell.includes(" · ")
+                ? <RoadmapVersion value={cell} />
+                : cell}</td>
+            )}</tr>)}</tbody>
+          </table>
+        </div>
+      </details>;
+    })}
+  </div>;
+}
+
 export function generateStaticParams() {
   return languages.flatMap((lang) => chapters.map((chapter) => ({ lang, slug: chapter.slug })));
 }
@@ -71,6 +119,9 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
               if (block.type === "p") return <p key={index}>{block.text}</p>;
               if (block.type === "note") return <aside className="doc-note" key={index}>{block.text}</aside>;
               if (block.type === "list") return <ul key={index}>{block.items.map((item) => <li key={item}>{item}</li>)}</ul>;
+              if (block.type === "table" && slug === "language-vm-roadmap" && (block.columns[0] === "版本" || block.columns[0] === "Release")) {
+                return <ReleaseLineage columns={block.columns} rows={block.rows} lang={lang} key={index} />;
+              }
               if (block.type === "table") return (
                 <div className="doc-table-wrap" key={index}>
                   <table className="doc-table">
@@ -79,18 +130,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                       const isRoadmapVersion = slug === "language-vm-roadmap" && cellIndex === 0 && cell.includes(" · ");
                       const [version, ...statuses] = isRoadmapVersion ? cell.split(" · ") : [cell];
                       return <td data-label={block.columns[cellIndex]} key={cellIndex}>{isRoadmapVersion
-                        ? <span className="roadmap-version"><b>{version}</b>{statuses.map((status) => {
-                          const statusKey = status === "已发布" || status === "Released"
-                            ? "released"
-                            : status === "测试中" || status === "Testing"
-                              ? "testing"
-                              : status === "当前" || status === "Current"
-                                ? "current"
-                                : status === "规划" || status === "Planned"
-                                  ? "planned"
-                                  : "conditional";
-                          return <em data-status={statusKey} key={status}>{status}</em>;
-                        })}</span>
+                        ? <RoadmapVersion value={[version, ...statuses].join(" · ")} />
                         : cell}</td>;
                     })}</tr>)}</tbody>
                   </table>
@@ -143,7 +183,8 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.1.4", date: "2026-08-28", title: "安全静态 Spider", detail: "URL 规范化、链接发现、Frontier、抓取边界、指纹去重与连接级 SSRF 防护", icon: ShieldCheck },
                     { version: "v1.1.5", date: "2026-08-30", title: "可恢复 Spider 与浏览器渲染", detail: "持久 Frontier、断点恢复、流式落盘、可选 Playwright 与 Windows MSYS2 构建证据", icon: ShieldCheck },
                     { version: "v1.1.6", date: "2026-08-31", title: "稳定基线与测试治理", detail: "宿主能力探测、分层 CI、机器可读性能基线与发布一致性门禁", icon: ShieldCheck },
-                    { version: "v1.1.7", date: "2026-08-31", title: "诊断与编辑器基线", detail: "版本化 JSON diagnostics、Contract Registry JSON、LSP 与 VS Code 编辑闭环", icon: ShieldCheck }
+                    { version: "v1.1.7", date: "2026-08-31", title: "诊断与编辑器基线", detail: "版本化 JSON diagnostics、Contract Registry JSON、LSP 与 VS Code 编辑闭环", icon: ShieldCheck },
+                    { version: "v1.1.8", date: "2026-08-31", title: "Runtime 渐进治理", detail: "首个模块边界、内部所有权规则、GC/sanitizer 与性能回归门禁", icon: ShieldCheck }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
@@ -154,7 +195,8 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.1.4", date: "2026-08-28", title: "Safe static spider", detail: "URL normalization, link discovery, frontier limits, fingerprint deduplication, and connection-level SSRF protection", icon: ShieldCheck },
                     { version: "v1.1.5", date: "2026-08-30", title: "Resumable spider and browser rendering", detail: "Persistent frontier, resume, streamed files, optional Playwright, and Windows MSYS2 build evidence", icon: ShieldCheck },
                     { version: "v1.1.6", date: "2026-08-31", title: "Stable engineering baseline", detail: "Host capability probes, layered CI, machine-readable performance baselines, and release consistency gates", icon: ShieldCheck },
-                    { version: "v1.1.7", date: "2026-08-31", title: "Diagnostics and editor baseline", detail: "Versioned JSON diagnostics, Contract Registry JSON, LSP, and a VS Code editing loop", icon: ShieldCheck }
+                    { version: "v1.1.7", date: "2026-08-31", title: "Diagnostics and editor baseline", detail: "Versioned JSON diagnostics, Contract Registry JSON, LSP, and a VS Code editing loop", icon: ShieldCheck },
+                    { version: "v1.1.8", date: "2026-08-31", title: "Gradual Runtime governance", detail: "First module boundary, internal ownership rules, GC/sanitizer, and a performance-regression gate", icon: ShieldCheck }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
@@ -168,12 +210,24 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                 const principles = lang === "zh"
                   ? ["先冻结语义，再开放扩展", "先可用、可测，再做高性能", "扩展通过协议接入，不另造语义", "ABI 只在 Runtime 稳定后评估"]
                   : ["Freeze semantics before opening extensions", "Make it usable and measurable before fast", "Extend through protocol, not a second language model", "Evaluate ABI only after Runtime stability"];
+                const history = released.slice(0, -1);
+                const current = released.at(-1)!;
+                const CurrentIcon = current.icon;
                 return (
                   <figure className="evolution-roadmap" key={index}>
-                    <header><strong>{lang === "zh" ? "语言 / VM 演进路线图" : "Language / VM Evolution Roadmap"}</strong><span>{lang === "zh" ? "当前 v1.1.7 · 后续只保留两个方向" : "Current v1.1.7 · only two future directions"}</span></header>
-                    <div className="evolution-released">
-                      <strong>{lang === "zh" ? "版本基础与当前版本" : "Release foundation and current version"}</strong>
-                      {released.map(({ version, date, title, detail, icon: Icon }) => <article key={version}><Icon size={42} weight="duotone" aria-hidden /><div><span><b>{version}</b><time>{date}</time><em data-status={version === `v${hhyVersion}` ? "testing" : "released"}>{version === `v${hhyVersion}` ? (lang === "zh" ? "当前 · 测试中" : "Current · Testing") : (lang === "zh" ? "已发布" : "Released")}</em></span><h3>{title}</h3><p>{detail}</p></div></article>)}
+                    <header><strong>{lang === "zh" ? "语言 / VM 演进路线图" : "Language / VM Evolution Roadmap"}</strong><span>{lang === "zh" ? `当前 v${hhyVersion} · 后续只保留两个方向` : `Current v${hhyVersion} · only two future directions`}</span></header>
+                    <div className="evolution-release-stage">
+                      <details className="evolution-history">
+                        <summary><span>{lang === "zh" ? "已发布版本" : "Released history"}</span><small>{lang === "zh" ? `${history.length} 个版本 · 点击展开` : `${history.length} releases · expand`}</small><b aria-hidden>+</b></summary>
+                        <div className="evolution-history-grid">
+                          {history.map(({ version, date, title, detail, icon: Icon }) => <article key={version}><Icon size={38} weight="duotone" aria-hidden /><div><span><b>{version}</b><time>{date}</time><em>{lang === "zh" ? "已发布" : "Released"}</em></span><h3>{title}</h3><p>{detail}</p></div></article>)}
+                        </div>
+                      </details>
+                      <article className="evolution-current">
+                        <CurrentIcon size={48} weight="duotone" aria-hidden />
+                        <div className="evolution-current-title"><span><b>{current.version}</b><em>{lang === "zh" ? "当前 · 进行中" : "Current · In progress"}</em></span><time>{current.date}</time><h3>{current.title}</h3></div>
+                        <p>{current.detail}</p>
+                      </article>
                     </div>
                     <div className="evolution-future-label"><span>{lang === "zh" ? "未来两个版本" : "Two future releases"}</span><small>{lang === "zh" ? "按验收门槛依次进入" : "Enter sequentially through acceptance gates"}</small></div>
                     <div className="evolution-track">
@@ -190,7 +244,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                       ))}
                     </div>
                     <div className="evolution-principles"><strong><ShieldCheck size={30} weight="duotone" />{lang === "zh" ? "演进原则" : "Evolution principles"}</strong>{principles.map((principle, principleIndex) => <span key={principle}><b>{principleIndex + 1}</b>{principle}</span>)}</div>
-                    <figcaption>{lang === "zh" ? "演进顺序：v1.1.5 可恢复 Spider → v1.1.6 稳定基线 → v1.1.7 编辑器基线 → 官方扩展工具链 → 生态 ABI 决策" : "Evolution order: v1.1.5 resumable spider → v1.1.6 stable baseline → v1.1.7 editor baseline → official extension tooling → ecosystem ABI decision"}</figcaption>
+                    <figcaption>{lang === "zh" ? "演进顺序：v1.1.6 稳定基线 → v1.1.7 编辑器基线 → v1.1.8 Runtime 治理 → 官方扩展工具链 → 生态 ABI 决策" : "Evolution order: v1.1.6 stable baseline → v1.1.7 editor baseline → v1.1.8 Runtime governance → official extension tooling → ecosystem ABI decision"}</figcaption>
                   </figure>
                 );
               }

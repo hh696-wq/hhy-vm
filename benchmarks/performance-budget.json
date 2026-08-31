@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "policy": "Changes to this file require explicit review and a benchmark explanation.",
+  "maximum_median_ms": {
+    "basic_flow": 250.0,
+    "cli_version": 100.0,
+    "core_flow_100k": 500.0,
+    "json_flow": 250.0
+  },
+  "maximum_startup_ratio": {
+    "basic_flow": 12.0,
+    "core_flow_100k": 20.0,
+    "json_flow": 12.0
+  }
+}

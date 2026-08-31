@@ -2267,11 +2267,11 @@ export const chapters: Chapter[] = [
     slug: "language-vm-roadmap",
     order: 23,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "v1.1.7 完成结构化诊断与编辑器基线；未来继续推进扩展工具链和有条件的生态 ABI 决策。", en: "v1.1.7 completes structured diagnostics and the editor baseline, followed by extension tooling and the conditional ecosystem ABI decision." },
+    summary: { zh: "v1.1.8 完成 Runtime 渐进治理基线；未来继续推进扩展工具链和有条件的生态 ABI 决策。", en: "v1.1.8 completes the gradual Runtime governance baseline, followed by extension tooling and the conditional ecosystem ABI decision." },
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.1.7 是当前诊断与编辑器基线版本，在 v1.1.6 工程基线之上提供版本化 JSON diagnostics、Contract Registry JSON、最小 LSP 和 VS Code 编辑闭环。后续方向不承诺发布日期。" },
+          { type: "note", text: "v1.1.8 是当前 Runtime 渐进治理版本：建立首个模块边界、内部所有权规则和阻断式性能回归门禁，同时保持 HHY 行为不变。后续方向不承诺发布日期。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2284,7 +2284,8 @@ export const chapters: Chapter[] = [
             ["v1.1.4 · 已发布", "2026-08-28", "安全静态 Spider", "URL 规范化、链接发现、Frontier、边界、指纹去重与连接级 SSRF 防护"],
             ["v1.1.5 · 已发布", "2026-08-30", "可恢复 Spider 与浏览器渲染", "持久 Frontier、断点恢复、流式落盘、可选 Playwright 与 Windows MSYS2 构建证据"],
             ["v1.1.6 · 已完成", "2026-08-31", "稳定基线与测试治理", "宿主能力探测、分层 CI、机器可读性能基线与发布一致性门禁"],
-            ["v1.1.7 · 当前", "2026-08-31", "诊断与编辑器基线", "版本化 JSON diagnostics、Contract Registry JSON、最小 LSP 与 VS Code 编辑闭环"],
+            ["v1.1.7 · 已完成", "2026-08-31", "诊断与编辑器基线", "版本化 JSON diagnostics、Contract Registry JSON、最小 LSP 与 VS Code 编辑闭环"],
+            ["v1.1.8 · 当前", "2026-08-31", "Runtime 渐进治理", "首个模块边界、内部所有权 API、sanitizer/GC stress 与阻断式性能回归门禁"],
             ["v1.2 · 规划", "完成 v1.1.x 验收后", "官方扩展包分发与工具链", "官方扩展具备签名验证、依赖解析、远程索引、离线锁定、可复现安装以及安全回滚"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
@@ -2300,7 +2301,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.1.7 is the current diagnostics and editor-baseline release, adding versioned JSON diagnostics, Contract Registry JSON, a minimal LSP, and a VS Code editing loop on top of v1.1.6. Future directions carry no promised dates." },
+          { type: "note", text: "v1.1.8 is the current gradual Runtime-governance release: the first module boundary, internal ownership rules, and a blocking performance-regression gate, with no HHY behavior change. Future directions carry no promised dates." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
@@ -2313,7 +2314,8 @@ export const chapters: Chapter[] = [
             ["v1.1.4 · Released", "2026-08-28", "Safe static spider", "URL normalization, discovery, frontier, limits, fingerprint deduplication, and connection-level SSRF protection"],
             ["v1.1.5 · Released", "2026-08-30", "Resumable spider and browser rendering", "Persistent frontier, resume, streamed files, optional Playwright, and Windows MSYS2 build evidence"],
             ["v1.1.6 · Completed", "2026-08-31", "Stable engineering baseline", "Host capability probes, layered CI, machine-readable performance baselines, and release consistency gates"],
-            ["v1.1.7 · Current", "2026-08-31", "Diagnostics and editor baseline", "Versioned JSON diagnostics, Contract Registry JSON, a minimal LSP, and a VS Code editing loop"],
+            ["v1.1.7 · Completed", "2026-08-31", "Diagnostics and editor baseline", "Versioned JSON diagnostics, Contract Registry JSON, a minimal LSP, and a VS Code editing loop"],
+            ["v1.1.8 · Current", "2026-08-31", "Gradual Runtime governance", "First module boundary, internal ownership API, sanitizer/GC stress, and a blocking performance-regression gate"],
             ["v1.2 · Planned", "After v1.1.x acceptance", "Official extension package distribution and tooling", "Official extensions have publisher signatures, dependency resolution, a remote index, offline locking, reproducible installation, and safe rollback"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },

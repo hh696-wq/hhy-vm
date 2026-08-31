@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #define _DARWIN_C_SOURCE
 #include "hhy/runtime.h"
+#include "runtime_ownership.h"
 #include "hhy/contracts.h"
 #include "hhy/extensions.h"
 #include "hhy/parser.h"
@@ -46,13 +47,6 @@
 extern char **environ;
 
 enum {
-    HHY_DEFAULT_MAX_MEMORY = 512 * 1024 * 1024,
-    HHY_DEFAULT_MAX_OPEN_FILES = 256,
-    HHY_DEFAULT_MAX_PROCESSES = 16,
-    HHY_DEFAULT_MAX_PARALLELISM = 16,
-    HHY_DEFAULT_MAX_HTTP_BODY = 16 * 1024 * 1024,
-    HHY_DEFAULT_MAX_REGEX_STEPS = 1000000,
-    HHY_DEFAULT_MAX_RECURSION = 256,
     HHY_MAX_TEXT_OUTPUT = 256 * 1024 * 1024,
     HHY_MAX_COLLECTION_ITEMS = 1000000
 };
@@ -240,19 +234,6 @@ struct Runtime {
     HhyProfiler *profiler;
 };
 
-HhyRuntimeLimits hhy_runtime_limits_default(void) {
-    return (RuntimeLimits){
-        .max_memory = HHY_DEFAULT_MAX_MEMORY,
-        .max_open_files = HHY_DEFAULT_MAX_OPEN_FILES,
-        .max_processes = HHY_DEFAULT_MAX_PROCESSES,
-        .max_parallelism = HHY_DEFAULT_MAX_PARALLELISM,
-        .max_http_body = HHY_DEFAULT_MAX_HTTP_BODY,
-        .max_regex_steps = HHY_DEFAULT_MAX_REGEX_STEPS,
-        .max_recursion = HHY_DEFAULT_MAX_RECURSION,
-        .max_runtime_ns = 0
-    };
-}
-
 static volatile sig_atomic_t hhy_interrupt_requested = 0;
 
 static void hhy_signal_handler(int signal_number) {
@@ -403,7 +384,7 @@ static bool runtime_memory_available(Runtime *rt, size_t size) {
     return true;
 }
 
-static void *rt_alloc(Runtime *rt, size_t size) {
+static HHY_MANAGED_SCANNED void *rt_alloc(Runtime *rt, size_t size) {
     size_t requested = size == 0 ? 1 : size;
     if (rt->gc_stress) GC_gcollect();
     if (!runtime_memory_available(rt, requested)) runtime_memory_limit(rt);
@@ -422,7 +403,7 @@ static MapStorage *map_storage_new(Runtime *rt, size_t count) {
     return map;
 }
 
-static void *rt_alloc_atomic(Runtime *rt, size_t size) {
+static HHY_MANAGED_ATOMIC void *rt_alloc_atomic(Runtime *rt, size_t size) {
     size_t requested = size == 0 ? 1 : size;
     if (!runtime_memory_available(rt, requested)) runtime_memory_limit(rt);
     void *pointer = GC_malloc_atomic(requested);
@@ -436,7 +417,7 @@ static void *rt_alloc_atomic(Runtime *rt, size_t size) {
 
 /* Managed references must live in scanned storage. These named helpers make
  * the ownership rule explicit at every grow site. */
-static void *rt_scanned_array_grow(Runtime *rt, const void *old, size_t old_count,
+static HHY_MANAGED_SCANNED void *rt_scanned_array_grow(Runtime *rt, HHY_BORROWED const void *old, size_t old_count,
                                    size_t new_count, size_t item_size) {
     if (new_count > SIZE_MAX / item_size) runtime_memory_limit(rt);
     void *result = rt_alloc(rt, new_count * item_size);
@@ -5972,7 +5953,7 @@ static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc,
     return global;
 }
 
-static void runtime_release(Runtime *rt) {
+static void runtime_release(HHY_BORROWED Runtime *rt) {
     while (rt->cleanups != NULL) {
         RuntimeCleanup *cleanup = rt->cleanups;
         rt->cleanups = cleanup->next;
