@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "hhy/ast.h"
 #include "hhy/common.h"
 #include "hhy/checker.h"
