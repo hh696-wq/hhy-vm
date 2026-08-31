@@ -10,8 +10,15 @@ python3 tests/create_registry_fixture.py "$fixture"
 
 plan=$(HHY_EXTENSION_HOME="$home" "$HHY_BIN" install --dry-run \
     --registry "$fixture" --trust-root "$fixture/root.json" official/sample)
-printf '%s' "$plan" | grep -F '1. official/html 0.1.0 -> html' >/dev/null
-printf '%s' "$plan" | grep -F '2. official/sample 0.1.0 -> sample' >/dev/null
+case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64) native_target=darwin-arm64 ;;
+    Linux-x86_64) native_target=linux-x86_64 ;;
+    Linux-aarch64) native_target=linux-arm64 ;;
+    MINGW*-x86_64|MSYS*-x86_64) native_target=windows-x86_64 ;;
+    *) native_target=unsupported ;;
+esac
+printf '%s' "$plan" | grep -F "1. official/html 0.1.0 [$native_target] -> html" >/dev/null
+printf '%s' "$plan" | grep -F "2. official/sample 0.1.0 [$native_target] -> sample" >/dev/null
 [ ! -e "$home/html" ] && [ ! -e "$home/sample" ]
 
 HHY_EXTENSION_HOME="$home" "$HHY_BIN" install --yes \
@@ -34,7 +41,7 @@ rm -rf "$rollback_home"
 
 # A signed descriptor cannot make a modified payload acceptable.
 payload_home=$(mktemp -d)
-printf '\n' >> "$fixture/packages/sample/hhy.toml"
+printf '\n' >> "$fixture/packages/official/sample/0.1.0/$native_target/hhy.toml"
 set +e
 HHY_EXTENSION_HOME="$payload_home" "$HHY_BIN" install --yes \
     --registry "$fixture" --trust-root "$fixture/root.json" official/sample >/dev/null 2>&1
@@ -58,5 +65,35 @@ set -e
 [ "$status" -ne 0 ]
 [ -z "$(find "$tampered_home" -mindepth 1 -print -quit)" ]
 rm -rf "$tampered_home"
+
+# A valid signed index without the native target fails closed.
+missing_target_fixture=$(mktemp -d)
+missing_target_home=$(mktemp -d)
+case "$native_target" in
+    linux-x86_64) other_target=darwin-arm64 ;;
+    *) other_target=linux-x86_64 ;;
+esac
+HHY_REGISTRY_FIXTURE_TARGETS="$other_target" python3 tests/create_registry_fixture.py "$missing_target_fixture"
+set +e
+HHY_EXTENSION_HOME="$missing_target_home" "$HHY_BIN" install --yes \
+    --registry "$missing_target_fixture" --trust-root "$missing_target_fixture/root.json" official/sample >/dev/null 2>&1
+missing_target_status=$?
+set -e
+[ "$missing_target_status" -ne 0 ]
+[ -z "$(find "$missing_target_home" -mindepth 1 -print -quit)" ]
+rm -rf "$missing_target_fixture" "$missing_target_home"
+
+# The same identity/version may have many targets, but one target coordinate may occur only once.
+duplicate_fixture=$(mktemp -d)
+duplicate_home=$(mktemp -d)
+HHY_REGISTRY_FIXTURE_TARGETS="$native_target,$native_target" python3 tests/create_registry_fixture.py "$duplicate_fixture"
+set +e
+HHY_EXTENSION_HOME="$duplicate_home" "$HHY_BIN" install --yes \
+    --registry "$duplicate_fixture" --trust-root "$duplicate_fixture/root.json" official/sample >/dev/null 2>&1
+duplicate_status=$?
+set -e
+[ "$duplicate_status" -ne 0 ]
+[ -z "$(find "$duplicate_home" -mindepth 1 -print -quit)" ]
+rm -rf "$duplicate_fixture" "$duplicate_home"
 
 echo 'signed Registry tests passed'

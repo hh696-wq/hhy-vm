@@ -74,6 +74,7 @@ jobs:
             pcre2-devel
             jansson-devel
             openssl-devel
+            cmake
 
       - name: Build HHY on Windows
         run: make clean && make
@@ -85,6 +86,35 @@ jobs:
           ./build/hhy run tests/valid/basic.hhy
           ./build/hhy run tests/valid/regex.hhy
           ./build/hhy run tests/valid/json-flow.hhy
+
+      - name: Build Windows official extension targets
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/lexbor/lexbor/archive/refs/tags/v3.0.0.tar.gz \
+            --output /tmp/lexbor-v3.0.0.tar.gz
+          tar -xzf /tmp/lexbor-v3.0.0.tar.gz -C /tmp
+          cmake -S /tmp/lexbor-3.0.0 -B /tmp/lexbor-build \
+            -DCMAKE_BUILD_TYPE=Release -DLEXBOR_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake --build /tmp/lexbor-build --parallel 2
+          cmake --install /tmp/lexbor-build
+          make -C extensions/sample
+          make -C extensions/html
+          mkdir -p build/registry-target/extensions/sample build/registry-target/extensions/html
+          cp -R extensions/sample/hhy.toml extensions/sample/bin build/registry-target/extensions/sample/
+          cp -R extensions/html/hhy.toml extensions/html/bin build/registry-target/extensions/html/
+          for executable in build/registry-target/extensions/*/bin/*; do
+            ldd "$executable" | awk '/=> \/|^\// { for (i = 1; i <= NF; i++) if ($i ~ /^\//) print $i }' | while IFS= read -r dependency; do
+              cp -L "$dependency" "$(dirname "$executable")/$(basename "$dependency")"
+            done
+          done
+
+      - name: Upload Windows extension target
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-registry-windows-x86_64-${{ github.sha }}
+          path: build/registry-target/extensions
+          if-no-files-found: error
+          retention-days: 14
 
   linux:
     name: Linux ${{ matrix.package_arch }} native sanitizer and release
@@ -160,6 +190,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload Linux extension target
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-registry-linux-${{ matrix.package_arch }}-${{ github.sha }}
+          path: build/hhy-*/extensions
+          if-no-files-found: error
+          retention-days: 14
+
   macos-arm64:
     name: macOS arm64 native sanitizer and release
     runs-on: macos-14
@@ -204,6 +242,14 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS extension target
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-registry-darwin-arm64-${{ github.sha }}
+          path: build/hhy-*/extensions
           if-no-files-found: error
           retention-days: 14
 

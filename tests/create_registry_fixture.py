@@ -4,6 +4,8 @@
 import base64
 import hashlib
 import json
+import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -24,6 +26,13 @@ def openssl_command() -> str:
 
 
 OPENSSL = openssl_command()
+
+
+def runtime_target() -> str:
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    architecture = "arm64" if machine in {"arm64", "aarch64"} else "x86_64" if machine in {"amd64", "x86_64"} else machine
+    return f"{'darwin' if system == 'darwin' else 'windows' if system.startswith('win') else system}-{architecture}"
 
 
 def canonical(value: dict) -> bytes:
@@ -64,21 +73,28 @@ def main() -> None:
     root = {"algorithm": "ed25519", "key_id": "hhy-test-2026", "public_key": base64.b64encode(raw_public_key).decode(), "schema_version": 1}
     (target / "root.json").write_text(json.dumps(root, indent=2, sort_keys=True) + "\n")
 
+    configured_targets = os.environ.get(
+        "HHY_REGISTRY_FIXTURE_TARGETS",
+        "darwin-arm64,linux-x86_64,linux-arm64,windows-x86_64",
+    ).split(",")
     packages = []
-    for name, dependencies in (("html", {}), ("sample", {"official/html": "^0.1.0"})):
-        package_dir = target / "packages" / name
-        shutil.copytree(project / "extensions" / name, package_dir)
-        item = {
-            "dependencies": dependencies,
-            "files": file_hashes(package_dir),
-            "identity": f"official/{name}",
-            "key_id": "hhy-test-2026",
-            "runtime_name": name,
-            "source": f"packages/{name}",
-            "version": "0.1.0",
-        }
-        item["signature"] = sign(item, private_key)
-        packages.append(item)
+    for package_target in configured_targets:
+        for name, dependencies in (("html", {}), ("sample", {"official/html": "^0.1.0"})):
+            package_dir = target / "packages" / "official" / name / "0.1.0" / package_target
+            if not package_dir.exists():
+                shutil.copytree(project / "extensions" / name, package_dir)
+            item = {
+                "dependencies": dependencies,
+                "files": file_hashes(package_dir),
+                "identity": f"official/{name}",
+                "key_id": "hhy-test-2026",
+                "runtime_name": name,
+                "source": f"packages/official/{name}/0.1.0/{package_target}",
+                "target": package_target,
+                "version": "0.1.0",
+            }
+            item["signature"] = sign(item, private_key)
+            packages.append(item)
     index = {"generated_at": "2026-08-31T00:00:00Z", "key_id": "hhy-test-2026", "packages": packages, "registry": "hhy-test", "schema_version": 1}
     index["signature"] = sign(index, private_key)
     (target / "index.json").write_text(json.dumps(index, indent=2, sort_keys=True) + "\n")

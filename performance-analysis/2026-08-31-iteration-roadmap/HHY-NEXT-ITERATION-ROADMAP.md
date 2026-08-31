@@ -230,7 +230,7 @@ v1.2 保持官网公开定位：让官方扩展具备可信来源、依赖解析
 > **状态：已完成（2026-08-31）**<br>
 > 实施提交：`8e81ca1c909901667f7f7d03c7e3ccc6f1349528`，跨平台修复截至 `4b3f9b0599adcd625ed1307ea74cbbf7ae7ca120`<br>
 > GitHub Actions：[HHY release evidence #33356076638](https://github.com/hh696-wq/hhy-vm/actions/runs/33356076638) · [HHY website #33355924739](https://github.com/hh696-wq/hhy-vm/actions/runs/33355924739)<br>
-> 已交付：静态签名 Registry、显式 Ed25519 信任根、索引与包描述双层签名、确定性传递依赖解析、全图校验、`--dry-run`、同文件系统 staging、原子单包提交和失败图回滚。未创建 Git tag、GitHub Release 或正式发布包。
+> 已交付：静态签名 Registry、显式 Ed25519 信任根、索引与包描述双层签名、同版本多 target 产物选择、确定性传递依赖解析、全图校验、`--dry-run`、同文件系统 staging、原子单包提交和失败图回滚。未创建 Git tag、GitHub Release 或正式发布包。
 
 #### 版本目标
 

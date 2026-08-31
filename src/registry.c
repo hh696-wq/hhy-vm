@@ -19,6 +19,7 @@ typedef struct {
     const char *version;
     const char *runtime_name;
     const char *source;
+    const char *target;
 } RegistryPackage;
 
 typedef struct {
@@ -48,6 +49,40 @@ static bool safe_runtime_name(const char *value) {
     for (const unsigned char *p = (const unsigned char *)value; *p; p++)
         if (!((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '-')) return false;
     return true;
+}
+
+static const char *current_target(void) {
+#if defined(__APPLE__)
+#if defined(__aarch64__) || defined(__arm64__)
+    return "darwin-arm64";
+#elif defined(__x86_64__)
+    return "darwin-x86_64";
+#endif
+#elif defined(_WIN32)
+#if defined(__x86_64__) || defined(_M_X64)
+    return "windows-x86_64";
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    return "windows-arm64";
+#endif
+#elif defined(__linux__)
+#if defined(__aarch64__)
+    return "linux-arm64";
+#elif defined(__x86_64__)
+    return "linux-x86_64";
+#endif
+#endif
+    return NULL;
+}
+
+static bool safe_target(const char *value) {
+    static const char *targets[] = {
+        "darwin-arm64", "darwin-x86_64", "linux-arm64", "linux-x86_64",
+        "windows-arm64", "windows-x86_64"
+    };
+    if (value == NULL) return false;
+    for (size_t i = 0; i < sizeof(targets) / sizeof(targets[0]); i++)
+        if (strcmp(value, targets[i]) == 0) return true;
+    return false;
 }
 
 static bool parse_version(const char *text, int out[3]) {
@@ -129,10 +164,12 @@ static bool sha256_file(const char *path, char output[65]) {
 }
 
 static RegistryPackage *select_package(Registry *registry, const char *identity, const char *constraint) {
-    RegistryPackage *selected = NULL;
+    RegistryPackage *selected = NULL; const char *target = current_target();
+    if (target == NULL) return NULL;
     for (size_t i = 0; i < registry->count; i++) {
         RegistryPackage *candidate = &registry->packages[i];
-        if (strcmp(candidate->identity, identity) == 0 && version_matches(candidate->version, constraint) &&
+        if (strcmp(candidate->target, target) == 0 && strcmp(candidate->identity, identity) == 0 &&
+            version_matches(candidate->version, constraint) &&
             (selected == NULL || compare_version(candidate->version, selected->version) > 0)) selected = candidate;
     }
     return selected;
@@ -156,7 +193,11 @@ static bool resolve(Registry *registry, const char *identity, const char *constr
         fputs("hhy: registry dependency cycle detected\n", stderr); return false;
     }
     RegistryPackage *package = select_package(registry, identity, constraint);
-    if (package == NULL) { fprintf(stderr, "hhy: no registry version satisfies %s %s\n", identity, constraint); return false; }
+    if (package == NULL) {
+        fprintf(stderr, "hhy: no registry package satisfies %s %s for target %s\n",
+                identity, constraint, current_target() ? current_target() : "unsupported");
+        return false;
+    }
     stack[depth] = identity;
     json_t *dependencies = json_object_get(package->json, "dependencies");
     if (!json_is_object(dependencies)) return false;
@@ -214,16 +255,19 @@ static bool load_registry(Registry *registry, const HhyPackageInstallOptions *op
         package->json = item; package->identity = json_string_value(json_object_get(item, "identity"));
         package->version = json_string_value(json_object_get(item, "version"));
         package->runtime_name = json_string_value(json_object_get(item, "runtime_name"));
-        package->source = json_string_value(json_object_get(item, "source")); int version[3];
+        package->source = json_string_value(json_object_get(item, "source"));
+        package->target = json_string_value(json_object_get(item, "target")); int version[3];
         const char *package_key_id = json_string_value(json_object_get(item, "key_id"));
         if (!json_is_object(item) || !safe_identity(package->identity) || !parse_version(package->version, version) ||
             !safe_runtime_name(package->runtime_name) || !safe_relative(package->source) ||
+            !safe_target(package->target) ||
             package_key_id == NULL || strcmp(package_key_id, registry->key_id) != 0 ||
             !verify_signature(item, "signature", decoded, decoded_length)) ok = false;
         else {
             for (size_t previous = 0; previous < registry->count; previous++)
                 if (strcmp(registry->packages[previous].identity, package->identity) == 0 &&
-                    strcmp(registry->packages[previous].version, package->version) == 0) ok = false;
+                    strcmp(registry->packages[previous].version, package->version) == 0 &&
+                    strcmp(registry->packages[previous].target, package->target) == 0) ok = false;
             if (ok) registry->count++;
         }
     }
@@ -249,8 +293,8 @@ int hhy_registry_install(const char *identity, const HhyPackageInstallOptions *o
     if (!ok) { free((void *)registry.public_key); json_decref(root); json_decref(index); return 3; }
     puts("Verified signed installation plan:");
     for (size_t i = 0; i < registry.plan_count; i++)
-        printf("  %zu. %s %s -> %s\n", i + 1, registry.plan[i]->identity,
-               registry.plan[i]->version, registry.plan[i]->runtime_name);
+        printf("  %zu. %s %s [%s] -> %s\n", i + 1, registry.plan[i]->identity,
+               registry.plan[i]->version, registry.plan[i]->target, registry.plan[i]->runtime_name);
     if (options->dry_run) { puts("Dry run: no files changed."); goto success; }
     if (!options->assume_yes) {
         char answer[16]; fputs("Install this verified plan? [y/N] ", stdout); fflush(stdout);

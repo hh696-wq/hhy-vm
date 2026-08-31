@@ -9,6 +9,8 @@ HHY v1.2.0 在原有本地目录安装之外，增加静态、可签名的官方
 ### 信任与包身份
 
 - 包坐标固定为 `namespace/name`，例如 `official/html`；Runtime 名称仍为 `html`。
+- 包实例坐标增加 `version + target`。同一版本可以同时发布 `darwin-arm64`、
+  `linux-x86_64`、`linux-arm64` 和 `windows-x86_64`；客户端只解析当前宿主 target。
 - `root.json` 是显式传入的 Ed25519 信任锚，包含 schema version、key id 和 32-byte 公钥。
 - `index.json` 整体签名；每个包描述也独立签名。签名覆盖身份、版本、Runtime 名称、依赖、来源目录以及完整文件 SHA-256 清单。
 - 客户端先验证索引，再解析完整依赖图，最后验证所有 payload；任一步失败均不安装。
@@ -17,6 +19,7 @@ HHY v1.2.0 在原有本地目录安装之外，增加静态、可签名的官方
 ### 依赖与事务
 
 - 支持精确版本、`>=x.y.z`、`^x.y.z` 和 `*`；同一索引快照中选择满足条件的最高版本。
+- 相同 identity/version/target 是重复记录并被拒绝；相同 identity/version 的不同 target 合法。
 - 传递依赖按依赖优先顺序确定性输出；循环、缺失版本和版本冲突都会拒绝。
 - `--dry-run` 完成验签、解析和 payload 校验，但不创建扩展目录。
 - 每个包先复制到扩展目录同文件系统的隐藏 staging 目录，经 SHA-256 复核后原子 rename。
@@ -32,14 +35,31 @@ hhy install --yes --registry ./registry-snapshot \
 测试通过临时 Ed25519 密钥生成 fixture，并覆盖依赖顺序、零副作用 dry-run、索引篡改和 payload 篡改拒绝。私钥绝不能进入正式 Registry 或客户端。
 
 宝塔静态站点部署包可在项目根目录执行 `make registry-package` 生成。产物位于
-`build/registry/hhy-registry-bt-<version>.tar.gz`，可直接上传并解压到站点根目录；
+`build/registry/hhy-registry-<target>-<version>.tar.gz`；单平台包可直接上传，多个平台包
+先通过合并工具生成 `hhy-registry-bt-<version>-multi-target.tar.gz` 再上传；
 首次运行生成的正式签名私钥保存在 Git 忽略的 `.hhy-private/`，不会进入部署包。
+
+多平台目录采用：
+
+```text
+packages/official/html/0.1.0/
+├── darwin-arm64/
+├── linux-x86_64/
+├── linux-arm64/
+└── windows-x86_64/
+```
+
+每个平台必须在对应 runner 上构建，不能通过改名复用二进制。收集使用相同官方信任根
+签名的各平台快照后，使用 `scripts/merge-registry-packages.py <archives...>` 合并并重新
+签名顶层索引。当前 target 缺失时，客户端在任何文件写入前失败。
 
 ## English
 
 HHY v1.2.0 adds a static, signed official Registry while preserving local-path development installs. A snapshot may live in a repository, a CI artifact, or later on a static HTTPS origin; the first implementation does not require a domain.
 
 - Coordinates use `namespace/name`; the process-extension runtime name remains separate.
+- Artifact coordinates add `version + target`. Different targets for one identity and version
+  are valid, while duplicate identity/version/target records are rejected.
 - An explicitly supplied `root.json` is the Ed25519 trust anchor.
 - The index and every package descriptor are signed, binding identity, version, dependencies, source, and the complete SHA-256 file manifest.
 - Exact, `>=`, caret, and wildcard constraints resolve deterministically with dependencies before dependants. Cycles, conflicts, and missing versions fail closed.
@@ -51,3 +71,6 @@ Lockfiles, offline caches, explicit upgrades, and user-visible version rollback 
 Run `make registry-package` to create a BT-ready archive under `build/registry/`.
 The first run creates the persistent signing key under the Git-ignored
 `.hhy-private/` directory; that key is never included in the deployment archive.
+Native payloads must be built on matching runners. Merge same-root target snapshots with
+`scripts/merge-registry-packages.py <archives...>`; the client selects only its native target
+and fails before writing if that target is absent.
