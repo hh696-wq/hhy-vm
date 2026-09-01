@@ -42,7 +42,7 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.1.8 | **已完成 · 2026-08-31** | Runtime 渐进治理 | 首个模块边界、内部所有权 API、性能回归门禁 | 行为零变化；sanitizer/GC stress 全绿；性能不回退 |
 | v1.2.0 | **已完成 · 2026-08-31** | 官方扩展分发与签名 | 包身份、Ed25519 签名、依赖解析、静态官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
 | v1.2.1 | **已完成并发布 · 2026-09-01** | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
-| v1.2.2 | **实现完成 · 2026-09-01；待三平台 Release 门禁** | 官方 HTML 复杂扩展验证与协议补强 | Lexbor HTML 解析、CSS 选择器、可观察批量结构化抽取、端到端发行与兼容验证；扩展错误元数据兼容增强 | HTML 扩展通过三平台、最小权限、错误和资源验收；无证据需要的 Stream、取消与 Handle 不进入实现 |
+| v1.2.2 | **已完成并发布 · 2026-09-01** | 官方 HTML 复杂扩展验证与协议补强 | Lexbor HTML 解析、CSS 选择器、可观察批量结构化抽取、端到端发行与兼容验证；扩展错误元数据兼容增强 | HTML 扩展通过三平台、最小权限、错误和资源验收；无证据需要的 Stream、取消与 Handle 不进入实现 |
 | v1.3 | 规划 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
 | v1.4 | 条件规划 | AST → Bytecode VM | 保留语言语义，把 AST lowering 为可验证 Bytecode，并建立新执行引擎 | 真实负载证明 AST dispatch 是主瓶颈；双引擎语义一致 |
 | v2.0 | 条件规划 | 生态开放与 ABI 决策 | 进程协议边界报告、Embedding/FFI/Native ABI 决策 | 至少两个真实集成证明进程协议不足，否则不开放 ABI |
@@ -373,9 +373,12 @@ hhy doctor extensions
 
 ### 4.3 v1.2.2：官方复杂扩展验证与证据驱动的协议补强
 
-> **状态：实现完成（2026-09-01），待 GitHub Actions 三平台验证与最终 Release**<br>
+> **状态：已完成并发布（2026-09-01）**<br>
 > 实现选择：官方 `html` 0.2.0；不开发 Office 扩展。<br>
-> 固定发布约束：Linux、macOS、Windows Actions 与对应归档全部通过后，GitHub Release 才作为最后一步执行。
+> 固定发布约束：Linux、macOS、Windows Actions 与对应归档全部通过后，GitHub Release 才作为最后一步执行。<br>
+> 实施提交：`6c850b2`（HTML 复杂扩展与协议证据）、`da50525`（Windows 扩展私有 DLL 打包与可移植运行）<br>
+> GitHub Actions：[开发门禁 Release Evidence #33463216421](https://github.com/hh696-wq/hhy-vm/actions/runs/33463216421) · [标签后 Release Evidence #33463496696](https://github.com/hh696-wq/hhy-vm/actions/runs/33463496696) · [Website #33463496691](https://github.com/hh696-wq/hhy-vm/actions/runs/33463496691) · [四平台正式 Release #33463496715](https://github.com/hh696-wq/hhy-vm/actions/runs/33463496715)<br>
+> 正式发布：[HHY Language 1.2.2](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.2.2)；包含 macOS arm64、Linux x86_64、Linux arm64、Windows x86_64 归档、逐包 SHA-256 与合并 `SHA256SUMS`。
 
 #### 版本目标
 
@@ -455,8 +458,8 @@ HTML 扩展必须使用真实网页 fixture 和批量抽取负载完成验收，
 - [x] 签名 Registry、确定性 lock、离线 cache 重建后实际运行 HTML fixture，篡改和漂移继续失败关闭；
 - [x] 本地 Release、Debug sanitizer、Quality、编辑器和 Website production build 通过；
 - [x] 现有 768 KiB 输入、10000 条结果和 1 MiB 消息边界足以覆盖当前 HTML 负载，没有证据支持引入 Stream credit、跨调用取消或 Opaque Handle；
-- [ ] GitHub Actions 上 Linux x86_64、Linux arm64、macOS arm64、Windows x86_64 全部通过并产出对应归档；
-- [ ] 上述门禁全绿后执行最后一步 GitHub Release。
+- [x] GitHub Actions 上 Linux x86_64、Linux arm64、macOS arm64、Windows x86_64 全部通过并产出对应归档；
+- [x] 上述门禁全绿后执行最后一步 GitHub Release。
 
 ## 5. v1.3：真实用户与旗舰场景
 
