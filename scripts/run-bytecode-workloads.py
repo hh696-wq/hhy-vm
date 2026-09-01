@@ -39,11 +39,12 @@ def main() -> int:
         "flowguard",
         "hong-kong-film-companies",
         "multi-api-data-collector",
-        "my-crawler",
         "sitegraph-auditor",
     ]
-    cases = local_cases + (network_cases if socket_available() else [])
-    skipped = [] if len(cases) > len(local_cases) else network_cases
+    browser_cases = ["my-crawler"] if os.environ.get("HHY_WORKLOAD_BROWSER") == "1" else []
+    has_socket = socket_available()
+    cases = local_cases + (network_cases if has_socket else []) + (browser_cases if has_socket else [])
+    skipped = ([] if has_socket else network_cases) + ([] if browser_cases else ["my-crawler"])
     results: dict[str, dict[str, object]] = {}
     failed = False
     for engine in ("ast", "bytecode"):
