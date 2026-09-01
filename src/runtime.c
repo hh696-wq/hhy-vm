@@ -6039,6 +6039,11 @@ static Value bytecode_exec(Runtime *rt, Env *env, BytecodeCursor node) {
     }
 }
 
+static Value bytecode_exec_active_program(Runtime *rt, Env *env) {
+    BytecodeCursor root = {.chunk = hhy_active_bytecode_chunk, .instruction = 0};
+    return bytecode_exec(rt, env, root);
+}
+
 static Value eval_call(Runtime *rt, Env *env, const HhyNode *node, Value *injected) {
     Value callee = eval(rt, env, node->children[0]);
     size_t explicit_count = node->child_count - 1;
@@ -6826,8 +6831,7 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
         Env *global = runtime_core_environment(rt, program, argc, argv);
         Env *main_environment = env_new(rt, global);
         if (rt->engine == HHY_ENGINE_BYTECODE)
-            bytecode_exec(rt, main_environment,
-                          (BytecodeCursor){.chunk = hhy_active_bytecode_chunk, .instruction = 0});
+            bytecode_exec_active_program(rt, main_environment);
         else
             exec_node(rt, main_environment, program);
         if (rt->signal == SIGNAL_BREAK || rt->signal == SIGNAL_CONTINUE)
