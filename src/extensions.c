@@ -201,7 +201,10 @@ static Extension *start_extension(const char *name, const char **error) {
         dup2(to_child[0], STDIN_FILENO); dup2(from_child[1], STDOUT_FILENO);
         close(to_child[0]); close(to_child[1]); close(from_child[0]); close(from_child[1]);
         char *const arguments[] = {executable, "--protocol", "1", NULL};
-        char *const environment[] = {"PATH=/usr/bin:/bin", NULL};
+        char extension_path[PATH_MAX + 32];
+        if (snprintf(extension_path, sizeof(extension_path), "PATH=%s/lib:/usr/bin:/bin", package) >=
+            (int)sizeof(extension_path)) _exit(127);
+        char *const environment[] = {extension_path, NULL};
         execve(executable, arguments, environment); _exit(127);
     }
     close(to_child[0]); close(from_child[1]);

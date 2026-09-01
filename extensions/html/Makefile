@@ -19,4 +19,4 @@ test: $(TARGET)
 	sh tests/protocol.sh $(TARGET)
 
 clean:
-	rm -rf bin
+	rm -rf bin lib

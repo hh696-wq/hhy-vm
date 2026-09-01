@@ -177,6 +177,12 @@ jobs:
           make -C extensions/sample
           make -C extensions/html LEXBOR_PREFIX=/usr/local
           make -C extensions/html LEXBOR_PREFIX=/usr/local test
+          mkdir -p extensions/html/lib
+          for executable in extensions/html/bin/*; do
+            ldd "$executable" | awk '/=> \/|^\// { for (i = 1; i <= NF; i++) if ($i ~ /^\//) print $i }' | while IFS= read -r dependency; do
+              cp -L "$dependency" "extensions/html/lib/$(basename "$dependency")"
+            done
+          done
           extension_home=/tmp/hhy-html-extension-home
           HHY_EXTENSION_HOME="$extension_home" ./build/hhy install --yes extensions/html
           HHY_EXTENSION_HOME="$extension_home" ./build/hhy run tests/valid/extension-html-catalog.hhy | grep 'HTML Extension'

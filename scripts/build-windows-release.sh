@@ -19,7 +19,8 @@ done
 
 rm -rf "$stage"
 mkdir -p "$stage/bin" "$stage/docs" "$stage/examples" \
-    "$stage/extensions/sample/bin" "$stage/extensions/html/bin" dist
+    "$stage/extensions/sample/bin" "$stage/extensions/sample/lib" \
+    "$stage/extensions/html/bin" "$stage/extensions/html/lib" dist
 cp "$runtime" "$stage/bin/hhy.exe"
 cp README.md INSTALL.md LICENSE NOTICE "$stage/"
 cp docs/HHY_V1.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md \
@@ -33,10 +34,15 @@ cp "$sample" "$stage/extensions/sample/bin/hhy-sample.exe"
 cp extensions/html/hhy.toml "$stage/extensions/html/"
 cp "$html" "$stage/extensions/html/bin/hhy-html.exe"
 
-for executable in "$stage/bin/hhy.exe" "$stage"/extensions/*/bin/*.exe; do
+ldd "$stage/bin/hhy.exe" | awk '/=> \/|^\// { for (i = 1; i <= NF; i++) if ($i ~ /^\//) print $i }' | \
+    while IFS= read -r dependency; do
+        cp -L "$dependency" "$stage/bin/$(basename "$dependency")"
+    done
+for executable in "$stage"/extensions/*/bin/*.exe; do
+    extension_dir=$(dirname "$(dirname "$executable")")
     ldd "$executable" | awk '/=> \/|^\// { for (i = 1; i <= NF; i++) if ($i ~ /^\//) print $i }' | \
         while IFS= read -r dependency; do
-            cp -L "$dependency" "$(dirname "$executable")/$(basename "$dependency")"
+            cp -L "$dependency" "$extension_dir/lib/$(basename "$dependency")"
         done
 done
 
