@@ -528,6 +528,8 @@ hhy check script.hhy...
 hhy fmt script.hhy...
 hhy fmt --check script.hhy...
 hhy ast script.hhy
+hhy bytecode script.hhy
+hhy bytecode --metrics script.hhy
 hhy tokens script.hhy
 hhy run --dry-run script.hhy
 hhy run --limit max_runtime=30s --limit max_memory=256mib script.hhy
@@ -1692,8 +1694,13 @@ export const chapters: Chapter[] = [
         ] },
         { title: "完整命令", blocks: [
           { type: "code", language: "sh", code: code.cli },
-          { type: "table", columns: ["命令", "用途"], rows: [["hhy run", "使用默认 Bytecode 引擎运行脚本并传递 args"], ["hhy run --engine ast|bytecode", "显式选择 AST 回退或 Bytecode 引擎"], ["hhy profile", "分析实际引擎的 CPU 热点、调用次数和托管 Heap 分配"], ["hhy repl", "启动交互环境"], ["hhy check", "检查语法和核心语义"], ["hhy fmt", "写入官方格式"], ["hhy fmt --check", "只检查格式"], ["hhy ast", "输出 AST"], ["hhy tokens", "输出 Lexer Token"], ["hhy run --dry-run", "预览脱敏执行计划"]] },
+          { type: "table", columns: ["命令", "用途"], rows: [["hhy run", "使用默认 Bytecode 引擎运行脚本并传递 args"], ["hhy run --engine ast|bytecode", "显式选择 AST 回退或 Bytecode 引擎"], ["hhy profile", "分析实际引擎的 CPU 热点、调用次数和托管 Heap 分配"], ["hhy repl", "启动交互环境"], ["hhy check", "检查语法和核心语义"], ["hhy fmt", "写入官方格式"], ["hhy fmt --check", "只检查格式"], ["hhy ast", "输出 AST"], ["hhy bytecode", "编译、验证并反汇编 Bytecode"], ["hhy bytecode --metrics", "输出 compile/verify/prepare 的缓存准入测量 JSON"], ["hhy tokens", "输出 Lexer Token"], ["hhy run --dry-run", "预览脱敏执行计划"]] },
           { type: "p", text: `hhy script.hhy 是 hhy run script.hhy 的简写。${hhyVersionTag} 默认使用 Bytecode；可用 --engine ast 或 HHY_ENGINE=ast 立即回退。脚本参数可能以 - 开头时，在 Runtime 选项后使用 -- 分隔。` }
+        ] },
+        { title: "Bytecode 缓存准入证据", blocks: [
+          { type: "p", text: `${hhyVersionTag} 新增只读的 --metrics 输出，用真实 compile+verify 与 execution-plan verify 时间评估缓存是否值得引入。固定五负载、21 次配对冷进程测量中，compile+verify 中位数为 0.004–0.012 ms，仅占冷运行墙钟 0.0078%–0.1341%，没有达到 1 ms 且 20% 的双门槛。` },
+          { type: "terminal", command: "hhy bytecode --metrics examples/00-hello.hhy", output: '{"bytecode_format_version":1,"compile_verify_ns":9000,"constants":21,"instructions":40,"schema_version":1,"source_bytes":167,"stream_kernel_version":1,"stream_kernels":1,"tool":"hhy bytecode --metrics","verify_prepare_ns":4000}' },
+          { type: "note", text: "因此当前没有进程内或磁盘 Bytecode 缓存，也不接受第三方预编译 Bytecode。未来只有真实性能证据触发评审后，才可实现绑定源码、递归依赖、语言/格式/Kernel 版本、编译 feature、target 与安全策略的完整指纹；命中后仍必须经过 checksum、有界解析、完整 Verifier 和 execution-plan verify。" }
         ] },
         { title: "CPU 与 Heap 性能分析", blocks: [
           { type: "p", text: "profile 会真实执行脚本，默认在一次运行中同时收集 CPU 和托管 Heap 数据。报告写入 stderr，因此脚本 stdout 保持不变；命令返回脚本原有退出码。" },
@@ -1725,8 +1732,13 @@ export const chapters: Chapter[] = [
         ] },
         { title: "Complete command set", blocks: [
           { type: "code", language: "sh", code: code.cli },
-          { type: "table", columns: ["Command", "Purpose"], rows: [["hhy run", "Run a script and pass args"], ["hhy profile", "Analyze CPU hotspots, call counts, and managed-Heap allocations"], ["hhy repl", "Start the interactive environment"], ["hhy check", "Check syntax and core semantics"], ["hhy fmt", "Write canonical formatting"], ["hhy fmt --check", "Check formatting only"], ["hhy ast", "Print the AST"], ["hhy tokens", "Print Lexer tokens"], ["hhy run --dry-run", "Preview a redacted execution plan"]] },
+          { type: "table", columns: ["Command", "Purpose"], rows: [["hhy run", "Run a script and pass args"], ["hhy profile", "Analyze CPU hotspots, call counts, and managed-Heap allocations"], ["hhy repl", "Start the interactive environment"], ["hhy check", "Check syntax and core semantics"], ["hhy fmt", "Write canonical formatting"], ["hhy fmt --check", "Check formatting only"], ["hhy ast", "Print the AST"], ["hhy bytecode", "Compile, verify, and disassemble Bytecode"], ["hhy bytecode --metrics", "Emit cache-admission compile/verify/prepare metrics as JSON"], ["hhy tokens", "Print Lexer tokens"], ["hhy run --dry-run", "Preview a redacted execution plan"]] },
           { type: "p", text: "hhy script.hhy is shorthand for hhy run script.hhy. Use -- after Runtime options when script arguments may begin with a dash." }
+        ] },
+        { title: "Bytecode cache admission evidence", blocks: [
+          { type: "p", text: `${hhyVersionTag} adds read-only --metrics output for measuring real compile+verify and execution-plan verification cost. Across five fixed workloads and 21 paired fresh-process samples, compile+verify medians were 0.004–0.012 ms, only 0.0078%–0.1341% of cold-run wall time, below the joint 1 ms and 20% thresholds.` },
+          { type: "terminal", command: "hhy bytecode --metrics examples/00-hello.hhy", output: '{"bytecode_format_version":1,"compile_verify_ns":9000,"constants":21,"instructions":40,"schema_version":1,"source_bytes":167,"stream_kernel_version":1,"stream_kernels":1,"tool":"hhy bytecode --metrics","verify_prepare_ns":4000}' },
+          { type: "note", text: "No process or disk Bytecode cache is enabled, and third-party precompiled Bytecode remains rejected. Any future admission requires new performance evidence plus a complete source/dependency/version/feature/target/security fingerprint, checksum, bounded decoding, the full Verifier, and execution-plan verification." }
         ] },
         { title: "CPU and Heap profiling", blocks: [
           { type: "p", text: "profile executes the script and collects CPU and managed-Heap data in the same run by default. Reports go to stderr, leaving script stdout unchanged, and the command preserves the script's exit code." },

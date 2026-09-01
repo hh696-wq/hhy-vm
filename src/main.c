@@ -21,12 +21,14 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 typedef enum {
     COMMAND_CHECK,
     COMMAND_AST,
     COMMAND_BYTECODE,
+    COMMAND_BYTECODE_METRICS,
     COMMAND_TOKENS,
     COMMAND_FMT,
     COMMAND_PROFILE,
@@ -42,6 +44,7 @@ static void usage(FILE *stream) {
         "  hhy check --format json <files>  Emit versioned JSON diagnostics\n"
         "  hhy ast <file.hhy>        Print the parsed AST\n"
         "  hhy bytecode <file.hhy>   Compile, verify, and disassemble experimental Bytecode\n"
+        "  hhy bytecode --metrics <file.hhy>  Emit cache-admission timing evidence\n"
         "  hhy tokens <file.hhy>     Print lexer tokens\n"
         "  hhy fmt <file.hhy>...     Format source files in place\n"
         "  hhy fmt --check <files>   Verify canonical formatting\n"
@@ -185,6 +188,16 @@ static bool has_hhy_suffix(const char *path) {
     return length >= 4 && strcmp(path + length - 4, ".hhy") == 0;
 }
 
+static uint64_t elapsed_nanoseconds(struct timespec start, struct timespec end) {
+    uint64_t seconds = (uint64_t)(end.tv_sec - start.tv_sec);
+    int64_t nanoseconds = end.tv_nsec - start.tv_nsec;
+    if (nanoseconds < 0) {
+        seconds--;
+        nanoseconds += 1000000000L;
+    }
+    return seconds * 1000000000ULL + (uint64_t)nanoseconds;
+}
+
 static bool write_formatted(const char *path, const char *text, size_t length) {
     struct stat info;
     mode_t mode = stat(path, &info) == 0 ? info.st_mode & 0777 : 0644;
@@ -237,19 +250,50 @@ static int process_file(const char *path, Command command, bool quiet_success,
     if (lex_ok && command != COMMAND_TOKENS) {
         parsed = hhy_parse(&source, &tokens, &program);
         if (parsed.ok && command == COMMAND_AST) hhy_ast_print(program);
-        if (parsed.ok && command == COMMAND_BYTECODE) {
+        if (parsed.ok && (command == COMMAND_BYTECODE ||
+                          command == COMMAND_BYTECODE_METRICS)) {
             HhyCheckResult checked = hhy_check(&source, program);
             parsed.ok = checked.ok;
             if (parsed.ok) {
                 hhy_resolve_slots(program);
                 HhyBytecodeChunk chunk;
                 hhy_bytecode_chunk_init(&chunk);
+                struct timespec compile_started, compile_finished, prepare_finished;
+                clock_gettime(CLOCK_MONOTONIC, &compile_started);
                 HhyBytecodeResult compiled = hhy_bytecode_compile(program, &chunk);
-                if (compiled.ok) hhy_bytecode_disassemble(&chunk, stdout);
+                clock_gettime(CLOCK_MONOTONIC, &compile_finished);
+                HhyBytecodeExecutionPlan plan = {0};
+                HhyBytecodeResult prepared = compiled.ok
+                    ? hhy_bytecode_prepare_execution(&chunk,
+                                                     HHY_BYTECODE_MAX_NESTING + 1u,
+                                                     &plan)
+                    : compiled;
+                clock_gettime(CLOCK_MONOTONIC, &prepare_finished);
+                if (prepared.ok && command == COMMAND_BYTECODE)
+                    hhy_bytecode_disassemble(&chunk, stdout);
+                else if (prepared.ok) {
+                    json_t *metrics = json_pack(
+                        "{s:i,s:s,s:i,s:i,s:I,s:I,s:I,s:I,s:I,s:I}",
+                        "schema_version", 1,
+                        "tool", "hhy bytecode --metrics",
+                        "bytecode_format_version", 1,
+                        "stream_kernel_version", HHY_STREAM_KERNEL_VERSION,
+                        "source_bytes", (json_int_t)source.length,
+                        "instructions", (json_int_t)chunk.count,
+                        "constants", (json_int_t)chunk.constant_count,
+                        "stream_kernels", (json_int_t)chunk.stream_kernel_count,
+                        "compile_verify_ns", (json_int_t)elapsed_nanoseconds(
+                            compile_started, compile_finished),
+                        "verify_prepare_ns", (json_int_t)elapsed_nanoseconds(
+                            compile_finished, prepare_finished));
+                    json_dumpf(metrics, stdout, JSON_SORT_KEYS);
+                    fputc('\n', stdout);
+                    json_decref(metrics);
+                }
                 else {
                     fprintf(stderr, "%s:%u:%u: bytecode error at instruction %zu: %s\n",
                             path, program->token.line, program->token.column,
-                            compiled.instruction, compiled.message);
+                            prepared.instruction, prepared.message);
                     parsed.ok = false;
                 }
                 hhy_bytecode_chunk_free(&chunk);
@@ -452,7 +496,12 @@ int main(int argc, char **argv) {
     if (has_hhy_suffix(argv[1])) { command = COMMAND_RUN; source_index = 1; }
     else if (strcmp(argv[1], "check") == 0) command = COMMAND_CHECK;
     else if (strcmp(argv[1], "ast") == 0) command = COMMAND_AST;
-    else if (strcmp(argv[1], "bytecode") == 0) command = COMMAND_BYTECODE;
+    else if (strcmp(argv[1], "bytecode") == 0) {
+        if (argc > 2 && strcmp(argv[2], "--metrics") == 0) {
+            command = COMMAND_BYTECODE_METRICS;
+            source_index = 3;
+        } else command = COMMAND_BYTECODE;
+    }
     else if (strcmp(argv[1], "tokens") == 0) command = COMMAND_TOKENS;
     else if (strcmp(argv[1], "fmt") == 0) command = COMMAND_FMT;
     else if (strcmp(argv[1], "profile") == 0) command = COMMAND_PROFILE;
