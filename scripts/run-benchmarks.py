@@ -20,28 +20,53 @@ def git_revision() -> str:
     return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
-def run_case(command: list[str], iterations: int, expected: str | None) -> dict[str, object]:
-    samples: list[float] = []
-    for _ in range(iterations):
-        started = time.perf_counter_ns()
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
-        elapsed_ms = (time.perf_counter_ns() - started) / 1_000_000
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"benchmark command failed ({result.returncode}): {' '.join(command)}\n{result.stderr}"
-            )
-        if expected is not None and result.stdout.strip() != expected:
-            raise RuntimeError(
-                f"benchmark output mismatch for {' '.join(command)}: {result.stdout!r}"
-            )
-        samples.append(round(elapsed_ms, 3))
+def measure(command: list[str], expected: str | None) -> float:
+    started = time.perf_counter_ns()
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    elapsed_ms = (time.perf_counter_ns() - started) / 1_000_000
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"benchmark command failed ({result.returncode}): {' '.join(command)}\n{result.stderr}"
+        )
+    if expected is not None and result.stdout.strip() != expected:
+        raise RuntimeError(
+            f"benchmark output mismatch for {' '.join(command)}: {result.stdout!r}"
+        )
+    return round(elapsed_ms, 3)
+
+
+def sample_summary(samples: list[float]) -> dict[str, object]:
     return {
-        "iterations": iterations,
+        "iterations": len(samples),
         "median_ms": round(statistics.median(samples), 3),
         "min_ms": min(samples),
         "max_ms": max(samples),
         "samples_ms": samples,
     }
+
+
+def run_case(command: list[str], iterations: int, expected: str | None) -> dict[str, object]:
+    samples: list[float] = []
+    for _ in range(iterations):
+        samples.append(measure(command, expected))
+    return sample_summary(samples)
+
+
+def run_engine_pair(binary: str, source: str, iterations: int,
+                    expected: str | None) -> dict[str, dict[str, object]]:
+    commands = {
+        engine: [binary, "run", "--engine", engine, source]
+        for engine in ("ast", "bytecode")
+    }
+    for engine in ("ast", "bytecode"):
+        measure(commands[engine], expected)
+        measure(commands[engine], expected)
+    samples: dict[str, list[float]] = {"ast": [], "bytecode": []}
+    for iteration in range(iterations):
+        order = ("ast", "bytecode") if iteration % 2 == 0 else ("bytecode", "ast")
+        for engine in order:
+            samples[engine].append(measure(commands[engine], expected))
+    return {engine: sample_summary(samples[engine]) for engine in samples}
 
 
 def main() -> int:
@@ -61,14 +86,11 @@ def main() -> int:
         "json_flow": ("tests/valid/json-flow.hhy", '["Ada", "Grace"]'),
     }
     cli_version = run_case([binary, "--version"], args.iterations, None)
-    engines: dict[str, dict[str, object]] = {}
-    for engine in ("ast", "bytecode"):
-        engines[engine] = {
-            name: run_case(
-                [binary, "run", "--engine", engine, source], args.iterations, expected
-            )
-            for name, (source, expected) in cases.items()
-        }
+    engines: dict[str, dict[str, object]] = {"ast": {}, "bytecode": {}}
+    for name, (source, expected) in cases.items():
+        paired = run_engine_pair(binary, source, args.iterations, expected)
+        for engine in engines:
+            engines[engine][name] = paired[engine]
     compile_results = {
         name: run_case([binary, "bytecode", source], args.iterations, None)
         for name, (source, _) in cases.items()

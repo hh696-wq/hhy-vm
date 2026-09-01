@@ -102,7 +102,7 @@ benchmark: $(TARGET)
 	python3 scripts/check-performance.py
 
 benchmark-bytecode: $(TARGET)
-	python3 scripts/run-benchmarks.py --binary $(TARGET) --iterations 9 --output build/benchmarks/engine-comparison.json
+	python3 scripts/run-benchmarks.py --binary $(TARGET) --iterations 15 --output build/benchmarks/engine-comparison.json
 	python3 scripts/check-performance.py --report build/benchmarks/engine-comparison.json
 	python3 scripts/check-bytecode-rc.py --require-ready
 	$(MAKE) benchmark-profiler
