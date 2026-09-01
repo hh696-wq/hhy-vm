@@ -43,7 +43,7 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.2.0 | **已完成 · 2026-08-31** | 官方扩展分发与签名 | 包身份、Ed25519 签名、依赖解析、静态官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
 | v1.2.1 | **已完成并发布 · 2026-09-01** | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
 | v1.2.2 | **已完成并发布 · 2026-09-01** | 官方 HTML 复杂扩展验证与协议补强 | Lexbor HTML 解析、CSS 选择器、可观察批量结构化抽取、端到端发行与兼容验证；扩展错误元数据兼容增强 | HTML 扩展通过三平台、最小权限、错误和资源验收；无证据需要的 Stream、取消与 Handle 不进入实现 |
-| v1.3 | **v1.3.0–v1.3.2 已于 2026-09-01 正式发布** | AST → Bytecode VM | 已交付可选 Bytecode 引擎、真实负载加固、版本化内部边界与持续 AST oracle | Linux、macOS、Windows 发布证据完整；真实性能门禁未支持默认切换，AST 保持默认 |
+| v1.3 | **v1.3.0–v1.3.2 已发布；v1.3.3–v1.3.5 规划** | AST → Bytecode VM 默认切换 | 已交付可选 Bytecode 引擎；下一阶段消除 AST bridge、实现真正 opcode dispatch、优化 slot/upvalue 并在达标后默认启用 Bytecode | 双引擎零语义差异；CPU-bound 获得实质收益；短任务与 I/O 无明显回退；v1.3.5 完成默认切换并保留 `--engine ast` |
 | v1.4 | 规划 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
 | v2.0 | 条件规划 | 生态开放与 ABI 决策 | 进程协议边界报告、Embedding/FFI/Native ABI 决策 | 至少两个真实集成证明进程协议不足，否则不开放 ABI |
 
@@ -52,11 +52,15 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.3 阶段 | 阶段目标 | 关键交付 | 退出门槛 |
 | --- | --- | --- | --- |
 | v1.3.0-alpha | **已完成并预发布** · Bytecode 设计与编译器骨架 | Chunk、Opcode、常量池、源码位置表、AST compiler、Verifier、反汇编 | 核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎 |
-| v1.3.0-beta | **开发中** · Bytecode VM 执行核心 | 已接入 `--engine bytecode`、Verifier 后执行计划、frame/operand 上限和双引擎对照；继续完成专用 opcode dispatch | 核心 fixtures 通过 AST/Bytecode 双引擎语义对照；默认仍为 AST |
-| v1.3.0-rc | **评估工具已实现，尚未晋级 RC** · 性能与默认切换评估 | 双引擎 benchmark schema 2、Profiler engine/source 标记、HHY Stack trace、Verifier 故障注入和机器可读切换决策 | 本机证据判定暂不切换：CPU 收益和 I/O 回退门槛未全部通过；待完整语义、三平台和故障证据 |
+| v1.3.0-beta | **阶段门禁已完成并合入 v1.3.0** · Bytecode VM 执行核心 | 已接入 `--engine bytecode`、Verifier 后执行计划、frame/operand 上限和双引擎对照 | 核心 fixtures 通过 AST/Bytecode 双引擎语义对照；默认仍为 AST |
+| v1.3.0-rc | **阶段门禁已完成并合入 v1.3.0** · 性能与默认切换评估 | 双引擎 benchmark schema 2、Profiler engine/source 标记、HHY Stack trace、Verifier 故障注入和机器可读切换决策 | 三平台与故障证据完整；CPU 收益门槛未通过，按规则保持 AST 默认 |
 | v1.3.0 | **已于 2026-09-01 正式发布** · Bytecode 正式版本 | 正式提供 `--engine bytecode`、Profiler、HHY Stack trace、故障注入和机器可读切换门禁；保留 `--engine ast` | 完整套件双引擎通过；CPU 收益门槛未通过，按规则保持 AST 默认 |
 | v1.3.1 | **已于 2026-09-01 正式发布** · 真实负载兼容加固 | 官方七类真实 workload 双引擎矩阵、能力探测和 JSON 证据 | 真实 workload 已由具备 loopback 的 Actions 验收，三平台发布构建通过 |
 | v1.3.2 | **已于 2026-09-01 正式发布** · VM 稳定化 | 版本化 `bytecode_runtime` 内部边界、静态治理、持续 AST 语义 oracle | Runtime 无法绕过 Compiler/Verifier 边界；完整套件持续按双引擎运行，三平台资产已发布 |
+| v1.3.3 | **规划** · 原生 Opcode 执行闭环 | 用专用 dispatch loop 直接执行 Opcode；移除正常 Bytecode 路径中的 AST 节点回调、AST value bridge 和重复语义分派 | 核心语言与真实 workload 不再回退 AST 节点执行；Verifier 后的 Chunk 可独立完成执行；双引擎语义零差异 |
+| v1.3.4 | **规划** · VM 数据路径与环境访问优化 | 紧凑 operand stack/CallFrame、local slot、upvalue cell、global/builtin 索引、常量快速路径、低分配调用与 opcode profiler | CPU profile 不再由 Env lookup、AST bridge 或临时分配主导；短任务、I/O、Heap 和二进制体积均满足回退预算 |
+| v1.3.5-rc | **条件规划** · 默认切换候选 | 固定 benchmark corpus、跨平台 profiler、故障注入、诊断快照、资源上限与真实项目灰度；默认候选为 Bytecode，CI 同时强制 AST 对照 | 至少一个 RC 周期无高优先级正确性问题；CPU ratio 连续达标；诊断、取消、GC roots、stack trace 和 dry-run 不低于 AST |
+| v1.3.5 | **条件规划** · Bytecode 默认引擎 | `hhy run`、`hhy profile` 和简写入口默认使用 Bytecode；永久保留 `--engine ast`、`HHY_ENGINE=ast`、AST oracle 和紧急回退开关 | Linux x86_64/arm64、macOS arm64、Windows x86_64 全绿；正式 Release 与回滚演练完成；默认切换决策和证据可机器读取 |
 
 说明：官网的“v1.2 官方扩展包分发与工具链”是整个 v1.2 release train 的总目标。v1.2.0 建立安全分发主链路和最低限度的事务式安装；v1.2.1 补齐离线锁定、可复现安装和显式回滚，至此完成公开 v1.2 目标闭环。v1.3 只有满足启动条件才进入 alpha；alpha、beta、rc 是质量门禁，不是可以按日期强行发布的功能版本。外部采用后移到 v1.4，不作为启动 VM 原型的前置阻塞条件。
 
@@ -626,13 +630,90 @@ hhy bytecode script.hhy
 - diagnostics、stack trace、profile 和 dry-run 不低于 AST 体验；
 - 至少一个 RC 周期未出现必须回退的正确性问题。
 
-若门槛未满足，AST 继续作为默认引擎，Bytecode 保持实验状态或终止开发；不能为兑现版本号强行切换。
+若门槛未满足，AST 继续作为默认引擎，Bytecode 保持正式可选状态；继续按 profile 证据优化，但不能为兑现版本号强行切换。
 
-### 5.4 v1.3.x：迁移与兼容策略
+### 5.4 v1.3.3：原生 Opcode 执行闭环
 
-- v1.3.0：满足门槛时默认启用 Bytecode，同时保留 `--engine ast` 回退；
-- v1.3.1：修复真实负载差异，继续运行全部双引擎测试；
-- v1.3.2：固化 compiler/VM 内部边界，持续运行 AST/Bytecode 对照；
+#### 目标
+
+让 Bytecode 路径真正执行 Opcode，而不是把已编译节点重新桥接回 AST evaluator。该版本不改变语言语义、不切换默认引擎，专门消除结构性开销。
+
+#### 实现范围
+
+- 建立紧凑、可边界检查的 dispatch loop；优先采用可移植 `switch` dispatch，computed-goto 只能作为有数据支持的平台优化；
+- 为常量、局部变量、全局/builtin、算术比较、跳转、函数调用、返回、Closure/Upvalue、Pipe、Stream、异常与取消提供真实 Opcode handler；
+- 正常 Bytecode 执行不得调用 AST expression/statement evaluator；仅 diagnostics、源码位置和 AST oracle 测试可以读取 AST；
+- compiler 明确 stack effect、control-flow successor、异常边和源码位置；Verifier 在执行前验证 stack shape、跳转目标、常量索引与 frame 边界；
+- 反汇编与 opcode profiler 使用同一 Opcode metadata，避免重复维护名称和 stack effect；
+- 保持 Value、Error、Effect、Stream、资源限制和 Extension Protocol contract 不变。
+
+#### 退出门槛
+
+- 静态治理能拒绝 VM 对 AST evaluator 的新增依赖；
+- 全部规范、fixtures、错误、取消和真实 workload 在 AST/Bytecode 下输出、退出码和副作用计划一致；
+- malformed Chunk、非法跳转、错误 stack effect 和越界常量均在执行前稳定拒绝；
+- profiler 证明 AST bridge 不再是 Bytecode 热点；
+- 默认引擎仍为 AST，避免在结构重写和默认切换之间混入两类风险。
+
+### 5.5 v1.3.4：VM 数据路径与环境访问优化
+
+#### 目标
+
+在原生 Opcode 闭环上减少 Env lookup、间接访问、临时对象和调用分配，使 Bytecode 对 CPU-bound 真实负载产生可复现的实质收益。
+
+#### 实现范围
+
+- Local/parameter 直接使用 frame slot，不为每次访问执行字符串查找；
+- Closure 捕获使用稳定 upvalue cell，打开与关闭 upvalue 的生命周期纳入 GC root 检查；
+- Global/builtin 在 compiler/resolver 阶段生成稳定索引或 inline cache，并具备失效规则；
+- CallFrame 与 operand stack 使用连续存储和可验证上限，避免每次调用重复分配；
+- 常量、字段和 callable 元数据走索引快速路径，同时保留动态语义所需的慢路径；
+- 通过 opcode、allocation、Env lookup、branch 和 cache miss 指标定位优化，不以微基准替代真实项目。
+
+#### 退出门槛
+
+- CPU profile 中 AST bridge 已为零，Env lookup 与调用临时分配不再是主要热点；
+- CPU-bound corpus 的 Bytecode/AST 总墙钟 ratio 在 CI 中稳定进入 `≤ 0.90` 候选区间；
+- 短任务 ratio `≤ 1.25`，JSON/I/O ratio `≤ 1.10`，峰值 Heap、二进制体积和 compile overhead 不突破预算；
+- sanitizer、GC stress、fuzz、OOM、取消、递归上限和扩展崩溃测试全部通过；
+- 若 CPU 收益仍未达标，继续 AST 默认，不进入 v1.3.5-rc。
+
+### 5.6 v1.3.5-rc：默认切换候选
+
+#### 目标
+
+不再增加 VM 结构性能力，只验证“Bytecode 作为默认引擎”在真实使用中的正确性、性能、诊断、资源安全和回滚能力。
+
+#### RC 规则
+
+- RC 构建把无显式 `--engine` 的入口切到 Bytecode，但 CI 和 nightly 始终分别运行显式 AST 与 Bytecode；
+- 保存同一 commit、编译器、runner、输入、warmup 和重复次数的机器可读 benchmark 与 profile；
+- 覆盖 CLI 简写、`run`、`profile`、REPL、dry-run、模块、扩展、错误、取消和所有资源上限；
+- 对 stack trace、JSON diagnostics、Profiler、执行计划和稳定退出码做双引擎快照；
+- 执行故障注入与回滚演练，证明通过 `--engine ast` 或 `HHY_ENGINE=ast` 能恢复旧执行路径；
+- 至少一个完整 RC 周期不得出现需要改回默认值的高优先级正确性问题。
+
+### 5.7 v1.3.5：Bytecode 默认切换
+
+只有 v1.3.5-rc 全部门槛通过，才执行以下正式变化：
+
+- `hhy run`、`hhy profile`、`hhy script.hhy` 与未显式指定引擎的正式入口默认使用 Bytecode；
+- `--engine bytecode` 继续接受，便于脚本显式固定；
+- `--engine ast` 与 `HHY_ENGINE=ast` 作为受支持的兼容回退，不标记废弃；
+- AST evaluator 继续作为 conformance oracle、差分测试引擎和紧急回退实现；
+- `hhy --version`、Profiler、stack trace 与诊断证据标记实际执行引擎；
+- 发布说明明确默认值变化、回退命令、性能证据、已知边界和恢复流程；
+- 四平台 Actions、归档验收、checksums 和 GitHub Release 仍是最后一步。
+
+如果任一硬门槛未通过，v1.3.5 不发布或继续保持 AST 默认；不得降低 ratio、语义、资源或诊断门槛来配合发布日期。
+
+### 5.8 v1.3.x：迁移与兼容策略
+
+- v1.3.0–v1.3.2：已交付正式可选 Bytecode、真实负载加固和稳定内部边界；因 CPU 收益门槛未通过，AST 保持默认；
+- v1.3.3：完成不回调 AST evaluator 的原生 Opcode 执行闭环；
+- v1.3.4：优化 frame/stack、slot、upvalue、global/builtin 索引与低分配调用路径；
+- v1.3.5-rc：只做默认候选验证、跨平台灰度和安全回滚演练；
+- v1.3.5：所有硬门槛通过后真正默认启用 Bytecode；
 - AST evaluator 在整个 v1.x 保留为语义 oracle、调试回退和差分测试引擎，不在 patch 版本删除；
 - 将来若考虑移除 AST 执行入口，必须作为单独的重大兼容决策，不与普通稳定化版本捆绑；
 - Bytecode 磁盘缓存另行评估，不能在内部格式尚未稳定时默认持久化；
