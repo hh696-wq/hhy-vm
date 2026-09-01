@@ -189,9 +189,11 @@ static bool copy_cached_file(const char *source, const char *target) {
     if (!make_path(parent)) return false;
     FILE *in = fopen(source, "rb"), *out = in ? fopen(target, "wb") : NULL; bool ok = out != NULL; char buffer[65536];
     while (ok) { size_t count = fread(buffer, 1, sizeof(buffer), in); if (count && fwrite(buffer, 1, count, out) != count) ok = false; if (count < sizeof(buffer)) { if (ferror(in)) ok = false; break; } }
-    if (in) fclose(in); if (out && fclose(out) != 0) ok = false;
+    if (in) fclose(in);
+    if (out && fclose(out) != 0) ok = false;
     struct stat info; if (ok && stat(source, &info) == 0 && chmod(target, info.st_mode & 0777) != 0) ok = false;
-    if (!ok) unlink(target); return ok;
+    if (!ok) unlink(target);
+    return ok;
 }
 
 static json_t *read_lock(const HhyPackageInstallOptions *options, char digest[65]) {
@@ -331,8 +333,10 @@ int hhy_registry_install(const char *identity, const HhyPackageInstallOptions *o
         if (!locked_identity || strcmp(identity, locked_identity) != 0) { fputs("hhy: requested package differs from lockfile\n", stderr); json_decref(lock); return 3; }
         if (effective.offline) {
             const char *cache = effective.cache ? effective.cache : ".hhy-cache";
-            snprintf(cached_registry, sizeof(cached_registry), "%s/%s", cache, digest);
-            snprintf(cached_root, sizeof(cached_root), "%s/root.json", cached_registry);
+            if (snprintf(cached_registry, sizeof(cached_registry), "%s/%s", cache, digest) >= (int)sizeof(cached_registry) ||
+                snprintf(cached_root, sizeof(cached_root), "%s/root.json", cached_registry) >= (int)sizeof(cached_root)) {
+                fputs("hhy: cache path is too long\n", stderr); json_decref(lock); return 3;
+            }
             effective.registry = cached_registry; effective.trust_root = cached_root;
         } else {
             char index_path[PATH_MAX], actual[65];
@@ -411,8 +415,10 @@ int hhy_registry_fetch(const HhyPackageInstallOptions *options) {
     const char *cache = options->cache ? options->cache : ".hhy-cache"; char destination[PATH_MAX];
     if (snprintf(destination, sizeof(destination), "%s/%s", cache, digest) >= (int)sizeof(destination) || !make_path(destination)) { json_decref(lock); return 4; }
     json_t *index = json_object_get(lock, "index"), *root = json_object_get(lock, "root"), *packages = json_object_get(index, "packages");
-    char root_path[PATH_MAX], index_path[PATH_MAX]; snprintf(root_path, sizeof(root_path), "%s/root.json", destination); snprintf(index_path, sizeof(index_path), "%s/index.json", destination);
-    bool ok = json_dump_file(root, root_path, JSON_INDENT(2) | JSON_SORT_KEYS) == 0 && copy_cached_file(live_index, index_path);
+    char root_path[PATH_MAX], index_path[PATH_MAX];
+    bool ok = snprintf(root_path, sizeof(root_path), "%s/root.json", destination) < (int)sizeof(root_path) &&
+        snprintf(index_path, sizeof(index_path), "%s/index.json", destination) < (int)sizeof(index_path) &&
+        json_dump_file(root, root_path, JSON_INDENT(2) | JSON_SORT_KEYS) == 0 && copy_cached_file(live_index, index_path);
     size_t copied = 0;
     for (size_t i = 0; ok && i < json_array_size(packages); i++) {
         json_t *package = json_array_get(packages, i); const char *target = json_string_value(json_object_get(package, "target"));
