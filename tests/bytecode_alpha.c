@@ -46,6 +46,9 @@ int main(void) {
     prepared = hhy_bytecode_prepare_execution(&chunk, 0, &plan);
     if (prepared.ok || strstr(prepared.message, "positive") == NULL)
         fail("zero frame limit was accepted");
+    size_t child = 0;
+    if (hhy_bytecode_child(&chunk, 0, 0, &child))
+        fail("child lookup accepted an absent child");
 
     chunk.code[0].opcode = HHY_OP_COUNT;
     expect_failure(&chunk, "invalid node opcode");

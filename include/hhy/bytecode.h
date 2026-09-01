@@ -90,5 +90,7 @@ HhyBytecodeResult hhy_bytecode_prepare_execution(const HhyBytecodeChunk *chunk,
                                                  HhyBytecodeExecutionPlan *plan);
 void hhy_bytecode_disassemble(const HhyBytecodeChunk *chunk, FILE *output);
 const char *hhy_opcode_name(HhyOpcode opcode);
+bool hhy_bytecode_child(const HhyBytecodeChunk *chunk, size_t parent,
+                        uint32_t child_index, size_t *child);
 
 #endif

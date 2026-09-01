@@ -42,6 +42,23 @@ const char *hhy_opcode_name(HhyOpcode opcode) {
     return opcode >= 0 && opcode < HHY_OP_COUNT ? names[(size_t)opcode] : "INVALID";
 }
 
+bool hhy_bytecode_child(const HhyBytecodeChunk *chunk, size_t parent,
+                        uint32_t child_index, size_t *child) {
+    if (chunk == NULL || child == NULL || parent >= chunk->count ||
+        child_index >= chunk->code[parent].child_count) return false;
+    size_t cursor = parent + 1;
+    for (uint32_t index = 0; index < child_index; index++) {
+        if (cursor >= chunk->count || chunk->code[cursor].subtree_size == 0 ||
+            chunk->code[cursor].subtree_size > chunk->count - cursor) return false;
+        cursor += chunk->code[cursor].subtree_size;
+    }
+    if (cursor >= chunk->count ||
+        cursor + chunk->code[cursor].subtree_size > parent + chunk->code[parent].subtree_size)
+        return false;
+    *child = cursor;
+    return true;
+}
+
 static HhyOpcode opcode_for_node(HhyNodeKind kind) {
     return kind >= HHY_N_PROGRAM && kind <= HHY_N_LITERAL
         ? (HhyOpcode)((int)HHY_OP_PROGRAM + (int)kind)
