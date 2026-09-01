@@ -1,6 +1,6 @@
 # HHY Signed Extension Registry v1 / HHY 签名扩展仓库 v1
 
-> Status: v1.3.1 implementation contract. This is an official-package trust model, not an open third-party publishing service.
+> Status: v1.3.2 implementation contract. This is an official-package trust model, not an open third-party publishing service.
 
 ## 中文
 

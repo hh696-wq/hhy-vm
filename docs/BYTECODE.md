@@ -43,3 +43,15 @@ dispatch loop, disk cache, external loader, extension Bytecode input, public ABI
 Any future persistent format must have a separate format version, source and
 dependency fingerprints, documented portability, resource limits, and mandatory
 verification before execution.
+
+## Stabilized internal boundary (v1.3.2)
+
+`src/bytecode_runtime.h` is the only Runtime-facing preparation boundary. The
+large semantic Runtime must not call the compiler, verifier, execution planner,
+or access `HhyBytecodeChunk` directly. A static governance check enforces that
+rule, and `HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION` makes future internal contract
+changes explicit. This is an internal maintenance boundary, not a public ABI.
+
+The AST evaluator remains the semantic oracle. CI runs the complete suite with
+AST and Bytecode independently, plus real-workload comparison, so future compiler
+or VM changes cannot silently redefine language behavior.

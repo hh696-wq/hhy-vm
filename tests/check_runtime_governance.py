@@ -7,6 +7,8 @@ from pathlib import Path
 runtime = Path("src/runtime.c").read_text(encoding="utf-8")
 ownership = Path("src/runtime_ownership.h").read_text(encoding="utf-8")
 limits = Path("src/runtime_limits.c").read_text(encoding="utf-8")
+bytecode_runtime = Path("src/bytecode_runtime.c").read_text(encoding="utf-8")
+bytecode_boundary = Path("src/bytecode_runtime.h").read_text(encoding="utf-8")
 
 required_annotations = (
     "HHY_BORROWED",
@@ -31,6 +33,24 @@ if "HHY_MANAGED_ATOMIC void *rt_alloc_atomic" not in runtime:
     raise SystemExit("atomic managed allocator is not ownership-annotated")
 if "runtime_release(HHY_BORROWED Runtime *rt)" not in runtime:
     raise SystemExit("Runtime owner teardown is not ownership-annotated")
+
+for forbidden in (
+    "hhy_bytecode_compile(",
+    "hhy_bytecode_verify(",
+    "hhy_bytecode_prepare_execution(",
+    "HhyBytecodeChunk",
+):
+    if forbidden in runtime:
+        raise SystemExit(f"Runtime bypasses the Bytecode boundary: {forbidden}")
+for required in (
+    "hhy_bytecode_runtime_prepare(",
+    "hhy_bytecode_runtime_free(",
+    "HHY_BYTECODE_MAX_NESTING + 1u",
+):
+    if required not in bytecode_runtime:
+        raise SystemExit(f"Bytecode Runtime boundary is incomplete: {required}")
+if "HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION 1u" not in bytecode_boundary:
+    raise SystemExit("Bytecode Runtime internal boundary version changed without review")
 
 for line_number, line in enumerate(runtime.splitlines(), 1):
     if "Value *" in line and ("hhy_alloc(" in line or "hhy_realloc(" in line):

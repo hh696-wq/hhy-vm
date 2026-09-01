@@ -44,6 +44,16 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Upload Bytecode engine decision
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-bytecode-engine-decision-${{ github.sha }}
+          path: |
+            build/benchmarks/engine-comparison.json
+            build/benchmarks/bytecode-rc-decision.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload VS Code extension
         uses: actions/upload-artifact@v7
         with:
@@ -228,6 +238,7 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.sha256
+            build/benchmarks/bytecode-workloads.json
           if-no-files-found: error
           retention-days: 14
 
@@ -283,6 +294,7 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.sha256
+            build/benchmarks/bytecode-workloads.json
           if-no-files-found: error
           retention-days: 14
 

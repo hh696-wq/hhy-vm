@@ -1,4 +1,4 @@
-export const hhyVersion = "1.3.1" as const;
+export const hhyVersion = "1.3.2" as const;
 export const hhyVersionLabel = `V${hhyVersion}` as const;
 export const hhyVersionTag = `v${hhyVersion}` as const;
 export const hhyReleaseUrl = `https://github.com/hh696-wq/hhy-vm/releases/tag/${hhyVersionTag}` as const;
@@ -8,13 +8,13 @@ export const hhyCoreCallableCount = 96;
 // the homepage title and description pointing at an older release theme.
 export const hhyCurrentRelease = {
   zh: {
-    title: "Bytecode 真实负载兼容加固",
-    summary: "在正式 Bytecode 可选引擎上增加官方真实项目的双引擎兼容矩阵，并持续保留 AST 默认与语义基准。",
-    verification: "本地文件治理负载在 AST/Bytecode 下通过；具备 loopback 能力的三平台 CI 继续验证 ETL、FlowGuard、采集器、Crawler 与 SiteGraph。"
+    title: "Bytecode VM 边界稳定化",
+    summary: "固化 Compiler、Verifier、执行准备与共享 Runtime 的内部边界，持续保留 AST 语义 oracle 和真实负载双引擎矩阵。",
+    verification: "静态治理阻止 Runtime 绕过版本化 Bytecode 边界；完整套件、故障注入、性能决策和官方 workload 持续生成证据。"
   },
   en: {
-    title: "Bytecode real-workload compatibility hardening",
-    summary: "Adds a dual-engine compatibility matrix for official real projects on top of the opt-in Bytecode engine while retaining AST as the default and semantic oracle.",
-    verification: "The local asset-governance workload passes both engines; three-platform CI with loopback support validates ETL, FlowGuard, collectors, Crawler, and SiteGraph."
+    title: "Bytecode VM boundary stabilization",
+    summary: "Stabilizes the internal Compiler, Verifier, execution-preparation, and shared Runtime boundary while retaining the AST semantic oracle and real-workload dual-engine matrix.",
+    verification: "Static governance prevents Runtime bypass of the versioned Bytecode boundary; the full suite, fault injection, performance decision, and official workloads keep producing evidence."
   }
 } as const;

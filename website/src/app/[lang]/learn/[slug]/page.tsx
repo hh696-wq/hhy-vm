@@ -190,7 +190,10 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.2.0", date: "2026-08-31", title: "官方扩展分发与签名", detail: "Ed25519 签名 Registry、传递依赖解析、dry-run 与事务式安装", icon: Handshake },
                     { version: "v1.2.1", date: "2026-09-01", title: "锁定、离线与安全回滚", detail: "Lockfile、离线缓存、可复现安装、事务式升级与回滚", icon: Handshake },
                     { version: "v1.2.2", date: "2026-09-01", title: "官方 HTML 复杂扩展验证", detail: "批量抽取、可观察截断、结构化错误与四平台发行", icon: Handshake },
-                    { version: "v1.3.0-alpha", date: "2026-09-01", title: "可验证 Bytecode 编译器骨架", detail: "Chunk、Opcode、常量池、源码位置、AST compiler、Verifier 与反汇编；AST 仍为默认引擎", icon: Code }
+                    { version: "v1.3.0-alpha", date: "2026-09-01", title: "可验证 Bytecode 编译器骨架", detail: "Chunk、Opcode、常量池、源码位置、AST compiler、Verifier 与反汇编；AST 仍为默认引擎", icon: Code },
+                    { version: "v1.3.0", date: "待统一发布", title: "可选 Bytecode 正式执行路径", detail: "完整双引擎套件、Profiler、HHY Stack trace 与故障注入；性能门禁保持 AST 默认", icon: Code },
+                    { version: "v1.3.1", date: "待统一发布", title: "真实负载兼容加固", detail: "官方 workload 双引擎矩阵、能力探测与机器可读证据", icon: ShieldCheck },
+                    { version: "v1.3.2", date: "待统一发布", title: "VM 内部边界稳定化", detail: "版本化 Bytecode Runtime 边界、静态治理与持续 AST oracle", icon: ShieldCheck }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
@@ -206,7 +209,10 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.2.0", date: "2026-08-31", title: "Official extension distribution and signing", detail: "Ed25519-signed Registry, transitive resolution, dry runs, and transaction-safe installs", icon: Handshake },
                     { version: "v1.2.1", date: "2026-09-01", title: "Locking, offline installs, and safe rollback", detail: "Lockfiles, offline caches, reproducible installs, transactional upgrades, and rollback", icon: Handshake },
                     { version: "v1.2.2", date: "2026-09-01", title: "Official HTML complex-extension validation", detail: "Batch extraction, observable truncation, structured errors, and four-platform releases", icon: Handshake },
-                    { version: "v1.3.0-alpha", date: "2026-09-01", title: "Verifiable Bytecode compiler skeleton", detail: "Chunks, opcodes, a constant pool, source locations, an AST compiler, verifier, and disassembler; AST remains the default", icon: Code }
+                    { version: "v1.3.0-alpha", date: "2026-09-01", title: "Verifiable Bytecode compiler skeleton", detail: "Chunks, opcodes, a constant pool, source locations, an AST compiler, verifier, and disassembler; AST remains the default", icon: Code },
+                    { version: "v1.3.0", date: "Coordinated release pending", title: "Opt-in production Bytecode path", detail: "Full dual-engine suite, profiling, HHY stack traces, and fault injection; the performance gate retains AST as default", icon: Code },
+                    { version: "v1.3.1", date: "Coordinated release pending", title: "Real-workload compatibility hardening", detail: "Official workload dual-engine matrix, capability probes, and machine-readable evidence", icon: ShieldCheck },
+                    { version: "v1.3.2", date: "Coordinated release pending", title: "VM internal-boundary stabilization", detail: "Versioned Bytecode Runtime boundary, static governance, and a continuous AST oracle", icon: ShieldCheck }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [

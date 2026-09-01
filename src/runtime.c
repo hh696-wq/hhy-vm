@@ -2,7 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #define _DARWIN_C_SOURCE
 #include "hhy/runtime.h"
-#include "hhy/bytecode.h"
+#include "bytecode_runtime.h"
 #include "runtime_ownership.h"
 #include "hhy/contracts.h"
 #include "hhy/extensions.h"
@@ -6246,35 +6246,21 @@ HhyRunResult hhy_profile_program_engine(const HhySource *source, const HhyNode *
         fputs("hhy: unknown execution engine\n", stderr);
         return (HhyRunResult){.ok = false, .exit_code = 3};
     }
-    HhyBytecodeChunk chunk;
-    hhy_bytecode_chunk_init(&chunk);
-    HhyBytecodeResult compiled = hhy_bytecode_compile(program, &chunk);
-    const char *fault = getenv("HHY_TEST_BYTECODE_FAULT");
-    if (compiled.ok && fault != NULL) {
-        if (strcmp(fault, "invalid-opcode") == 0 && chunk.count > 0)
-            chunk.code[0].opcode = HHY_OP_COUNT;
-        else if (strcmp(fault, "missing-halt") == 0 && chunk.count > 0)
-            chunk.count--;
-    }
-    HhyBytecodeExecutionPlan plan;
-    /* Structural Bytecode nesting and function-call recursion are independent.
-       The verifier owns structural depth; the shared Runtime enforces
-       RuntimeLimits.max_recursion at actual call boundaries. */
-    size_t frame_limit = HHY_BYTECODE_MAX_NESTING + 1u;
-    HhyBytecodeResult prepared = compiled.ok
-        ? hhy_bytecode_prepare_execution(&chunk, frame_limit, &plan) : compiled;
+    HhyPreparedBytecode *bytecode = NULL;
+    HhyBytecodeResult prepared = hhy_bytecode_runtime_prepare(
+        program, getenv("HHY_TEST_BYTECODE_FAULT"), &bytecode);
     if (!prepared.ok) {
         fprintf(stderr, "%s:%u:%u: bytecode runtime error at instruction %zu: %s\n",
                 source->path, program->token.line, program->token.column,
                 prepared.instruction, prepared.message);
-        hhy_bytecode_chunk_free(&chunk);
+        hhy_bytecode_runtime_free(bytecode);
         return (HhyRunResult){.ok = false, .exit_code = 2};
     }
     HhyProfileOptions selected = profile == NULL ? (HhyProfileOptions){0} : *profile;
     selected.engine = "bytecode";
     HhyRunResult run = hhy_profile_program(source, program, argc, argv, dry_run,
                                            limits, profile == NULL ? NULL : &selected);
-    hhy_bytecode_chunk_free(&chunk);
+    hhy_bytecode_runtime_free(bytecode);
     return run;
 }
 

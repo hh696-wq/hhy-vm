@@ -43,7 +43,7 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.2.0 | **已完成 · 2026-08-31** | 官方扩展分发与签名 | 包身份、Ed25519 签名、依赖解析、静态官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
 | v1.2.1 | **已完成并发布 · 2026-09-01** | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
 | v1.2.2 | **已完成并发布 · 2026-09-01** | 官方 HTML 复杂扩展验证与协议补强 | Lexbor HTML 解析、CSS 选择器、可观察批量结构化抽取、端到端发行与兼容验证；扩展错误元数据兼容增强 | HTML 扩展通过三平台、最小权限、错误和资源验收；无证据需要的 Stream、取消与 Handle 不进入实现 |
-| v1.3 | **v1.3.0-alpha 已完成并预发布 · 2026-09-01** | AST → Bytecode VM | 保留语言语义，把 AST lowering 为可验证 Bytecode，并建立新执行引擎 | 现有 profiler 与 CPU-bound 基准证明 AST dispatch 值得优化；双引擎语义一致 |
+| v1.3 | **v1.3.2 已完成本地实现 · 待统一三平台发布** | AST → Bytecode VM | 已交付可选 Bytecode 引擎、真实负载加固、版本化内部边界与持续 AST oracle | 双引擎完整套件通过；真实性能门禁未支持默认切换，AST 保持默认 |
 | v1.4 | 规划 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
 | v2.0 | 条件规划 | 生态开放与 ABI 决策 | 进程协议边界报告、Embedding/FFI/Native ABI 决策 | 至少两个真实集成证明进程协议不足，否则不开放 ABI |
 
@@ -54,9 +54,9 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.3.0-alpha | **已完成并预发布** · Bytecode 设计与编译器骨架 | Chunk、Opcode、常量池、源码位置表、AST compiler、Verifier、反汇编 | 核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎 |
 | v1.3.0-beta | **开发中** · Bytecode VM 执行核心 | 已接入 `--engine bytecode`、Verifier 后执行计划、frame/operand 上限和双引擎对照；继续完成专用 opcode dispatch | 核心 fixtures 通过 AST/Bytecode 双引擎语义对照；默认仍为 AST |
 | v1.3.0-rc | **评估工具已实现，尚未晋级 RC** · 性能与默认切换评估 | 双引擎 benchmark schema 2、Profiler engine/source 标记、HHY Stack trace、Verifier 故障注入和机器可读切换决策 | 本机证据判定暂不切换：CPU 收益和 I/O 回退门槛未全部通过；待完整语义、三平台和故障证据 |
-| v1.3.0 | Bytecode 正式发布 | 达标时默认启用 Bytecode，保留 `--engine ast` 回退 | 至少一个 RC 周期稳定；诊断、资源安全和跨平台证据完整 |
-| v1.3.1 | 真实负载兼容加固 | 修复现场差异、性能回退和可观测性问题 | 双引擎测试持续通过；无新增高优先级正确性问题 |
-| v1.3.2 | VM 稳定化 | 固化 compiler/VM 内部边界，持续保留 AST 语义 oracle | 多版本无语义漂移；AST 对照测试持续运行 |
+| v1.3.0 | **实现完成，待统一发布** · Bytecode 正式版本 | 正式提供 `--engine bytecode`、Profiler、HHY Stack trace、故障注入和机器可读切换门禁；保留 `--engine ast` | 完整套件双引擎通过；CPU 收益门槛未通过，按规则保持 AST 默认 |
+| v1.3.1 | **实现完成，待统一发布** · 真实负载兼容加固 | 官方七类真实 workload 双引擎矩阵、能力探测和 JSON 证据 | 本地文件治理通过；网络型 workload 交由具备 loopback 的三平台 CI 验收 |
+| v1.3.2 | **实现完成，待统一发布** · VM 稳定化 | 版本化 `bytecode_runtime` 内部边界、静态治理、持续 AST 语义 oracle | Runtime 无法绕过 Compiler/Verifier 边界；完整套件持续按双引擎运行 |
 
 说明：官网的“v1.2 官方扩展包分发与工具链”是整个 v1.2 release train 的总目标。v1.2.0 建立安全分发主链路和最低限度的事务式安装；v1.2.1 补齐离线锁定、可复现安装和显式回滚，至此完成公开 v1.2 目标闭环。v1.3 只有满足启动条件才进入 alpha；alpha、beta、rc 是质量门禁，不是可以按日期强行发布的功能版本。外部采用后移到 v1.4，不作为启动 VM 原型的前置阻塞条件。
 
