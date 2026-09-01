@@ -194,7 +194,12 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.3.0", date: "2026-09-01", title: "可选 Bytecode 正式执行路径", detail: "完整双引擎套件、Profiler、HHY Stack trace 与故障注入；性能门禁保持 AST 默认", icon: Code },
                     { version: "v1.3.1", date: "2026-09-01", title: "真实负载兼容加固", detail: "官方 workload 双引擎矩阵、能力探测与机器可读证据", icon: ShieldCheck },
                     { version: "v1.3.2", date: "2026-09-01", title: "VM 内部边界稳定化", detail: "版本化 Bytecode Runtime 边界、静态治理与持续 AST oracle", icon: ShieldCheck },
-                    { version: "v1.3.3–v1.3.5", date: "2026-09-01", title: "原生 Opcode 与默认切换", detail: "消除 AST bridge，性能门禁通过，Bytecode 默认并保留 AST 回退", icon: Gauge }
+                    { version: "v1.3.3–v1.3.5", date: "2026-09-01", title: "原生 Opcode 与默认切换", detail: "消除 AST bridge，性能门禁通过，Bytecode 默认并保留 AST 回退", icon: Gauge },
+                    { version: "v1.3.6", date: "2026-09-01", title: "Stream Int fusion 性能闭环", detail: "安全形状保守融合，未知形状无损回退，双引擎与四平台门禁通过", icon: Gauge },
+                    { version: "v1.3.7", date: "2026-09-01", title: "Bytecode 特化实现加固", detail: "具名 metadata、统一 stack/error、fallback reason 与三路径差分验证", icon: ShieldCheck },
+                    { version: "v1.3.8", date: "2026-09-01", title: "Compiler / Verifier 优化 IR", detail: "版本化 Stream Kernel 独立验证，动态或未知形状可靠回退", icon: Code },
+                    { version: "v1.3.9", date: "2026-09-01", title: "Profiler 与资源一致性", detail: "普通执行和观测共用优化决策，取消、CPU 与 Heap 归因门禁通过", icon: ShieldCheck },
+                    { version: "v1.3.10", date: "2026-09-01", title: "Bytecode 缓存治理", detail: "五负载实测未达缓存准入门槛；不实现缓存，不接受未验证外部 Bytecode", icon: Gauge }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
@@ -214,7 +219,12 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.3.0", date: "2026-09-01", title: "Opt-in production Bytecode path", detail: "Full dual-engine suite, profiling, HHY stack traces, and fault injection; the performance gate retains AST as default", icon: Code },
                     { version: "v1.3.1", date: "2026-09-01", title: "Real-workload compatibility hardening", detail: "Official workload dual-engine matrix, capability probes, and machine-readable evidence", icon: ShieldCheck },
                     { version: "v1.3.2", date: "2026-09-01", title: "VM internal-boundary stabilization", detail: "Versioned Bytecode Runtime boundary, static governance, and a continuous AST oracle", icon: ShieldCheck },
-                    { version: "v1.3.3–v1.3.5", date: "2026-09-01", title: "Native Opcode execution and default switch", detail: "Removes the AST bridge, passes performance gates, defaults to Bytecode, and retains AST fallback", icon: Gauge }
+                    { version: "v1.3.3–v1.3.5", date: "2026-09-01", title: "Native Opcode execution and default switch", detail: "Removes the AST bridge, passes performance gates, defaults to Bytecode, and retains AST fallback", icon: Gauge },
+                    { version: "v1.3.6", date: "2026-09-01", title: "Stream Int fusion performance closure", detail: "Conservatively fuses safe shapes, falls back losslessly, and passes dual-engine and four-platform gates", icon: Gauge },
+                    { version: "v1.3.7", date: "2026-09-01", title: "Bytecode specialization hardening", detail: "Named metadata, unified stack/error rules, fallback reasons, and three-path differential verification", icon: ShieldCheck },
+                    { version: "v1.3.8", date: "2026-09-01", title: "Compiler / Verifier optimization IR", detail: "Versioned Stream Kernels verify independently and dynamic or unknown shapes fall back safely", icon: Code },
+                    { version: "v1.3.9", date: "2026-09-01", title: "Profiler and resource consistency", detail: "Normal and observed execution share decisions; cancellation, CPU, and Heap attribution gates pass", icon: ShieldCheck },
+                    { version: "v1.3.10", date: "2026-09-01", title: "Bytecode cache governance", detail: "Five-workload evidence misses cache admission; no cache and no unverified external Bytecode", icon: Gauge }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
@@ -262,7 +272,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                       ))}
                     </div>
                     <div className="evolution-principles"><strong><ShieldCheck size={30} weight="duotone" />{lang === "zh" ? "演进原则" : "Evolution principles"}</strong>{principles.map((principle, principleIndex) => <span key={principle}><b>{principleIndex + 1}</b>{principle}</span>)}</div>
-                    <figcaption>{lang === "zh" ? "演进顺序：v1.1.8 Runtime 治理 → v1.2.0 签名分发 → v1.2.1 锁定与回滚 → 生态 ABI 决策" : "Evolution order: v1.1.8 Runtime governance → v1.2.0 signed distribution → v1.2.1 locking and rollback → ecosystem ABI decision"}</figcaption>
+                    <figcaption>{lang === "zh" ? "演进顺序：v1.3.5 Bytecode 默认 → v1.3.6 fusion → v1.3.7 特化加固 → v1.3.8 优化 IR → v1.3.9 观测一致性 → v1.3.10 缓存治理 → 生态 ABI 决策" : "Evolution order: v1.3.5 Bytecode default → v1.3.6 fusion → v1.3.7 specialization hardening → v1.3.8 optimization IR → v1.3.9 observability consistency → v1.3.10 cache governance → ecosystem ABI decision"}</figcaption>
                   </figure>
                 );
               }
