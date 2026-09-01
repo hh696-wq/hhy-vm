@@ -1,4 +1,4 @@
-export const hhyVersion = "1.2.1" as const;
+export const hhyVersion = "1.2.2" as const;
 export const hhyVersionLabel = `V${hhyVersion}` as const;
 export const hhyVersionTag = `v${hhyVersion}` as const;
 export const hhyReleaseUrl = `https://github.com/hh696-wq/hhy-vm/releases/tag/${hhyVersionTag}` as const;

@@ -252,9 +252,11 @@ bool hhy_extension_owns_callable(const char *name) {
 
 json_t *hhy_extension_call(const char *name, json_t *arguments, HhyExtensionError *call_error) {
     static char kind_buffer[64], code_buffer[96], message_buffer[256];
+    static char operation_buffer[128], stage_buffer[128], cause_buffer[128];
     const char *error = NULL;
     call_error->kind = "ExtensionCrashedError"; call_error->code = "HHY_EXTENSION_PROTOCOL";
     call_error->message = "extension protocol failure";
+    call_error->operation = name; call_error->stage = "extension.protocol"; call_error->cause = NULL;
     const char *dot = strchr(name, '.'); Extension *extension = dot ? find_extension(name, (size_t)(dot - name)) : NULL;
     if (extension == NULL) { set_error(&error, "extension callable is not loaded");
         call_error->message = error; return NULL; }
@@ -272,10 +274,18 @@ json_t *hhy_extension_call(const char *name, json_t *arguments, HhyExtensionErro
         const char *kind = json_string_value(json_object_get(response, "kind"));
         const char *code = json_string_value(json_object_get(response, "code"));
         const char *message = json_string_value(json_object_get(response, "message"));
+        const char *operation = json_string_value(json_object_get(response, "operation"));
+        const char *stage = json_string_value(json_object_get(response, "stage"));
+        const char *cause = json_string_value(json_object_get(response, "cause"));
         snprintf(kind_buffer, sizeof(kind_buffer), "%s", kind ? kind : "ExtensionError");
         snprintf(code_buffer, sizeof(code_buffer), "%s", code ? code : "HHY_EXTENSION_CALL");
         snprintf(message_buffer, sizeof(message_buffer), "%s", message ? message : "extension call failed");
+        snprintf(operation_buffer, sizeof(operation_buffer), "%s", operation ? operation : name);
+        snprintf(stage_buffer, sizeof(stage_buffer), "%s", stage ? stage : "extension.call");
+        if (cause != NULL) snprintf(cause_buffer, sizeof(cause_buffer), "%s", cause);
         call_error->kind = kind_buffer; call_error->code = code_buffer; call_error->message = message_buffer;
+        call_error->operation = operation_buffer; call_error->stage = stage_buffer;
+        call_error->cause = cause != NULL ? cause_buffer : NULL;
         json_decref(response); return NULL;
     }
     if (!message_identity(response, extension, request_id, "call_result", &error)) {

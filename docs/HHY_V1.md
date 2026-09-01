@@ -1,6 +1,6 @@
 # HHY Language v1.0 统一规范
 
-> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.2.1`
+> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.2.2`
 > 规范状态：v1.0 已冻结
 > 官网：[hhylang.dev](https://hhylang.dev)  
 > 定位：Flow-first system scripting language  

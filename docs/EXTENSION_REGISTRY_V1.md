@@ -1,6 +1,6 @@
 # HHY Signed Extension Registry v1 / HHY 签名扩展仓库 v1
 
-> Status: v1.2.1 implementation contract. This is an official-package trust model, not an open third-party publishing service.
+> Status: v1.2.2 implementation contract. This is an official-package trust model, not an open third-party publishing service.
 
 ## 中文
 
@@ -50,7 +50,7 @@ hhy rollback sample
 多平台目录采用：
 
 ```text
-packages/official/html/0.1.0/
+packages/official/html/0.2.0/
 ├── darwin-arm64/
 ├── linux-x86_64/
 ├── linux-arm64/

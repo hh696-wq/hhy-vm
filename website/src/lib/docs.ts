@@ -2071,7 +2071,7 @@ export const chapters: Chapter[] = [
         { title: "现有官方扩展", blocks: [
           { type: "table", columns: ["扩展", "版本", "发布时间", "状态", "能力"], rows: [["database", "0.2.0", "2026-08-26", "已发布", "MySQL/PostgreSQL 查询、写入与事务"], ["html", "0.1.0", "2026-08-27", "已发布", "Lexbor CSS Selector、文本/属性读取与结构化抽取"]] },
           { type: "link", href: "/zh/learn/database-extension", label: "数据库扩展使用指南", description: "安装 database 0.2.0，并完成 MySQL/PostgreSQL 查询、写入与事务。" },
-          { type: "link", href: "/zh/learn/html-crawler-framework", label: "HTML 扩展与抓取框架", description: "使用 html 0.1.0、URL 规范化、安全 Frontier、去重和 SSRF 防护构建静态 Spider。" }
+          { type: "link", href: "/zh/learn/html-crawler-framework", label: "HTML 扩展与抓取框架", description: "使用 html 0.2.0、可观察批量抽取、URL 规范化、安全 Frontier、去重和 SSRF 防护构建静态 Spider。" }
         ] },
         { title: "在哪里获取扩展", blocks: [
           { type: "table", columns: ["来源", "适合场景", "地址或操作"], rows: [["HHY 官方 Registry", "下载经过签名、按平台区分的官方扩展", "https://registry.hhylang.dev（索引：/index.json；信任根：/root.json）"], ["GitHub 源码", "查看代码、审计变更或自行编译", "https://github.com/hh696-wq/hhy-vm/tree/main/extensions"], ["本地自行编译", "开发扩展或需要本机依赖组合", "make -C extensions/<name>，然后从本地目录安装"]] },
@@ -2108,7 +2108,7 @@ export const chapters: Chapter[] = [
         { title: "Available official extensions", blocks: [
           { type: "table", columns: ["Extension", "Version", "Published", "Status", "Capability"], rows: [["database", "0.2.0", "2026-08-26", "Released", "MySQL/PostgreSQL queries, writes, and transactions"], ["html", "0.1.0", "2026-08-27", "Released", "Lexbor CSS selectors, text/attribute reads, and structured extraction"]] },
           { type: "link", href: "/en/learn/database-extension", label: "Database Extension Guide", description: "Install database 0.2.0 and perform MySQL/PostgreSQL queries, writes, and transactions." },
-          { type: "link", href: "/en/learn/html-crawler-framework", label: "HTML Extension and Crawler Framework", description: "Use html 0.1.0 with URL normalization, a safe frontier, deduplication, and SSRF protection." }
+          { type: "link", href: "/en/learn/html-crawler-framework", label: "HTML Extension and Crawler Framework", description: "Use html 0.2.0 with observable batch extraction, URL normalization, a safe frontier, deduplication, and SSRF protection." }
         ] },
         { title: "Where to get extensions", blocks: [
           { type: "table", columns: ["Source", "Best for", "Address or action"], rows: [["Official HHY Registry", "Downloading signed official extensions for a specific platform", "https://registry.hhylang.dev (index: /index.json; trust root: /root.json)"], ["GitHub source", "Reviewing code, auditing changes, or building from source", "https://github.com/hh696-wq/hhy-vm/tree/main/extensions"], ["Local source build", "Extension development or a custom local dependency combination", "make -C extensions/<name>, then install the local directory"]] },
@@ -2214,7 +2214,7 @@ export const chapters: Chapter[] = [
     sections: {
       zh: [
         { title: "HTML 扩展是什么", blocks: [
-          { type: "p", text: "官方 html 0.1.0 是一个无网络、无文件副作用的进程扩展。它用 Lexbor 解析不可信 HTML、执行 CSS Selector，并把文本、属性或重复记录转换成 HHY 可直接处理的 String、Bool、List 和 Map。" },
+          { type: "p", text: "官方 html 0.2.0 是一个无网络、无文件副作用的进程扩展。它用 Lexbor 解析不可信 HTML、执行 CSS Selector，并通过 extract_report 返回批量记录和明确的截断元数据。" },
           { type: "note", text: "HTML 扩展只负责解析和抽取，不下载 URL、不调度页面，也不返回 DOM handle。HTTP、TLS、超时、重试和安全策略由 HHY Runtime 与上层爬虫框架负责。" }
         ] },
         { title: "构建与安装 HTML 扩展", blocks: [
@@ -2246,7 +2246,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "What the HTML extension is", blocks: [
-          { type: "p", text: "The official html 0.1.0 package is a process extension with no network or filesystem effects. Lexbor parses untrusted HTML, evaluates CSS selectors, and returns String, Bool, List, and Map values directly usable by HHY." },
+          { type: "p", text: "The official html 0.2.0 package is a process extension with no network or filesystem effects. Lexbor parses untrusted HTML, evaluates CSS selectors, and extract_report returns batch rows with explicit truncation metadata." },
           { type: "note", text: "The extension parses and extracts only. It does not fetch URLs, schedule pages, or return DOM handles. HHY Runtime and the crawler layer own HTTP, TLS, timeouts, retries, and security policy." }
         ] },
         { title: "Build and install the HTML extension", blocks: [
@@ -2356,7 +2356,8 @@ export const chapters: Chapter[] = [
             ["v1.1.7 · 已完成", "2026-08-31", "诊断与编辑器基线", "版本化 JSON diagnostics、Contract Registry JSON、最小 LSP 与 VS Code 编辑闭环"],
             ["v1.1.8 · 已完成", "2026-08-31", "Runtime 渐进治理", "首个模块边界、内部所有权 API、sanitizer/GC stress 与阻断式性能回归门禁"],
             ["v1.2.0 · 已发布", "2026-08-31", "官方扩展分发与签名", "命名空间身份、Ed25519 签名索引与包描述、确定性依赖解析、dry-run 和事务式安装"],
-            ["v1.2.1 · 规划", "完成 v1.2.0 验收后", "锁定、离线与安全回滚", "同一 lock 得到同一依赖图；离线可重建；失败升级不破坏旧环境"],
+            ["v1.2.1 · 已发布", "2026-09-01", "锁定、离线与安全回滚", "同一 lock 得到同一依赖图；离线可重建；失败升级不破坏旧环境"],
+            ["v1.2.2 · 开发中", "2026-09-01", "官方 HTML 复杂扩展验证", "真实 fixture、可观察截断、结构化错误和三平台发行全部通过"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
           { type: "p", text: "说明：以上时间为建议窗口，不构成发布承诺。" }
@@ -2387,7 +2388,8 @@ export const chapters: Chapter[] = [
             ["v1.1.7 · Completed", "2026-08-31", "Diagnostics and editor baseline", "Versioned JSON diagnostics, Contract Registry JSON, a minimal LSP, and a VS Code editing loop"],
             ["v1.1.8 · Completed", "2026-08-31", "Gradual Runtime governance", "First module boundary, internal ownership API, sanitizer/GC stress, and a blocking performance-regression gate"],
             ["v1.2.0 · Released", "2026-08-31", "Official extension distribution and signing", "Namespaced identities, Ed25519-signed index and package descriptors, deterministic resolution, dry runs, and transaction-safe installs"],
-            ["v1.2.1 · Planned", "After v1.2.0 acceptance", "Locking, offline installs, and safe rollback", "The same lock produces the same graph; offline rebuilds work; failed upgrades preserve the old environment"],
+            ["v1.2.1 · Released", "2026-09-01", "Locking, offline installs, and safe rollback", "The same lock produces the same graph; offline rebuilds work; failed upgrades preserve the old environment"],
+            ["v1.2.2 · In development", "2026-09-01", "Official HTML complex-extension validation", "Real fixtures, observable truncation, structured errors, and three-platform distribution all pass"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },
           { type: "p", text: "Note: these dates are recommended windows, not release commitments." }

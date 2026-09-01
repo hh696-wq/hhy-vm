@@ -23,6 +23,8 @@ enum {
 
 typedef struct {
     const char *code;
+    const char *stage;
+    const char *cause;
     char message[256];
 } HtmlError;
 
@@ -56,15 +58,23 @@ typedef struct {
 typedef struct {
     lxb_dom_node_t **nodes;
     size_t count;
+    size_t matched;
     size_t capacity;
     size_t limit;
     HtmlError *error;
 } NodeListContext;
 
-static void set_error(HtmlError *error, const char *code, const char *message) {
+static void set_error_detail(HtmlError *error, const char *code, const char *stage,
+                             const char *cause, const char *message) {
     if (error == NULL || error->code != NULL) return;
     error->code = code;
+    error->stage = stage;
+    error->cause = cause;
     snprintf(error->message, sizeof(error->message), "%s", message);
+}
+
+static void set_error(HtmlError *error, const char *code, const char *message) {
+    set_error_detail(error, code, "html.execute", NULL, message);
 }
 
 static bool emit(json_t *message) {
@@ -121,6 +131,8 @@ static bool register_callables(void) {
         "String, String", "Bool"));
     json_array_append_new(items, contract("html.extract", 3, 4,
         "String, String, Map, Map?", "List<Map>"));
+    json_array_append_new(items, contract("html.extract_report", 3, 4,
+        "String, String, Map, Map?", "Map"));
     json_object_set_new(message, "callables", items);
     bool ok = emit(message);
     json_decref(message);
@@ -204,19 +216,22 @@ static bool compile_selector(const char *selector, CompiledSelector *compiled,
                              HtmlError *error) {
     size_t length = strlen(selector);
     if (length == 0 || length > MAX_SELECTOR_BYTES) {
-        set_error(error, "HTML_INVALID_SELECTOR", "selector must contain 1 to 4096 bytes");
+        set_error_detail(error, "HTML_INVALID_SELECTOR", "html.selector", NULL,
+                         "selector must contain 1 to 4096 bytes");
         return false;
     }
     compiled->parser = lxb_css_parser_create();
     if (compiled->parser == NULL ||
         lxb_css_parser_init(compiled->parser, NULL) != LXB_STATUS_OK) {
-        set_error(error, "HTML_MEMORY", "unable to initialize the CSS parser");
+        set_error_detail(error, "HTML_MEMORY", "html.selector", "lexbor",
+                         "unable to initialize the CSS parser");
         return false;
     }
     compiled->list = lxb_css_selectors_parse(compiled->parser,
         (const lxb_char_t *) selector, length);
     if (compiled->list == NULL || compiled->parser->status != LXB_STATUS_OK) {
-        set_error(error, "HTML_INVALID_SELECTOR", "CSS selector is invalid or unsupported");
+        set_error_detail(error, "HTML_INVALID_SELECTOR", "html.selector", "lexbor",
+                         "CSS selector is invalid or unsupported");
         return false;
     }
     return true;
@@ -357,6 +372,7 @@ static lxb_status_t node_list_callback(lxb_dom_node_t *node,
                                       void *context) {
     (void) specificity;
     NodeListContext *list = context;
+    list->matched++;
     if (list->count >= list->limit) return LXB_STATUS_OK;
     if (list->count == list->capacity) {
         size_t capacity = list->capacity == 0 ? 16 : list->capacity * 2;
@@ -425,7 +441,7 @@ static bool append_extracted_node(json_t *rows, lxb_dom_node_t *node,
 
 static json_t *extract_rows(lxb_html_document_t *document, lxb_selectors_t *selectors,
                             const char *root_selector, json_t *schema, json_t *options,
-                            HtmlError *error) {
+                            size_t input_bytes, bool report, HtmlError *error) {
     if (!json_is_object(schema) || json_object_size(schema) == 0 ||
         json_object_size(schema) > MAX_FIELDS) {
         set_error(error, "HTML_INVALID_SCHEMA", "schema must contain 1 to 64 fields");
@@ -455,8 +471,8 @@ static json_t *extract_rows(lxb_html_document_t *document, lxb_selectors_t *sele
     json_t *rows = error->code == NULL ? json_array() : NULL;
     if (rows == NULL && error->code == NULL)
         set_error(error, "HTML_MEMORY", "unable to allocate extraction result");
+    NodeListContext context = {.limit = limit, .error = error};
     if (error->code == NULL) {
-        NodeListContext context = {.limit = limit, .error = error};
         lxb_status_t status = lxb_selectors_find(selectors,
             lxb_dom_interface_node(document), root.list, node_list_callback, &context);
         if (status != LXB_STATUS_OK && error->code == NULL)
@@ -472,7 +488,15 @@ static json_t *extract_rows(lxb_html_document_t *document, lxb_selectors_t *sele
         if (rows != NULL) json_decref(rows);
         return NULL;
     }
-    return rows;
+    if (!report) return rows;
+    json_t *result = json_pack("{s:o,s:i,s:i,s:b,s:i}",
+        "rows", rows, "matched", (json_int_t) context.matched,
+        "returned", (json_int_t) context.count,
+        "truncated", context.matched > context.count,
+        "input_bytes", (json_int_t) input_bytes);
+    if (result == NULL)
+        set_error(error, "HTML_MEMORY", "unable to allocate extraction report");
+    return result;
 }
 
 static json_t *execute(const char *callable, json_t *arguments, HtmlError *error) {
@@ -491,7 +515,8 @@ static json_t *execute(const char *callable, json_t *arguments, HtmlError *error
     if (document == NULL || lxb_html_document_parse(document,
         (const lxb_char_t *) json_string_value(html_arg), json_string_length(html_arg)) != LXB_STATUS_OK) {
         if (document != NULL) lxb_html_document_destroy(document);
-        set_error(error, "HTML_PARSE_FAILED", "unable to parse HTML document");
+        set_error_detail(error, "HTML_PARSE_FAILED", "html.parse", "lexbor",
+                         "unable to parse HTML document");
         return NULL;
     }
     lxb_selectors_t *selectors = lxb_selectors_create();
@@ -502,9 +527,11 @@ static json_t *execute(const char *callable, json_t *arguments, HtmlError *error
         return NULL;
     }
     json_t *result = NULL;
-    if (strcmp(callable, "html.extract") == 0 && (argc == 3 || argc == 4)) {
+    if ((strcmp(callable, "html.extract") == 0 ||
+         strcmp(callable, "html.extract_report") == 0) && (argc == 3 || argc == 4)) {
         result = extract_rows(document, selectors, json_string_value(selector_arg),
-            json_array_get(arguments, 2), argc == 4 ? json_array_get(arguments, 3) : NULL, error);
+            json_array_get(arguments, 2), argc == 4 ? json_array_get(arguments, 3) : NULL,
+            json_string_length(html_arg), strcmp(callable, "html.extract_report") == 0, error);
     } else {
         bool is_text = strcmp(callable, "html.text") == 0 ||
                        strcmp(callable, "html.text_all") == 0;
@@ -568,6 +595,11 @@ static bool handle_call(json_t *request) {
             error.code != NULL ? error.code : "HTML_OPERATION_FAILED"));
         json_object_set_new(response, "message", json_string(
             error.code != NULL ? error.message : "HTML operation failed"));
+        json_object_set_new(response, "operation", json_string(callable));
+        json_object_set_new(response, "stage", json_string(
+            error.stage != NULL ? error.stage : "html.execute"));
+        if (error.cause != NULL)
+            json_object_set_new(response, "cause", json_string(error.cause));
         bool ok = emit(response);
         json_decref(response);
         return ok;
@@ -589,7 +621,7 @@ int main(int argc, char **argv) {
     }
     json_decref(hello);
     json_t *response = envelope("handshake_result", "handshake");
-    json_object_set_new(response, "extension_version", json_string("0.1.0"));
+    json_object_set_new(response, "extension_version", json_string("0.2.0"));
     bool ok = emit(response);
     json_decref(response);
     if (!ok || !register_callables()) return 2;

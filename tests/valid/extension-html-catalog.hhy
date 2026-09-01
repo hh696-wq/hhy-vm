@@ -1,0 +1,16 @@
+import html
+
+let source = read_text(path("tests/fixtures/html/catalog.html"))
+let report = html.extract_report(source, "article.card", {
+    id: { selector: "", value: "attr", name: "data-id" },
+    title: { selector: "h2", value: "text" },
+    url: { selector: "a", value: "attr", name: "href" },
+    status: { selector: ".status", value: "text" }
+}, { max_results: 3 })
+
+print(report.matched)
+print(report.returned)
+print(report.truncated)
+print(report.rows[2].id)
+print(report.rows[2].title)
+print(report.rows[2].url)

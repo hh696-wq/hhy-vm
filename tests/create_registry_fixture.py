@@ -79,8 +79,8 @@ def main() -> None:
     ).split(",")
     packages = []
     for package_target in configured_targets:
-        for name, dependencies in (("html", {}), ("sample", {"official/html": "^0.1.0"})):
-            package_dir = target / "packages" / "official" / name / "0.1.0" / package_target
+        for name, version, dependencies in (("html", "0.2.0", {}), ("sample", "0.1.0", {"official/html": "^0.2.0"})):
+            package_dir = target / "packages" / "official" / name / version / package_target
             if not package_dir.exists():
                 shutil.copytree(project / "extensions" / name, package_dir)
             item = {
@@ -89,9 +89,9 @@ def main() -> None:
                 "identity": f"official/{name}",
                 "key_id": "hhy-test-2026",
                 "runtime_name": name,
-                "source": f"packages/official/{name}/0.1.0/{package_target}",
+                "source": f"packages/official/{name}/{version}/{package_target}",
                 "target": package_target,
-                "version": "0.1.0",
+                "version": version,
             }
             item["signature"] = sign(item, private_key)
             packages.append(item)

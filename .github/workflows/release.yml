@@ -9,7 +9,7 @@ on:
       tag:
         description: "Semantic release tag (must match VERSION)"
         required: true
-        default: "v1.2.1"
+        default: "v1.2.2"
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -104,7 +104,7 @@ jobs:
           HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy install --yes \
             "$verify_dir"/hhy-*/extensions/html
           HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'sample 0.1.0'
-          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'html 0.1.0'
+          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'html 0.2.0'
 
       - name: Attest release archives
         uses: actions/attest@v4
@@ -176,6 +176,10 @@ jobs:
           cmake --install /tmp/lexbor-build
           make -C extensions/sample
           make -C extensions/html LEXBOR_PREFIX=/usr/local
+          make -C extensions/html LEXBOR_PREFIX=/usr/local test
+          extension_home=/tmp/hhy-html-extension-home
+          HHY_EXTENSION_HOME="$extension_home" ./build/hhy install --yes extensions/html
+          HHY_EXTENSION_HOME="$extension_home" ./build/hhy run tests/valid/extension-html-catalog.hhy | grep 'HTML Extension'
 
       - name: Build and verify Windows archive
         run: |

@@ -10,6 +10,9 @@ typedef struct {
     const char *kind;
     const char *code;
     const char *message;
+    const char *operation;
+    const char *stage;
+    const char *cause;
 } HhyExtensionError;
 
 bool hhy_extension_prepare_namespace(const char *name, size_t length,

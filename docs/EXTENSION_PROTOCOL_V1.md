@@ -1,6 +1,6 @@
 # HHY Process Extension Protocol v1
 
-> Runtime implementation: `1.2.0`
+> Runtime implementation: `1.2.2`
 > Protocol version: `1.0`
 
 Process extensions communicate over UTF-8 JSON Lines. Runtime writes requests to
@@ -70,9 +70,11 @@ duplicates are rejected. Process extensions must declare `isolated_process`.
 The initial implementation accepts Null, Bool, Int, Float, String, List and Map.
 System values, functions and streams cannot cross as ordinary JSON values.
 
-Errors carry `kind`, `code` and `message`; Runtime currently maps them to an HHY
-`ExtensionError` at the callable stage. Database diagnostics, SQL parameters and
-credentials must not be included in protocol errors.
+Errors require `kind`, `code` and `message`. Protocol 1 also accepts optional
+`operation`, `stage` and `cause` strings; Runtime preserves them as HHY Error
+`context`, `stage` and `cause`. Older extensions remain compatible and receive
+deterministic defaults. Database diagnostics, SQL parameters, credentials and
+unbounded third-party messages must not be included in protocol errors.
 
 ## Deliberately deferred within v1.x
 

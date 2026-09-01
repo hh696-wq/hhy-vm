@@ -189,6 +189,29 @@ true
     *) fail "html extension returned unexpected output: $html_output" ;;
 esac
 
+html_report_output=$($HHY_BIN run tests/valid/extension-html-report.hhy)
+case "$html_report_output" in
+    '3
+2
+true
+[{"text": "A"}, {"text": "B"}]
+html.selector
+lexbor
+html.text') ;;
+    *) fail "html extraction report or structured error metadata was incorrect: $html_report_output" ;;
+esac
+
+html_catalog_output=$($HHY_BIN run tests/valid/extension-html-catalog.hhy)
+case "$html_catalog_output" in
+    '5
+3
+true
+hhy-103
+HTML Extension
+/components/html') ;;
+    *) fail "html realistic catalog extraction was incorrect: $html_catalog_output" ;;
+esac
+
 url_output=$($HHY_BIN run tests/valid/url.hhy)
 case "$url_output" in
     'https://example.com/guide?q=1
@@ -215,7 +238,7 @@ case "$extension_list" in
     *) fail "database extension was not listed: $extension_list" ;;
 esac
 case "$extension_list" in
-    *"html 0.1.0"*"Author"*"HHY Official"*"Protocol"*"1"*"Permissions"*) ;;
+    *"html 0.2.0"*"Author"*"HHY Official"*"Protocol"*"1"*"Permissions"*) ;;
     *) fail "html extension was not listed: $extension_list" ;;
 esac
 

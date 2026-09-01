@@ -1,0 +1,18 @@
+import html
+
+let source = "<ul><li>A</li><li>B</li><li>C</li></ul>"
+let report = html.extract_report(source, "li", {
+    text: { selector: "", value: "text" }
+}, { max_results: 2 })
+
+print(report.matched)
+print(report.returned)
+print(report.truncated)
+report.rows |> encode_json |> print
+
+let invalid = attempt {
+    html.text(source, "[")
+}
+print(invalid.error.stage)
+print(invalid.error.cause)
+print(invalid.error.context)

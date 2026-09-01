@@ -590,6 +590,18 @@ static void runtime_error_kind(Runtime *rt, const HhyNode *node, const char *kin
     rt->error_column = node == NULL ? 0 : node->token.column;
 }
 
+static void runtime_extension_error(Runtime *rt, const HhyNode *node,
+                                    const HhyExtensionError *error) {
+    runtime_error_kind(rt, node, error->kind, error->code, error->message);
+    if (!rt->failed || rt->error_value.kind != V_ERROR || rt->error_value.as.map == NULL) return;
+    if (error->stage != NULL)
+        rt->error_value.as.map->values[4] = string_value(rt, error->stage);
+    if (error->cause != NULL)
+        rt->error_value.as.map->values[5] = string_value(rt, error->cause);
+    if (error->operation != NULL)
+        rt->error_value.as.map->values[7] = string_value(rt, error->operation);
+}
+
 static void runtime_type_error(Runtime *rt, const HhyNode *node, const char *message) {
     runtime_error_kind(rt, node, "TypeError", "HHY_TYPE", message);
 }
@@ -5319,8 +5331,7 @@ static Value call_value_impl(Runtime *rt, Env *env, const HhyNode *site, Value c
                     json_t *response = hhy_extension_call(callee.as.function.builtin,
                                                           arguments, &extension_error);
                     if (response == NULL) {
-                        runtime_error_kind(rt, site, extension_error.kind, extension_error.code,
-                                           extension_error.message);
+                        runtime_extension_error(rt, site, &extension_error);
                         result = null_value();
                     } else {
                         result = protocol_json_to_value(rt, site, response);

@@ -1,7 +1,7 @@
 # HHY 扩展系统版本路线图
 
 > 状态：规划稿 v0.1  
-> 当前 Core 开发版本：`1.2.1`（以仓库根目录 `VERSION` 为准）
+> 当前 Core 开发版本：`1.2.2`（以仓库根目录 `VERSION` 为准）
 > 依赖规范：[HHY Language v1.0 统一规范](HHY_V1.md)  
 > 原则：HHY Core 负责 Flow，扩展负责提供可以流动的新数据。
 
@@ -12,7 +12,7 @@
 ```text
 v1.0  Core contracts + namespace reservation
 v1.1  Process Extension Protocol + local package install
-v1.2  Official office extension validates the protocol
+v1.2  Official HTML extension validates the protocol
 later Public Native ABI after Runtime stabilization
 ```
 
@@ -21,7 +21,7 @@ later Public Native ABI after Runtime stabilization
 ```text
 v1.0  核心 contract 与命名空间预留
 v1.1  Process Extension Protocol + 本地包安装
-v1.2  官方 office 扩展验证协议
+v1.2  官方 HTML 扩展验证协议
 以后   Runtime 稳定后再考虑公开 Native ABI
 ```
 

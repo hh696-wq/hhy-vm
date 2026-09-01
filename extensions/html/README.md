@@ -25,6 +25,7 @@ html.attr(String html, String selector, String name, Map?) -> String | Null
 html.attr_all(String html, String selector, String name, Map?) -> List<String>
 html.exists(String html, String selector) -> Bool
 html.extract(String html, String selector, Map schema, Map?) -> List<Map>
+html.extract_report(String html, String selector, Map schema, Map?) -> Map
 ```
 
 `text`, `text_all`, `attr`, and `attr_all` accept `{ trim: Bool }`. Collection
@@ -35,6 +36,11 @@ limit is 10000. Input HTML is limited to 768 KiB so responses remain below the
 `extract` parses the HTML document once, selects repeated root elements, and
 projects each root into a Map. A field selector is evaluated relative to its
 root. Use an empty selector to read the root element itself.
+
+`extract_report` performs the same bounded batch projection and returns
+`{ rows, matched, returned, truncated, input_bytes }`. Prefer it in production
+jobs so a `max_results` boundary is observable instead of silently treating a
+partial result as complete.
 
 ```hhy
 import html

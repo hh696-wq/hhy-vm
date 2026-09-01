@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.2.1-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.2.2-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -64,7 +64,7 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前开发版本是 **V1.2.1**（`1.2.1`），正式支持 macOS arm64、Linux arm64 和
+当前开发版本是 **V1.2.2**（`1.2.2`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
@@ -187,8 +187,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.2.1-PLATFORM-ARCH.tar.gz
-cd hhy-1.2.1-PLATFORM-ARCH
+tar -xzf hhy-1.2.2-PLATFORM-ARCH.tar.gz
+cd hhy-1.2.2-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -291,7 +291,7 @@ make -C extensions/html
 ```hhy-snippet
 import html
 
-html.extract(body, "article.product", {
+html.extract_report(body, "article.product", {
     title: { selector: "h2", value: "text" },
     url: { selector: "a", value: "attr", name: "href" }
 })
@@ -299,9 +299,11 @@ html.extract(body, "article.product", {
 
 API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
 
-## V1.2.1 状态
+## V1.2.2 状态
 
-V1.0 语言 contract 保持兼容；V1.2.1 完成官方扩展签名 Registry、确定性依赖解析、
+V1.0 语言 contract 保持兼容；V1.2.2 使用官方 HTML 0.2.0 扩展验证真实网页批量抽取、
+可观察截断、结构化扩展错误以及三平台依赖发行，现有 Protocol 1 同步批量路径足以满足
+当前有界负载，因此不提前加入 Stream credit 或 Opaque Handle。V1.2.1 完成官方扩展签名 Registry、确定性依赖解析、
 事务式安装、锁定、离线重建与安全回滚闭环。V1.1.8 增加的首个 Runtime
 模块边界、内部所有权 API、静态治理检查和阻断式性能回归门禁，公开行为与默认资源限制不变。
 V1.1.7 提供版本化 JSON diagnostics、Contract Registry JSON 和最小 LSP/VS Code

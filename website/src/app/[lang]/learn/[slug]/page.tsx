@@ -203,11 +203,13 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
-                    { version: "v1.2.1", window: "v1.2.0 验收后", title: "锁定、离线与安全回滚", items: ["Lockfile 与精确依赖图", "离线缓存和可复现安装", "显式升级与版本回滚"], icon: Handshake },
+                    { version: "v1.2.1", window: "2026-09-01 已发布", title: "锁定、离线与安全回滚", items: ["Lockfile 与精确依赖图", "离线缓存和可复现安装", "显式升级与版本回滚"], icon: Handshake },
+                    { version: "v1.2.2", window: "开发中", title: "官方 HTML 复杂扩展验证", items: ["真实网页批量抽取", "可观察结果上限", "结构化错误与三平台发行"], icon: Handshake },
                     { version: "v2.0", window: "生态证据充分后", title: "生态开放与 ABI 决策", items: ["以真实集成测量进程协议边界", "评估 embedding / FFI", "仅在必要时发布 Native ABI"], icon: RocketLaunch }
                   ]
                   : [
-                    { version: "v1.2.1", window: "After v1.2.0 acceptance", title: "Locking, offline installs, and safe rollback", items: ["Lockfiles and exact dependency graphs", "Offline caches and reproducible installs", "Explicit upgrades and version rollback"], icon: Handshake },
+                    { version: "v1.2.1", window: "Released 2026-09-01", title: "Locking, offline installs, and safe rollback", items: ["Lockfiles and exact dependency graphs", "Offline caches and reproducible installs", "Explicit upgrades and version rollback"], icon: Handshake },
+                    { version: "v1.2.2", window: "In development", title: "Official HTML complex-extension validation", items: ["Real-page batch extraction", "Observable result bounds", "Structured errors and three-platform distribution"], icon: Handshake },
                     { version: "v2.0", window: "After sufficient ecosystem evidence", title: "Ecosystem and ABI decision", items: ["Measure process-protocol limits with real integrations", "Evaluate embedding / FFI", "Publish a Native ABI only if necessary"], icon: RocketLaunch }
                   ];
                 const principles = lang === "zh"

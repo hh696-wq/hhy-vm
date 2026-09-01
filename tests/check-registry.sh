@@ -17,13 +17,13 @@ case "$(uname -s)-$(uname -m)" in
     MINGW*-x86_64|MSYS*-x86_64) native_target=windows-x86_64 ;;
     *) native_target=unsupported ;;
 esac
-printf '%s' "$plan" | grep -F "1. official/html 0.1.0 [$native_target] -> html" >/dev/null
+printf '%s' "$plan" | grep -F "1. official/html 0.2.0 [$native_target] -> html" >/dev/null
 printf '%s' "$plan" | grep -F "2. official/sample 0.1.0 [$native_target] -> sample" >/dev/null
 [ ! -e "$home/html" ] && [ ! -e "$home/sample" ]
 
 HHY_EXTENSION_HOME="$home" "$HHY_BIN" install --yes \
     --registry "$fixture" --trust-root "$fixture/root.json" official/sample >/dev/null
-HHY_EXTENSION_HOME="$home" "$HHY_BIN" list | grep -F 'html 0.1.0' >/dev/null
+HHY_EXTENSION_HOME="$home" "$HHY_BIN" list | grep -F 'html 0.2.0' >/dev/null
 HHY_EXTENSION_HOME="$home" "$HHY_BIN" list | grep -F 'sample 0.1.0' >/dev/null
 
 # A late conflict rolls back dependencies added by this transaction and preserves the old package.
@@ -112,8 +112,10 @@ cmp "$locked_file" "$locked_file_repeat"
     --registry "$locked_fixture" --trust-root "$locked_fixture/root.json" >/dev/null
 HHY_EXTENSION_HOME="$locked_home" "$HHY_BIN" install --yes --locked --offline \
     --lockfile "$locked_file" --cache "$locked_cache" official/sample >/dev/null
-HHY_EXTENSION_HOME="$locked_home" "$HHY_BIN" list | grep -F 'html 0.1.0' >/dev/null
+HHY_EXTENSION_HOME="$locked_home" "$HHY_BIN" list | grep -F 'html 0.2.0' >/dev/null
 HHY_EXTENSION_HOME="$locked_home" "$HHY_BIN" list | grep -F 'sample 0.1.0' >/dev/null
+offline_html_output=$(HHY_EXTENSION_HOME="$locked_home" "$HHY_BIN" run tests/valid/extension-html-catalog.hhy)
+printf '%s\n' "$offline_html_output" | grep -F 'HTML Extension' >/dev/null
 HHY_EXTENSION_HOME="$locked_home" "$HHY_BIN" doctor extensions \
     --lockfile "$locked_file" --cache "$locked_cache" >/dev/null
 
