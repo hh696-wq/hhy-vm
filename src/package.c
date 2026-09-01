@@ -326,7 +326,9 @@ int hhy_package_rollback(const char *name) {
     }
     DIR *directory = opendir(history); struct dirent *entry; char prefix[160];
     if (directory == NULL || snprintf(prefix, sizeof(prefix), "%s-", name) >= (int)sizeof(prefix)) {
-        if (directory) closedir(directory); fputs("hhy: no rollback version is available\n", stderr); return 3;
+        if (directory) closedir(directory);
+        fputs("hhy: no rollback version is available\n", stderr);
+        return 3;
     }
     char selected[PATH_MAX] = ""; Manifest previous;
     while ((entry = readdir(directory)) != NULL) {
