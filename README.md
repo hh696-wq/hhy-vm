@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.2.0-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.2.1-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -64,7 +64,7 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前开发版本是 **V1.2.0**（`1.2.0`），正式支持 macOS arm64、Linux arm64 和
+当前开发版本是 **V1.2.1**（`1.2.1`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
@@ -187,8 +187,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.2.0-PLATFORM-ARCH.tar.gz
-cd hhy-1.2.0-PLATFORM-ARCH
+tar -xzf hhy-1.2.1-PLATFORM-ARCH.tar.gz
+cd hhy-1.2.1-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -212,6 +212,11 @@ cd hhy-1.2.0-PLATFORM-ARCH
 | `hhy run --dry-run <file.hhy>` | 生成脱敏执行计划，不执行外部副作用 |
 | `hhy install <local-path>` | 在 staging 校验权限与 SHA-256 后原子安装本地进程扩展 |
 | `hhy install --registry DIR --trust-root FILE <namespace/name>` | 验签、解析依赖并事务式安装官方扩展 |
+| `hhy lock --registry DIR --trust-root FILE <namespace/name>` | 写入精确签名索引快照与宿主 target 的 `hhy.lock` |
+| `hhy fetch --locked ...` | 把锁定图写入内容寻址离线缓存并逐文件复核 SHA-256 |
+| `hhy install --locked --offline ... <namespace/name>` | 只从锁定缓存验签并重建相同依赖图 |
+| `hhy install --upgrade ...` / `hhy rollback <package>` | 原子升级并恢复上一已验证版本 |
+| `hhy doctor extensions` | 检查 active installation；可同时核对 lock 与 cache |
 | `hhy list` | 列出已安装扩展 |
 | `hhy remove <package>` | 移除扩展包 |
 
@@ -249,7 +254,8 @@ make -C extensions/database
 最小权限。官方包使用 `author = "HHY Official"`；本地 manifest 的作者字段是
 署名信息，不能替代 Registry 的发布者签名。
 
-V1.2.0 支持显式信任根的静态官方 Registry。客户端在任何写入之前验证 Ed25519
+V1.2.1 在 V1.2.0 静态签名 Registry 上增加 lockfile、内容寻址离线缓存、可复现安装、
+原子升级历史和显式回滚。客户端在任何写入之前验证 Ed25519
 索引签名、包描述签名、完整文件 SHA-256 清单和传递依赖图；`--dry-run` 只输出确定性
 计划。协议与安全边界见 [`docs/EXTENSION_REGISTRY_V1.md`](docs/EXTENSION_REGISTRY_V1.md)。
 线上域名不是本地实现和 CI 验收的前置条件。
@@ -293,10 +299,10 @@ html.extract(body, "article.product", {
 
 API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
 
-## V1.2.0 状态
+## V1.2.1 状态
 
-V1.0 语言 contract 保持兼容；V1.2.0 在 V1.1.8 Runtime 治理基线之上增加官方
-扩展签名 Registry、确定性依赖解析与事务式安装。V1.1.8 增加的首个 Runtime
+V1.0 语言 contract 保持兼容；V1.2.1 完成官方扩展签名 Registry、确定性依赖解析、
+事务式安装、锁定、离线重建与安全回滚闭环。V1.1.8 增加的首个 Runtime
 模块边界、内部所有权 API、静态治理检查和阻断式性能回归门禁，公开行为与默认资源限制不变。
 V1.1.7 提供版本化 JSON diagnostics、Contract Registry JSON 和最小 LSP/VS Code
 编辑闭环。V1.1.6 已补齐测试能力探测、

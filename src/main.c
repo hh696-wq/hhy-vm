@@ -44,6 +44,10 @@ static void usage(FILE *stream) {
         "  hhy fmt --check <files>   Verify canonical formatting\n"
         "  hhy contracts --format json  Print callable Contract Registry\n"
         "  hhy install [options] <source> Install a local or signed Registry extension\n"
+        "  hhy lock [options] <package> Resolve and write hhy.lock\n"
+        "  hhy fetch --locked [options] Cache a locked dependency graph\n"
+        "  hhy rollback <package>      Restore the previous verified version\n"
+        "  hhy doctor extensions [options] Verify lock, cache, and active installs\n"
         "  hhy list                  List installed extensions\n"
         "  hhy remove <package>      Remove an installed extension\n"
         "  hhy <file.hhy> [args]     Execute an HHY script\n"
@@ -338,18 +342,61 @@ int main(int argc, char **argv) {
         for (int i = 2; i < argc; i++) {
             if (strcmp(argv[i], "--yes") == 0) options.assume_yes = true;
             else if (strcmp(argv[i], "--dry-run") == 0) options.dry_run = true;
+            else if (strcmp(argv[i], "--locked") == 0) options.locked = true;
+            else if (strcmp(argv[i], "--offline") == 0) options.offline = true;
+            else if (strcmp(argv[i], "--upgrade") == 0) options.upgrade = true;
+            else if (strcmp(argv[i], "--lockfile") == 0 && i + 1 < argc) options.lockfile = argv[++i];
+            else if (strcmp(argv[i], "--cache") == 0 && i + 1 < argc) options.cache = argv[++i];
             else if (strcmp(argv[i], "--registry") == 0 && i + 1 < argc) options.registry = argv[++i];
             else if (strcmp(argv[i], "--trust-root") == 0 && i + 1 < argc) options.trust_root = argv[++i];
             else if (argv[i][0] != '-' && source == NULL) source = argv[i];
             else { source = NULL; break; }
         }
         if (source == NULL) {
-            fputs("usage: hhy install [--yes] [--dry-run] [--registry DIR --trust-root FILE] <package-or-path>\n", stderr);
+            fputs("usage: hhy install [--yes] [--dry-run] [--upgrade] [--locked] [--offline] [--lockfile FILE] [--cache DIR] [--registry DIR --trust-root FILE] <package-or-path>\n", stderr);
             return 3;
         }
-        if (options.registry != NULL || options.trust_root != NULL)
+        if (options.registry != NULL || options.trust_root != NULL || options.locked || options.offline)
             return hhy_registry_install(source, &options);
         return hhy_package_install(source, &options);
+    }
+    if (strcmp(argv[1], "lock") == 0) {
+        HhyPackageInstallOptions options = {0}; const char *identity = NULL;
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--registry") == 0 && i + 1 < argc) options.registry = argv[++i];
+            else if (strcmp(argv[i], "--trust-root") == 0 && i + 1 < argc) options.trust_root = argv[++i];
+            else if (strcmp(argv[i], "--lockfile") == 0 && i + 1 < argc) options.lockfile = argv[++i];
+            else if (argv[i][0] != '-' && identity == NULL) identity = argv[i];
+            else { identity = NULL; break; }
+        }
+        if (identity == NULL) { fputs("usage: hhy lock [--lockfile FILE] --registry DIR --trust-root FILE <package>\n", stderr); return 3; }
+        return hhy_registry_lock(identity, &options);
+    }
+    if (strcmp(argv[1], "fetch") == 0) {
+        HhyPackageInstallOptions options = {0};
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--locked") == 0) options.locked = true;
+            else if (strcmp(argv[i], "--lockfile") == 0 && i + 1 < argc) options.lockfile = argv[++i];
+            else if (strcmp(argv[i], "--cache") == 0 && i + 1 < argc) options.cache = argv[++i];
+            else if (strcmp(argv[i], "--registry") == 0 && i + 1 < argc) options.registry = argv[++i];
+            else if (strcmp(argv[i], "--trust-root") == 0 && i + 1 < argc) options.trust_root = argv[++i];
+            else { fputs("usage: hhy fetch --locked [--lockfile FILE] [--cache DIR] --registry DIR --trust-root FILE\n", stderr); return 3; }
+        }
+        return hhy_registry_fetch(&options);
+    }
+    if (strcmp(argv[1], "rollback") == 0) {
+        if (argc != 3) { fputs("usage: hhy rollback <package>\n", stderr); return 3; }
+        return hhy_package_rollback(argv[2]);
+    }
+    if (strcmp(argv[1], "doctor") == 0) {
+        HhyPackageInstallOptions options = {0};
+        if (argc < 3 || strcmp(argv[2], "extensions") != 0) { fputs("usage: hhy doctor extensions [--lockfile FILE] [--cache DIR]\n", stderr); return 3; }
+        for (int i = 3; i < argc; i++) {
+            if (strcmp(argv[i], "--lockfile") == 0 && i + 1 < argc) options.lockfile = argv[++i];
+            else if (strcmp(argv[i], "--cache") == 0 && i + 1 < argc) options.cache = argv[++i];
+            else { fputs("usage: hhy doctor extensions [--lockfile FILE] [--cache DIR]\n", stderr); return 3; }
+        }
+        return hhy_package_doctor(&options);
     }
     if (strcmp(argv[1], "list") == 0) {
         if (argc != 2) { fputs("usage: hhy list\n", stderr); return 3; }

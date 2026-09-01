@@ -2,6 +2,7 @@
 #include "hhy/package.h"
 
 #include <jansson.h>
+#include <errno.h>
 #include <limits.h>
 #include <openssl/evp.h>
 #include <stdbool.h>
@@ -9,6 +10,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
+
+#ifndef HHY_VERSION
+#define HHY_VERSION "unknown"
+#endif
 
 #define MAX_PACKAGES 64
 #define MAX_PLAN 64
@@ -163,6 +169,43 @@ static bool sha256_file(const char *path, char output[65]) {
     output[64] = '\0'; return true;
 }
 
+static const char *lock_path(const HhyPackageInstallOptions *options) {
+    return options && options->lockfile ? options->lockfile : "hhy.lock";
+}
+
+static bool make_path(const char *path) {
+    char copy[PATH_MAX];
+    if (snprintf(copy, sizeof(copy), "%s", path) >= (int)sizeof(copy)) return false;
+    for (char *p = copy + 1; *p; p++) if (*p == '/') {
+        *p = '\0'; if (mkdir(copy, 0755) != 0 && errno != EEXIST) return false; *p = '/';
+    }
+    return mkdir(copy, 0755) == 0 || errno == EEXIST;
+}
+
+static bool copy_cached_file(const char *source, const char *target) {
+    char parent[PATH_MAX];
+    if (snprintf(parent, sizeof(parent), "%s", target) >= (int)sizeof(parent)) return false;
+    char *slash = strrchr(parent, '/'); if (slash == NULL) return false; *slash = '\0';
+    if (!make_path(parent)) return false;
+    FILE *in = fopen(source, "rb"), *out = in ? fopen(target, "wb") : NULL; bool ok = out != NULL; char buffer[65536];
+    while (ok) { size_t count = fread(buffer, 1, sizeof(buffer), in); if (count && fwrite(buffer, 1, count, out) != count) ok = false; if (count < sizeof(buffer)) { if (ferror(in)) ok = false; break; } }
+    if (in) fclose(in); if (out && fclose(out) != 0) ok = false;
+    struct stat info; if (ok && stat(source, &info) == 0 && chmod(target, info.st_mode & 0777) != 0) ok = false;
+    if (!ok) unlink(target); return ok;
+}
+
+static json_t *read_lock(const HhyPackageInstallOptions *options, char digest[65]) {
+    json_error_t error; json_t *lock = json_load_file(lock_path(options), JSON_REJECT_DUPLICATES, &error);
+    const char *target = lock ? json_string_value(json_object_get(lock, "target")) : NULL;
+    const char *stored = lock ? json_string_value(json_object_get(lock, "index_sha256")) : NULL;
+    if (!lock || json_integer_value(json_object_get(lock, "schema_version")) != 1 || !target ||
+        !current_target() || strcmp(target, current_target()) != 0 || !stored || strlen(stored) != 64 ||
+        !json_is_object(json_object_get(lock, "root")) || !json_is_object(json_object_get(lock, "index"))) {
+        fputs("hhy: lockfile is invalid or targets another platform\n", stderr); json_decref(lock); return NULL;
+    }
+    snprintf(digest, 65, "%s", stored); return lock;
+}
+
 static RegistryPackage *select_package(Registry *registry, const char *identity, const char *constraint) {
     RegistryPackage *selected = NULL; const char *target = current_target();
     if (target == NULL) return NULL;
@@ -279,9 +322,28 @@ static bool load_registry(Registry *registry, const HhyPackageInstallOptions *op
 }
 
 int hhy_registry_install(const char *identity, const HhyPackageInstallOptions *options) {
-    Registry registry; json_t *root = NULL, *index = NULL; const char *stack[MAX_PLAN];
+    Registry registry; json_t *root = NULL, *index = NULL, *lock = NULL; const char *stack[MAX_PLAN];
+    HhyPackageInstallOptions effective = options ? *options : (HhyPackageInstallOptions){0};
+    char digest[65], cached_registry[PATH_MAX], cached_root[PATH_MAX];
+    if (effective.locked) {
+        lock = read_lock(&effective, digest); if (!lock) return 3;
+        const char *locked_identity = json_string_value(json_object_get(lock, "identity"));
+        if (!locked_identity || strcmp(identity, locked_identity) != 0) { fputs("hhy: requested package differs from lockfile\n", stderr); json_decref(lock); return 3; }
+        if (effective.offline) {
+            const char *cache = effective.cache ? effective.cache : ".hhy-cache";
+            snprintf(cached_registry, sizeof(cached_registry), "%s/%s", cache, digest);
+            snprintf(cached_root, sizeof(cached_root), "%s/root.json", cached_registry);
+            effective.registry = cached_registry; effective.trust_root = cached_root;
+        } else {
+            char index_path[PATH_MAX], actual[65];
+            if (!effective.registry || snprintf(index_path, sizeof(index_path), "%s/index.json", effective.registry) >= (int)sizeof(index_path) ||
+                !sha256_file(index_path, actual) || strcmp(actual, digest) != 0) {
+                fputs("hhy: Registry snapshot drifted from lockfile\n", stderr); json_decref(lock); return 3;
+            }
+        }
+    } else if (effective.offline) { fputs("hhy: --offline requires --locked\n", stderr); return 3; }
     if (!safe_identity(identity)) { fputs("hhy: Registry package identity must be namespace/name\n", stderr); return 3; }
-    if (!load_registry(&registry, options, &root, &index)) return 3;
+    if (!load_registry(&registry, &effective, &root, &index)) { json_decref(lock); return 3; }
     bool ok = resolve(&registry, identity, "*", stack, 0);
     for (size_t i = 0; ok && i < registry.plan_count; i++) {
         RegistryPackage *package = registry.plan[i];
@@ -295,24 +357,73 @@ int hhy_registry_install(const char *identity, const HhyPackageInstallOptions *o
     for (size_t i = 0; i < registry.plan_count; i++)
         printf("  %zu. %s %s [%s] -> %s\n", i + 1, registry.plan[i]->identity,
                registry.plan[i]->version, registry.plan[i]->target, registry.plan[i]->runtime_name);
-    if (options->dry_run) { puts("Dry run: no files changed."); goto success; }
-    if (!options->assume_yes) {
+    if (effective.dry_run) { puts("Dry run: no files changed."); goto success; }
+    if (!effective.assume_yes) {
         char answer[16]; fputs("Install this verified plan? [y/N] ", stdout); fflush(stdout);
         if (fgets(answer, sizeof(answer), stdin) == NULL || (answer[0] != 'y' && answer[0] != 'Y')) goto cancelled;
     }
-    size_t installed = 0; HhyPackageInstallOptions local = {.assume_yes = true};
+    size_t installed = 0; HhyPackageInstallOptions local = {.assume_yes = true, .upgrade = effective.upgrade};
     for (; installed < registry.plan_count; installed++) {
         char source[PATH_MAX]; RegistryPackage *package = registry.plan[installed];
         if (snprintf(source, sizeof(source), "%s/%s", registry.registry, package->source) >= (int)sizeof(source) ||
             hhy_package_install(source, &local) != 0) break;
     }
     if (installed != registry.plan_count) {
-        while (installed > 0) { installed--; (void)hhy_package_remove(registry.plan[installed]->runtime_name); }
+        while (installed > 0) {
+            installed--;
+            if (!local.upgrade || hhy_package_rollback(registry.plan[installed]->runtime_name) != 0)
+                (void)hhy_package_remove(registry.plan[installed]->runtime_name);
+        }
         fputs("hhy: transaction rolled back after install failure\n", stderr);
         free((void *)registry.public_key); json_decref(root); json_decref(index); return 4;
     }
 success:
-    free((void *)registry.public_key); json_decref(root); json_decref(index); return 0;
+    free((void *)registry.public_key); json_decref(root); json_decref(index); json_decref(lock); return 0;
 cancelled:
-    free((void *)registry.public_key); json_decref(root); json_decref(index); return 3;
+    free((void *)registry.public_key); json_decref(root); json_decref(index); json_decref(lock); return 3;
+}
+
+int hhy_registry_lock(const char *identity, const HhyPackageInstallOptions *options) {
+    Registry registry; json_t *root = NULL, *index = NULL; const char *stack[MAX_PLAN];
+    if (!safe_identity(identity) || !load_registry(&registry, options, &root, &index) || !resolve(&registry, identity, "*", stack, 0)) return 3;
+    for (size_t i = 0; i < registry.plan_count; i++) if (!verify_package_files(&registry, registry.plan[i])) {
+        fputs("hhy: cannot lock an invalid package payload\n", stderr); free((void *)registry.public_key); json_decref(root); json_decref(index); return 3;
+    }
+    char index_path[PATH_MAX], digest[65], temporary[PATH_MAX]; const char *path = lock_path(options);
+    if (snprintf(index_path, sizeof(index_path), "%s/index.json", registry.registry) >= (int)sizeof(index_path) || !sha256_file(index_path, digest) ||
+        snprintf(temporary, sizeof(temporary), "%s.tmp-%ld", path, (long)getpid()) >= (int)sizeof(temporary)) return 4;
+    json_t *lock = json_object(); json_object_set_new(lock, "schema_version", json_integer(1));
+    json_object_set_new(lock, "hhy_version", json_string(HHY_VERSION)); json_object_set_new(lock, "target", json_string(current_target()));
+    json_object_set_new(lock, "identity", json_string(identity)); json_object_set_new(lock, "index_sha256", json_string(digest));
+    json_object_set(lock, "root", root); json_object_set(lock, "index", index);
+    bool ok = json_dump_file(lock, temporary, JSON_INDENT(2) | JSON_SORT_KEYS) == 0 && rename(temporary, path) == 0;
+    if (!ok) unlink(temporary); else printf("Locked %zu packages to %s (%s)\n", registry.plan_count, path, digest);
+    json_decref(lock); free((void *)registry.public_key); json_decref(root); json_decref(index); return ok ? 0 : 4;
+}
+
+int hhy_registry_fetch(const HhyPackageInstallOptions *options) {
+    if (!options || !options->locked || !options->registry || !options->trust_root) { fputs("hhy: fetch requires --locked, --registry, and --trust-root\n", stderr); return 3; }
+    char digest[65]; json_t *lock = read_lock(options, digest); if (!lock) return 3;
+    char live_index[PATH_MAX], actual[65];
+    if (snprintf(live_index, sizeof(live_index), "%s/index.json", options->registry) >= (int)sizeof(live_index) || !sha256_file(live_index, actual) || strcmp(actual, digest) != 0) {
+        fputs("hhy: Registry snapshot drifted from lockfile\n", stderr); json_decref(lock); return 3;
+    }
+    const char *cache = options->cache ? options->cache : ".hhy-cache"; char destination[PATH_MAX];
+    if (snprintf(destination, sizeof(destination), "%s/%s", cache, digest) >= (int)sizeof(destination) || !make_path(destination)) { json_decref(lock); return 4; }
+    json_t *index = json_object_get(lock, "index"), *root = json_object_get(lock, "root"), *packages = json_object_get(index, "packages");
+    char root_path[PATH_MAX], index_path[PATH_MAX]; snprintf(root_path, sizeof(root_path), "%s/root.json", destination); snprintf(index_path, sizeof(index_path), "%s/index.json", destination);
+    bool ok = json_dump_file(root, root_path, JSON_INDENT(2) | JSON_SORT_KEYS) == 0 && copy_cached_file(live_index, index_path);
+    size_t copied = 0;
+    for (size_t i = 0; ok && i < json_array_size(packages); i++) {
+        json_t *package = json_array_get(packages, i); const char *target = json_string_value(json_object_get(package, "target"));
+        if (!target || strcmp(target, current_target()) != 0) continue;
+        const char *source = json_string_value(json_object_get(package, "source")); json_t *files = json_object_get(package, "files"); const char *relative; json_t *hash;
+        json_object_foreach(files, relative, hash) { char from[PATH_MAX], to[PATH_MAX], checked[65];
+            if (snprintf(from, sizeof(from), "%s/%s/%s", options->registry, source, relative) >= (int)sizeof(from) ||
+                snprintf(to, sizeof(to), "%s/%s/%s", destination, source, relative) >= (int)sizeof(to) || !copy_cached_file(from, to) ||
+                !sha256_file(to, checked) || strcmp(checked, json_string_value(hash)) != 0) { ok = false; break; }
+        } copied++;
+    }
+    json_decref(lock); if (!ok) { fputs("hhy: cache population failed\n", stderr); return 4; }
+    printf("Cached %zu native packages under %s\n", copied, destination); return 0;
 }

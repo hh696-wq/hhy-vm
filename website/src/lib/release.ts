@@ -1,4 +1,4 @@
-export const hhyVersion = "1.2.0" as const;
+export const hhyVersion = "1.2.1" as const;
 export const hhyVersionLabel = `V${hhyVersion}` as const;
 export const hhyVersionTag = `v${hhyVersion}` as const;
 export const hhyReleaseUrl = `https://github.com/hh696-wq/hhy-vm/releases/tag/${hhyVersionTag}` as const;
@@ -8,13 +8,13 @@ export const hhyCoreCallableCount = 96;
 // the homepage title and description pointing at an older release theme.
 export const hhyCurrentRelease = {
   zh: {
-    title: "官方扩展分发与签名",
-    summary: "增加命名空间包身份、Ed25519 签名 Registry、确定性传递依赖解析，以及全量验证后提交的事务式安装。",
-    verification: "本地签名 fixture 覆盖 dry-run、依赖顺序、索引与 payload 篡改拒绝、失败回滚；四平台 CI 持续验证。"
+    title: "锁定、离线与安全回滚",
+    summary: "增加精确 lockfile、内容寻址离线缓存、可复现安装，以及保留已验证旧环境的事务式升级与回滚。",
+    verification: "签名 fixture 覆盖索引漂移、缓存损坏、离线重建、失败升级和显式回滚；三系统 CI 作为最终发布门禁。"
   },
   en: {
-    title: "Official extension distribution and signing",
-    summary: "Adds namespaced package identities, an Ed25519-signed Registry, deterministic transitive dependency resolution, and transaction-safe installs committed only after full verification.",
-    verification: "Signed local fixtures cover dry runs, dependency order, index and payload tampering, and failure rollback, with continuing four-platform CI verification."
+    title: "Locking, offline installs, and safe rollback",
+    summary: "Adds exact lockfiles, content-addressed offline caches, reproducible installs, and transactional upgrades and rollbacks that preserve the last verified environment.",
+    verification: "Signed fixtures cover index drift, damaged caches, offline rebuilds, failed upgrades, and explicit rollback, with Linux, macOS, and Windows CI as the final release gate."
   }
 } as const;

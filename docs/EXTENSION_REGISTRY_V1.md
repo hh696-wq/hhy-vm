@@ -1,6 +1,6 @@
 # HHY Signed Extension Registry v1 / HHY 签名扩展仓库 v1
 
-> Status: v1.2.0 implementation contract. This is an official-package trust model, not an open third-party publishing service.
+> Status: v1.2.1 implementation contract. This is an official-package trust model, not an open third-party publishing service.
 
 ## 中文
 
@@ -23,13 +23,21 @@ HHY v1.2.0 在原有本地目录安装之外，增加静态、可签名的官方
 - 传递依赖按依赖优先顺序确定性输出；循环、缺失版本和版本冲突都会拒绝。
 - `--dry-run` 完成验签、解析和 payload 校验，但不创建扩展目录。
 - 每个包先复制到扩展目录同文件系统的隐藏 staging 目录，经 SHA-256 复核后原子 rename。
-- 安装图中途失败时移除本事务已安装的包，不覆盖既有包。显式升级、lockfile、离线缓存和用户可操作的历史回滚属于 v1.2.1。
+- `hhy lock` 把目标平台、精确签名索引快照和 SHA-256 写入 schema v1 lockfile；`--locked` 拒绝索引漂移。
+- `hhy fetch --locked` 构建以索引 digest 命名的内容寻址缓存，复制后再次校验每个文件。
+- `hhy install --offline --locked` 不读取 Registry 来源，只使用缓存中的签名快照并重新执行索引签名、包描述签名和 payload digest 验证。
+- `--upgrade` 在同一文件系统保留上一已验证版本后才切换 active tree；`hhy rollback` 使用 rename 事务恢复上一版本，失败时保留原 active tree。
+- `hhy doctor extensions` 检查 active integrity，并可通过 `--lockfile` 与 `--cache` 核对锁和缓存快照。
 
 ```sh
 hhy install --dry-run --registry ./registry-snapshot \
   --trust-root ./registry-snapshot/root.json official/sample
 hhy install --yes --registry ./registry-snapshot \
   --trust-root ./registry-snapshot/root.json official/sample
+hhy lock --registry ./registry-snapshot --trust-root ./registry-snapshot/root.json official/sample
+hhy fetch --locked --registry ./registry-snapshot --trust-root ./registry-snapshot/root.json
+hhy install --yes --locked --offline official/sample
+hhy rollback sample
 ```
 
 测试通过临时 Ed25519 密钥生成 fixture，并覆盖依赖顺序、零副作用 dry-run、索引篡改和 payload 篡改拒绝。私钥绝不能进入正式 Registry 或客户端。
@@ -66,7 +74,7 @@ HHY v1.2.0 adds a static, signed official Registry while preserving local-path d
 - `--dry-run` verifies the full graph without filesystem changes.
 - Packages are verified in same-filesystem staging directories and committed by atomic rename. A graph-level failure removes packages added by that transaction and never replaces an existing package.
 
-Lockfiles, offline caches, explicit upgrades, and user-visible version rollback remain v1.2.1 work. Open third-party publishing, delegated publisher keys, rotation, and revocation are intentionally outside this official-only v1 schema.
+V1.2.1 adds schema-versioned lockfiles, index-digest-addressed offline caches, locked/offline re-verification, atomic upgrade history, explicit rollback, and extension environment diagnostics. Open third-party publishing, delegated publisher keys, rotation, and revocation remain outside this official-only v1 schema.
 
 Run `make registry-package` to create a BT-ready archive under `build/registry/`.
 The first run creates the persistent signing key under the Git-ignored

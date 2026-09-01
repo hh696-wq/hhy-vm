@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <jansson.h>
 #include <limits.h>
 #include <openssl/evp.h>
 #include <stdio.h>
@@ -100,6 +101,21 @@ static bool make_home(const char *home) {
         *p = '/';
     }
     return make_directory(copy);
+}
+
+static bool history_home(const char *home, char *out, size_t size) {
+    return snprintf(out, size, "%s/.history", home) < (int)size && make_directory(out);
+}
+
+static bool append_audit(const char *home, const char *action, const char *name,
+                         const char *from, const char *to) {
+    char path[PATH_MAX];
+    if (snprintf(path, sizeof(path), "%s/AUDIT", home) >= (int)sizeof(path)) return false;
+    FILE *file = fopen(path, "ab");
+    bool ok = file != NULL && fprintf(file, "%s %s %s %s\n", action, name,
+        from && from[0] ? from : "-", to && to[0] ? to : "-") >= 0;
+    if (file != NULL && fclose(file) != 0) ok = false;
+    return ok;
 }
 
 static bool copy_file(const char *source, const char *target, mode_t mode) {
@@ -206,7 +222,7 @@ int hhy_package_install(const char *source, const HhyPackageInstallOptions *opti
     if (realpath(source, resolved) == NULL ||
         snprintf(manifest_path, sizeof(manifest_path), "%s/hhy.toml", resolved) >= (int)sizeof(manifest_path) ||
         !read_manifest(manifest_path, &manifest)) {
-        fputs("hhy: invalid local extension manifest\n", stderr); return 3;
+        fprintf(stderr, "hhy: invalid local extension manifest: %s\n", source); return 3;
     }
     if (manifest.author[0] == '\0') {
         fputs("hhy: extension manifest requires package.author\n", stderr); return 3;
@@ -237,7 +253,16 @@ int hhy_package_install(const char *source, const HhyPackageInstallOptions *opti
         snprintf(target_manifest, sizeof(target_manifest), "%s/hhy.toml", staging) >= (int)sizeof(target_manifest)) {
         fputs("hhy: cannot prepare extension home\n", stderr); return 4;
     }
-    if (access(target, F_OK) == 0) { fputs("hhy: package is already installed; remove it first\n", stderr); return 3; }
+    bool replacing = access(target, F_OK) == 0;
+    Manifest previous; memset(&previous, 0, sizeof(previous));
+    if (replacing && (options == NULL || !options->upgrade)) { fputs("hhy: package is already installed; use --upgrade\n", stderr); return 3; }
+    if (replacing) {
+        char previous_manifest[PATH_MAX];
+        if (snprintf(previous_manifest, sizeof(previous_manifest), "%s/hhy.toml", target) >= (int)sizeof(previous_manifest) ||
+            !read_manifest(previous_manifest, &previous)) {
+            fputs("hhy: installed package cannot be verified for upgrade\n", stderr); return 4;
+        }
+    }
     if (access(staging, F_OK) == 0 || !make_directory(staging) || !make_directory(target_bin)) {
         fputs("hhy: cannot create package staging directory\n", stderr); return 4;
     }
@@ -270,12 +295,100 @@ int hhy_package_install(const char *source, const HhyPackageInstallOptions *opti
         unlink(target_manifest); rmdir(target_bin); rmdir(staging);
         fputs("hhy: cannot write extension integrity record\n", stderr); return 4;
     }
+    char history[PATH_MAX] = "", backup[PATH_MAX] = "";
+    if (replacing && (!history_home(home, history, sizeof(history)) ||
+        snprintf(backup, sizeof(backup), "%s/%s-%s", history, manifest.name, previous.version) >= (int)sizeof(backup) ||
+        access(backup, F_OK) == 0 || rename(target, backup) != 0)) {
+        unlink(hash_path); clear_flat_directory(target_lib); unlink(target_executable);
+        unlink(target_manifest); rmdir(target_bin); rmdir(staging);
+        fputs("hhy: cannot preserve previous version for rollback\n", stderr); return 4;
+    }
     if (rename(staging, target) != 0) {
+        if (replacing) (void)rename(backup, target);
         unlink(hash_path); clear_flat_directory(target_lib); unlink(target_executable);
         unlink(target_manifest); rmdir(target_bin); rmdir(staging);
         fputs("hhy: cannot commit staged extension install\n", stderr); return 4;
     }
-    printf("Installed %s %s\n", manifest.name, manifest.version); return 0;
+    (void)append_audit(home, replacing ? "upgrade" : "install", manifest.name,
+                       replacing ? previous.version : NULL, manifest.version);
+    printf("%s %s %s\n", replacing ? "Upgraded" : "Installed", manifest.name, manifest.version); return 0;
+}
+
+int hhy_package_rollback(const char *name) {
+    if (!safe_name(name)) { fputs("hhy: invalid package name\n", stderr); return 3; }
+    char home[PATH_MAX], target[PATH_MAX], active_manifest[PATH_MAX], history[PATH_MAX]; Manifest active;
+    if (!hhy_package_home(home, sizeof(home)) ||
+        snprintf(target, sizeof(target), "%s/%s", home, name) >= (int)sizeof(target) ||
+        snprintf(active_manifest, sizeof(active_manifest), "%s/hhy.toml", target) >= (int)sizeof(active_manifest) ||
+        !read_manifest(active_manifest, &active) ||
+        snprintf(history, sizeof(history), "%s/.history", home) >= (int)sizeof(history)) {
+        fputs("hhy: package is not installed\n", stderr); return 3;
+    }
+    DIR *directory = opendir(history); struct dirent *entry; char prefix[160];
+    if (directory == NULL || snprintf(prefix, sizeof(prefix), "%s-", name) >= (int)sizeof(prefix)) {
+        if (directory) closedir(directory); fputs("hhy: no rollback version is available\n", stderr); return 3;
+    }
+    char selected[PATH_MAX] = ""; Manifest previous;
+    while ((entry = readdir(directory)) != NULL) {
+        if (strncmp(entry->d_name, prefix, strlen(prefix)) != 0) continue;
+        char candidate[PATH_MAX], manifest[PATH_MAX]; Manifest found;
+        if (snprintf(candidate, sizeof(candidate), "%s/%s", history, entry->d_name) >= (int)sizeof(candidate) ||
+            snprintf(manifest, sizeof(manifest), "%s/hhy.toml", candidate) >= (int)sizeof(manifest) || !read_manifest(manifest, &found)) continue;
+        if (selected[0] == '\0' || strcmp(found.version, previous.version) > 0) {
+            snprintf(selected, sizeof(selected), "%s", candidate); previous = found;
+        }
+    }
+    closedir(directory);
+    if (selected[0] == '\0') { fputs("hhy: no rollback version is available\n", stderr); return 3; }
+    char displaced[PATH_MAX];
+    if (snprintf(displaced, sizeof(displaced), "%s/.rollback-%ld-%s", home, (long)getpid(), name) >= (int)sizeof(displaced) ||
+        rename(target, displaced) != 0 || rename(selected, target) != 0) {
+        if (access(displaced, F_OK) == 0) (void)rename(displaced, target);
+        fputs("hhy: rollback transaction failed; active version preserved\n", stderr); return 4;
+    }
+    char new_history[PATH_MAX];
+    if (snprintf(new_history, sizeof(new_history), "%s/%s-%s", history, name, active.version) >= (int)sizeof(new_history) ||
+        rename(displaced, new_history) != 0) {
+        (void)rename(target, selected); (void)rename(displaced, target);
+        fputs("hhy: rollback transaction failed; active version restored\n", stderr); return 4;
+    }
+    (void)append_audit(home, "rollback", name, active.version, previous.version);
+    printf("Rolled back %s from %s to %s\n", name, active.version, previous.version); return 0;
+}
+
+int hhy_package_doctor(const HhyPackageInstallOptions *options) {
+    char home[PATH_MAX];
+    if (!hhy_package_home(home, sizeof(home))) return 4;
+    DIR *directory = opendir(home); bool ok = directory != NULL || errno == ENOENT; struct dirent *entry;
+    while (directory != NULL && (entry = readdir(directory)) != NULL) {
+        if (entry->d_name[0] == '.') continue;
+        char installed_path[PATH_MAX]; struct stat info;
+        if (snprintf(installed_path, sizeof(installed_path), "%s/%s", home, entry->d_name) >= (int)sizeof(installed_path) ||
+            stat(installed_path, &info) != 0 || !S_ISDIR(info.st_mode)) continue;
+        const char *error = NULL;
+        if (!hhy_package_verify(entry->d_name, &error)) { fprintf(stderr, "BROKEN active %s: %s\n", entry->d_name, error); ok = false; }
+        else printf("OK active %s\n", entry->d_name);
+    }
+    if (directory) closedir(directory);
+    const char *lock_path = options && options->lockfile ? options->lockfile : NULL;
+    if (lock_path) {
+        json_error_t json_error; json_t *lock = json_load_file(lock_path, JSON_REJECT_DUPLICATES, &json_error);
+        const char *digest = lock ? json_string_value(json_object_get(lock, "index_sha256")) : NULL;
+        if (!lock || json_integer_value(json_object_get(lock, "schema_version")) != 1 || !digest || strlen(digest) != 64) {
+            fprintf(stderr, "BROKEN lock %s\n", lock_path); ok = false;
+        } else {
+            printf("OK lock %s\n", digest);
+            if (options->cache) {
+                char index[PATH_MAX], actual[65];
+                if (snprintf(index, sizeof(index), "%s/%s/index.json", options->cache, digest) >= (int)sizeof(index) ||
+                    !sha256_file(index, actual) || strcmp(actual, digest) != 0) {
+                    fprintf(stderr, "BROKEN cache %s\n", digest); ok = false;
+                } else printf("OK cache %s\n", digest);
+            }
+        }
+        json_decref(lock);
+    }
+    puts(ok ? "Extension environment is healthy." : "Extension environment has errors."); return ok ? 0 : 4;
 }
 
 int hhy_package_list(void) {
@@ -358,5 +471,6 @@ int hhy_package_remove(const char *name) {
     if (rmdir(lib) != 0 && errno != ENOENT) ok = false;
     if (rmdir(bin) != 0 || rmdir(target) != 0) ok = false;
     if (!ok) { fputs("hhy: package contains unknown resources or cannot be removed\n", stderr); return 4; }
+    (void)append_audit(home, "remove", name, manifest.version, NULL);
     printf("Removed %s\n", name); return 0;
 }
