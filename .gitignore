@@ -11,3 +11,4 @@ editors/dist/
 editors/vscode/lsp/
 editors/vscode/extension.cjs
 performance-analysis/
+assets/website/
