@@ -49,7 +49,7 @@ for required in (
 ):
     if required not in bytecode_runtime:
         raise SystemExit(f"Bytecode Runtime boundary is incomplete: {required}")
-if "HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION 3u" not in bytecode_boundary:
+if "HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION 4u" not in bytecode_boundary:
     raise SystemExit("Bytecode Runtime internal boundary version changed without review")
 
 for line_number, line in enumerate(runtime.splitlines(), 1):

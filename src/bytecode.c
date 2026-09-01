@@ -28,7 +28,25 @@ void hhy_bytecode_chunk_free(HhyBytecodeChunk *chunk) {
     for (size_t i = 0; i < chunk->constant_count; i++) free(chunk->constants[i]);
     free(chunk->constants);
     free(chunk->code);
+    free(chunk->stream_kernels);
     hhy_bytecode_chunk_init(chunk);
+}
+
+const char *hhy_stream_kernel_opcode_name(HhyStreamKernelOpcode opcode) {
+    static const char *const names[] = {
+        "LOAD_ITEM", "LOAD_INT", "MUL_INT_CHECKED", "MOD_INT_CHECKED",
+        "EQ_INT", "RETURN"
+    };
+    return opcode >= 0 && opcode < HHY_KERNEL_OP_COUNT ? names[(size_t)opcode] : "INVALID";
+}
+
+const HhyStreamKernel *hhy_bytecode_stream_kernel(const HhyBytecodeChunk *chunk,
+                                                  size_t source_instruction) {
+    if (chunk == NULL) return NULL;
+    for (size_t i = 0; i < chunk->stream_kernel_count; i++)
+        if (chunk->stream_kernels[i].source_instruction == source_instruction)
+            return &chunk->stream_kernels[i];
+    return NULL;
 }
 
 const char *hhy_opcode_name(HhyOpcode opcode) {
@@ -96,6 +114,88 @@ static bool add_constant(HhyBytecodeChunk *chunk, const HhyToken *token, uint32_
     return true;
 }
 
+static bool token_int_constant(const HhyToken *token, int64_t *out) {
+    if (token == NULL || token->kind != HHY_T_INT || token->length == 0 ||
+        token->length > 18) return false;
+    int64_t value = 0;
+    for (size_t i = 0; i < token->length; i++) {
+        if (token->start[i] < '0' || token->start[i] > '9') return false;
+        value = value * 10 + (token->start[i] - '0');
+    }
+    *out = value;
+    return true;
+}
+
+static bool reserve_stream_kernel(HhyBytecodeChunk *chunk) {
+    if (chunk->stream_kernel_count < chunk->stream_kernel_capacity) return true;
+    size_t capacity = chunk->stream_kernel_capacity < 16 ? 16 :
+                      chunk->stream_kernel_capacity * 2;
+    if (capacity > HHY_BYTECODE_MAX_INSTRUCTIONS) capacity = HHY_BYTECODE_MAX_INSTRUCTIONS;
+    if (chunk->stream_kernel_count >= capacity) return false;
+    chunk->stream_kernels = hhy_realloc(chunk->stream_kernels,
+                                        capacity * sizeof(*chunk->stream_kernels));
+    chunk->stream_kernel_capacity = capacity;
+    return true;
+}
+
+static bool append_kernel_instruction(HhyStreamKernel *kernel,
+                                      HhyStreamKernelOpcode opcode, int64_t immediate) {
+    if (kernel->instruction_count >= HHY_STREAM_KERNEL_MAX_INSTRUCTIONS) return false;
+    kernel->instructions[kernel->instruction_count++] =
+        (HhyStreamKernelInstruction){.opcode = opcode, .immediate = immediate};
+    return true;
+}
+
+static bool same_identifier(const HhyNode *node, const HhyNode *parameter) {
+    return node != NULL && parameter != NULL && node->kind == HHY_N_IDENTIFIER &&
+           node->token.length == parameter->token.length &&
+           memcmp(node->token.start, parameter->token.start, node->token.length) == 0;
+}
+
+static bool compile_stream_kernel(const HhyNode *closure, size_t source_instruction,
+                                  HhyBytecodeChunk *chunk) {
+    if (closure->kind != HHY_N_CLOSURE || closure->child_count != 2) return true;
+    const HhyNode *parameter = closure->children[0];
+    const HhyNode *body = closure->children[1];
+    if (parameter->kind != HHY_N_IDENTIFIER || body->kind != HHY_N_EXPR_STMT ||
+        body->child_count != 1) return true;
+    const HhyNode *expression = body->children[0];
+    HhyStreamKernel kernel = {
+        .version = HHY_STREAM_KERNEL_VERSION,
+        .source_instruction = (uint32_t)source_instruction
+    };
+    int64_t first = 0, second = 0;
+    if (expression->kind == HHY_N_BINARY && expression->token.kind == HHY_T_STAR &&
+        expression->child_count == 2 && same_identifier(expression->children[0], parameter) &&
+        token_int_constant(&expression->children[1]->token, &first)) {
+        kernel.result = HHY_KERNEL_RESULT_INT;
+        kernel.max_stack = 2;
+        append_kernel_instruction(&kernel, HHY_KERNEL_LOAD_ITEM, 0);
+        append_kernel_instruction(&kernel, HHY_KERNEL_LOAD_INT, first);
+        append_kernel_instruction(&kernel, HHY_KERNEL_MUL_INT_CHECKED, 0);
+        append_kernel_instruction(&kernel, HHY_KERNEL_RETURN, 0);
+    } else if (expression->kind == HHY_N_BINARY &&
+               expression->token.kind == HHY_T_EQUAL_EQUAL &&
+               expression->child_count == 2) {
+        const HhyNode *modulo = expression->children[0];
+        if (modulo->kind != HHY_N_BINARY || modulo->token.kind != HHY_T_MOD ||
+            modulo->child_count != 2 || !same_identifier(modulo->children[0], parameter) ||
+            !token_int_constant(&modulo->children[1]->token, &first) || first == 0 ||
+            !token_int_constant(&expression->children[1]->token, &second)) return true;
+        kernel.result = HHY_KERNEL_RESULT_BOOL;
+        kernel.max_stack = 2;
+        append_kernel_instruction(&kernel, HHY_KERNEL_LOAD_ITEM, 0);
+        append_kernel_instruction(&kernel, HHY_KERNEL_LOAD_INT, first);
+        append_kernel_instruction(&kernel, HHY_KERNEL_MOD_INT_CHECKED, 0);
+        append_kernel_instruction(&kernel, HHY_KERNEL_LOAD_INT, second);
+        append_kernel_instruction(&kernel, HHY_KERNEL_EQ_INT, 0);
+        append_kernel_instruction(&kernel, HHY_KERNEL_RETURN, 0);
+    } else return true;
+    if (!reserve_stream_kernel(chunk)) return false;
+    chunk->stream_kernels[chunk->stream_kernel_count++] = kernel;
+    return true;
+}
+
 static HhyBytecodeResult compile_node(const HhyNode *node, HhyBytecodeChunk *chunk,
                                       size_t depth) {
     if (node == NULL) return result(false, chunk->count, "compiler received a null AST node");
@@ -137,6 +237,8 @@ static HhyBytecodeResult compile_node(const HhyNode *node, HhyBytecodeChunk *chu
     if (subtree_size > UINT32_MAX)
         return result(false, instruction_index, "Bytecode subtree exceeds addressable range");
     chunk->code[instruction_index].subtree_size = (uint32_t)subtree_size;
+    if (!compile_stream_kernel(node, instruction_index, chunk))
+        return result(false, instruction_index, "stream kernel count exceeds Bytecode limits");
     return result(true, chunk->count, NULL);
 }
 
@@ -185,6 +287,101 @@ static HhyBytecodeResult verify_node(const HhyBytecodeChunk *chunk, size_t *curs
     return result(true, current, NULL);
 }
 
+typedef enum {
+    KERNEL_STACK_INT,
+    KERNEL_STACK_BOOL
+} KernelStackType;
+
+static HhyBytecodeResult verify_stream_kernel(const HhyBytecodeChunk *chunk,
+                                              size_t kernel_index) {
+    const HhyStreamKernel *kernel = &chunk->stream_kernels[kernel_index];
+    if (kernel->version != HHY_STREAM_KERNEL_VERSION)
+        return result(false, kernel->source_instruction,
+                      "unsupported stream kernel version %u", kernel->version);
+    if (kernel->source_instruction >= chunk->count ||
+        chunk->code[kernel->source_instruction].opcode != HHY_OP_CLOSURE)
+        return result(false, kernel->source_instruction,
+                      "stream kernel source is not a valid CLOSURE");
+    for (size_t previous = 0; previous < kernel_index; previous++)
+        if (chunk->stream_kernels[previous].source_instruction == kernel->source_instruction)
+            return result(false, kernel->source_instruction,
+                          "duplicate stream kernel source instruction");
+    if (kernel->instruction_count == 0 ||
+        kernel->instruction_count > HHY_STREAM_KERNEL_MAX_INSTRUCTIONS)
+        return result(false, kernel->source_instruction,
+                      "invalid stream kernel instruction count %u", kernel->instruction_count);
+    if (kernel->result < HHY_KERNEL_RESULT_INT || kernel->result > HHY_KERNEL_RESULT_BOOL)
+        return result(false, kernel->source_instruction,
+                      "invalid stream kernel result type %d", (int)kernel->result);
+    KernelStackType stack[HHY_STREAM_KERNEL_MAX_INSTRUCTIONS];
+    bool known[HHY_STREAM_KERNEL_MAX_INSTRUCTIONS] = {false};
+    int64_t values[HHY_STREAM_KERNEL_MAX_INSTRUCTIONS] = {0};
+    size_t depth = 0, maximum = 0;
+    bool returned = false;
+    for (uint32_t i = 0; i < kernel->instruction_count; i++) {
+        HhyStreamKernelInstruction instruction = kernel->instructions[i];
+        if (instruction.opcode < HHY_KERNEL_LOAD_ITEM ||
+            instruction.opcode >= HHY_KERNEL_OP_COUNT)
+            return result(false, kernel->source_instruction,
+                          "invalid stream kernel opcode %d", (int)instruction.opcode);
+        if (returned)
+            return result(false, kernel->source_instruction,
+                          "stream kernel instructions follow RETURN");
+        switch (instruction.opcode) {
+            case HHY_KERNEL_LOAD_ITEM:
+                stack[depth] = KERNEL_STACK_INT; known[depth++] = false;
+                break;
+            case HHY_KERNEL_LOAD_INT:
+                stack[depth] = KERNEL_STACK_INT; known[depth] = true;
+                values[depth++] = instruction.immediate;
+                break;
+            case HHY_KERNEL_MUL_INT_CHECKED:
+            case HHY_KERNEL_MOD_INT_CHECKED:
+                if (depth < 2 || stack[depth - 1] != KERNEL_STACK_INT ||
+                    stack[depth - 2] != KERNEL_STACK_INT)
+                    return result(false, kernel->source_instruction,
+                                  "stream kernel Int arithmetic stack mismatch");
+                if (instruction.opcode == HHY_KERNEL_MOD_INT_CHECKED &&
+                    known[depth - 1] && values[depth - 1] == 0)
+                    return result(false, kernel->source_instruction,
+                                  "stream kernel modulo divisor is zero");
+                depth--;
+                stack[depth - 1] = KERNEL_STACK_INT;
+                known[depth - 1] = false;
+                break;
+            case HHY_KERNEL_EQ_INT:
+                if (depth < 2 || stack[depth - 1] != KERNEL_STACK_INT ||
+                    stack[depth - 2] != KERNEL_STACK_INT)
+                    return result(false, kernel->source_instruction,
+                                  "stream kernel equality stack mismatch");
+                depth--;
+                stack[depth - 1] = KERNEL_STACK_BOOL;
+                known[depth - 1] = false;
+                break;
+            case HHY_KERNEL_RETURN: {
+                KernelStackType expected = kernel->result == HHY_KERNEL_RESULT_BOOL ?
+                    KERNEL_STACK_BOOL : KERNEL_STACK_INT;
+                if (depth != 1 || stack[0] != expected)
+                    return result(false, kernel->source_instruction,
+                                  "stream kernel RETURN type or stack mismatch");
+                returned = true;
+                break;
+            }
+            case HHY_KERNEL_OP_COUNT:
+                break;
+        }
+        if (depth > maximum) maximum = depth;
+    }
+    if (!returned || kernel->instructions[kernel->instruction_count - 1].opcode !=
+                         HHY_KERNEL_RETURN)
+        return result(false, kernel->source_instruction,
+                      "stream kernel must end with RETURN");
+    if (maximum != kernel->max_stack)
+        return result(false, kernel->source_instruction,
+                      "stream kernel max stack does not match instructions");
+    return result(true, kernel->source_instruction, NULL);
+}
+
 HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk) {
     if (chunk == NULL) return result(false, 0, "verifier received a null chunk");
     if (chunk->count == 0) return result(false, 0, "chunk is empty");
@@ -195,6 +392,8 @@ HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk) {
     if (chunk->code == NULL) return result(false, 0, "chunk has no instruction storage");
     if (chunk->constant_count > 0 && chunk->constants == NULL)
         return result(false, 0, "chunk has no constant storage");
+    if (chunk->stream_kernel_count > 0 && chunk->stream_kernels == NULL)
+        return result(false, 0, "chunk has no stream kernel storage");
     for (size_t i = 0; i < chunk->constant_count; i++)
         if (chunk->constants[i] == NULL) return result(false, 0, "constant %zu is null", i);
     size_t cursor = 0;
@@ -210,6 +409,10 @@ HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk) {
         return result(false, cursor, "root must be followed by a canonical HALT");
     if (cursor + 1 != chunk->count)
         return result(false, cursor + 1, "instructions follow HALT");
+    for (size_t i = 0; i < chunk->stream_kernel_count; i++) {
+        HhyBytecodeResult kernel = verify_stream_kernel(chunk, i);
+        if (!kernel.ok) return kernel;
+    }
     return result(true, cursor, NULL);
 }
 
@@ -272,8 +475,10 @@ static void print_constant(FILE *output, const char *text) {
 }
 
 void hhy_bytecode_disassemble(const HhyBytecodeChunk *chunk, FILE *output) {
-    fprintf(output, "HHY Bytecode v1 (experimental)\nconstants %zu\ninstructions %zu\n",
-            chunk->constant_count, chunk->count);
+    fprintf(output, "HHY Bytecode v1 (experimental)\nconstants %zu\ninstructions %zu\n"
+                    "stream_kernels %zu version=%u\n",
+            chunk->constant_count, chunk->count, chunk->stream_kernel_count,
+            HHY_STREAM_KERNEL_VERSION);
     for (size_t i = 0; i < chunk->count; i++) {
         HhyInstruction instruction = chunk->code[i];
         fprintf(output, "%04zu %-13s children=%u subtree=%u", i,
@@ -285,5 +490,21 @@ void hhy_bytecode_disassemble(const HhyBytecodeChunk *chunk, FILE *output) {
             print_constant(output, chunk->constants[instruction.constant]);
         }
         fprintf(output, " @%u:%u\n", instruction.line, instruction.column);
+    }
+    for (size_t i = 0; i < chunk->stream_kernel_count; i++) {
+        const HhyStreamKernel *kernel = &chunk->stream_kernels[i];
+        fprintf(output, "kernel %zu source=%u result=%s max_stack=%u\n", i,
+                kernel->source_instruction,
+                kernel->result == HHY_KERNEL_RESULT_BOOL ? "Bool" : "Int",
+                kernel->max_stack);
+        for (uint32_t instruction = 0; instruction < kernel->instruction_count;
+             instruction++) {
+            HhyStreamKernelInstruction item = kernel->instructions[instruction];
+            fprintf(output, "  K%02u %-20s", instruction,
+                    hhy_stream_kernel_opcode_name(item.opcode));
+            if (item.opcode == HHY_KERNEL_LOAD_INT)
+                fprintf(output, " immediate=%lld", (long long)item.immediate);
+            fputc('\n', output);
+        }
     }
 }

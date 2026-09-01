@@ -29,6 +29,46 @@ static HhyBytecodeChunk minimal_chunk(void) {
     return chunk;
 }
 
+static HhyBytecodeChunk kernel_chunk(void) {
+    HhyBytecodeChunk chunk;
+    hhy_bytecode_chunk_init(&chunk);
+    chunk.code = hhy_alloc(3 * sizeof(*chunk.code));
+    chunk.capacity = 3;
+    chunk.count = 3;
+    chunk.code[0] = (HhyInstruction){
+        .opcode = HHY_OP_PROGRAM, .token_kind = HHY_T_EOF,
+        .constant = HHY_BYTECODE_NO_CONSTANT, .child_count = 1,
+        .subtree_size = 2, .line = 1, .column = 1
+    };
+    chunk.code[1] = (HhyInstruction){
+        .opcode = HHY_OP_CLOSURE, .token_kind = HHY_T_PIPE,
+        .constant = HHY_BYTECODE_NO_CONSTANT, .child_count = 0,
+        .subtree_size = 1, .line = 1, .column = 1
+    };
+    chunk.code[2] = (HhyInstruction){
+        .opcode = HHY_OP_HALT, .token_kind = HHY_T_EOF,
+        .constant = HHY_BYTECODE_NO_CONSTANT, .child_count = 0,
+        .subtree_size = 1, .line = 1, .column = 1
+    };
+    chunk.stream_kernels = hhy_alloc(sizeof(*chunk.stream_kernels));
+    chunk.stream_kernel_capacity = 1;
+    chunk.stream_kernel_count = 1;
+    chunk.stream_kernels[0] = (HhyStreamKernel){
+        .version = HHY_STREAM_KERNEL_VERSION,
+        .source_instruction = 1,
+        .instruction_count = 4,
+        .max_stack = 2,
+        .result = HHY_KERNEL_RESULT_INT,
+        .instructions = {
+            {HHY_KERNEL_LOAD_ITEM, 0},
+            {HHY_KERNEL_LOAD_INT, 2},
+            {HHY_KERNEL_MUL_INT_CHECKED, 0},
+            {HHY_KERNEL_RETURN, 0}
+        }
+    };
+    return chunk;
+}
+
 static void expect_failure(HhyBytecodeChunk *chunk, const char *fragment) {
     HhyBytecodeResult verified = hhy_bytecode_verify(chunk);
     if (verified.ok || strstr(verified.message, fragment) == NULL) fail(fragment);
@@ -79,6 +119,21 @@ int main(void) {
     expect_failure(&chunk, "canonical HALT");
     hhy_bytecode_chunk_free(&chunk);
 
-    puts("bytecode verifier and execution planner tests passed");
+    chunk = kernel_chunk();
+    if (!hhy_bytecode_verify(&chunk).ok) fail("valid stream kernel was rejected");
+    const HhyStreamKernel *kernel = hhy_bytecode_stream_kernel(&chunk, 1);
+    if (kernel == NULL || kernel->instruction_count != 4)
+        fail("stream kernel lookup failed");
+    chunk.stream_kernels[0].version++;
+    expect_failure(&chunk, "kernel version");
+    chunk.stream_kernels[0].version = HHY_STREAM_KERNEL_VERSION;
+    chunk.stream_kernels[0].instructions[2].opcode = HHY_KERNEL_RETURN;
+    expect_failure(&chunk, "RETURN type or stack");
+    chunk.stream_kernels[0].instructions[2].opcode = HHY_KERNEL_MUL_INT_CHECKED;
+    chunk.stream_kernels[0].max_stack = 1;
+    expect_failure(&chunk, "max stack");
+    hhy_bytecode_chunk_free(&chunk);
+
+    puts("bytecode verifier, kernel, and execution planner tests passed");
     return 0;
 }

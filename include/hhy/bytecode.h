@@ -9,6 +9,8 @@
 #define HHY_BYTECODE_MAX_INSTRUCTIONS 1000000u
 #define HHY_BYTECODE_MAX_CONSTANTS 262144u
 #define HHY_BYTECODE_MAX_NESTING 4096u
+#define HHY_STREAM_KERNEL_VERSION 1u
+#define HHY_STREAM_KERNEL_MAX_INSTRUCTIONS 8u
 
 typedef enum {
     HHY_OP_PROGRAM,
@@ -59,6 +61,35 @@ typedef struct {
     uint32_t column;
 } HhyInstruction;
 
+typedef enum {
+    HHY_KERNEL_LOAD_ITEM,
+    HHY_KERNEL_LOAD_INT,
+    HHY_KERNEL_MUL_INT_CHECKED,
+    HHY_KERNEL_MOD_INT_CHECKED,
+    HHY_KERNEL_EQ_INT,
+    HHY_KERNEL_RETURN,
+    HHY_KERNEL_OP_COUNT
+} HhyStreamKernelOpcode;
+
+typedef enum {
+    HHY_KERNEL_RESULT_INT,
+    HHY_KERNEL_RESULT_BOOL
+} HhyStreamKernelResult;
+
+typedef struct {
+    HhyStreamKernelOpcode opcode;
+    int64_t immediate;
+} HhyStreamKernelInstruction;
+
+typedef struct {
+    uint32_t version;
+    uint32_t source_instruction;
+    uint32_t instruction_count;
+    uint32_t max_stack;
+    HhyStreamKernelResult result;
+    HhyStreamKernelInstruction instructions[HHY_STREAM_KERNEL_MAX_INSTRUCTIONS];
+} HhyStreamKernel;
+
 typedef struct {
     HhyInstruction *code;
     size_t count;
@@ -66,6 +97,9 @@ typedef struct {
     char **constants;
     size_t constant_count;
     size_t constant_capacity;
+    HhyStreamKernel *stream_kernels;
+    size_t stream_kernel_count;
+    size_t stream_kernel_capacity;
 } HhyBytecodeChunk;
 
 typedef struct {
@@ -91,6 +125,9 @@ HhyBytecodeResult hhy_bytecode_prepare_execution(const HhyBytecodeChunk *chunk,
                                                  HhyBytecodeExecutionPlan *plan);
 void hhy_bytecode_disassemble(const HhyBytecodeChunk *chunk, FILE *output);
 const char *hhy_opcode_name(HhyOpcode opcode);
+const char *hhy_stream_kernel_opcode_name(HhyStreamKernelOpcode opcode);
+const HhyStreamKernel *hhy_bytecode_stream_kernel(const HhyBytecodeChunk *chunk,
+                                                  size_t source_instruction);
 bool hhy_bytecode_child(const HhyBytecodeChunk *chunk, size_t parent,
                         uint32_t child_index, size_t *child);
 

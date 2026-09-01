@@ -1,0 +1,7 @@
+let offset = 3
+let values = [1, 2, 3]
+    |> stream
+    |> map { value -> value + offset }
+    |> collect
+
+print(values)

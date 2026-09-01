@@ -57,6 +57,45 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     (void)hhy_bytecode_verify(&raw);
     hhy_bytecode_chunk_free(&raw);
 
+    if (size >= 8) {
+        HhyBytecodeChunk kernel_raw;
+        hhy_bytecode_chunk_init(&kernel_raw);
+        kernel_raw.code = hhy_alloc(3 * sizeof(*kernel_raw.code));
+        kernel_raw.count = kernel_raw.capacity = 3;
+        kernel_raw.code[0] = (HhyInstruction){
+            .opcode = HHY_OP_PROGRAM, .token_kind = HHY_T_EOF,
+            .constant = HHY_BYTECODE_NO_CONSTANT, .child_count = 1,
+            .subtree_size = 2, .line = 1, .column = 1
+        };
+        kernel_raw.code[1] = (HhyInstruction){
+            .opcode = HHY_OP_CLOSURE, .token_kind = HHY_T_PIPE,
+            .constant = HHY_BYTECODE_NO_CONSTANT, .subtree_size = 1,
+            .line = 1, .column = 1
+        };
+        kernel_raw.code[2] = (HhyInstruction){
+            .opcode = HHY_OP_HALT, .token_kind = HHY_T_EOF,
+            .constant = HHY_BYTECODE_NO_CONSTANT, .subtree_size = 1,
+            .line = 1, .column = 1
+        };
+        kernel_raw.stream_kernels = hhy_alloc(sizeof(*kernel_raw.stream_kernels));
+        kernel_raw.stream_kernel_count = kernel_raw.stream_kernel_capacity = 1;
+        HhyStreamKernel *kernel = &kernel_raw.stream_kernels[0];
+        memset(kernel, 0, sizeof(*kernel));
+        kernel->version = data[0];
+        kernel->source_instruction = data[1];
+        kernel->instruction_count = data[2] % (HHY_STREAM_KERNEL_MAX_INSTRUCTIONS + 2);
+        kernel->max_stack = data[3];
+        kernel->result = (HhyStreamKernelResult)data[4];
+        for (uint32_t i = 0; i < kernel->instruction_count &&
+                             i < HHY_STREAM_KERNEL_MAX_INSTRUCTIONS; i++) {
+            kernel->instructions[i].opcode =
+                (HhyStreamKernelOpcode)data[(5 + i) % size];
+            kernel->instructions[i].immediate = (int8_t)data[(6 + i) % size];
+        }
+        (void)hhy_bytecode_verify(&kernel_raw);
+        hhy_bytecode_chunk_free(&kernel_raw);
+    }
+
     unsigned mode = size == 0 ? 0 : data[0] % 3;
     if (trace) { fprintf(stderr, "  runtime %u\n", mode); fflush(stderr); }
     hhy_fuzz_runtime_input(size == 0 ? data : data + 1, size == 0 ? 0 : size - 1, mode);

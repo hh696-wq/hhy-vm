@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.3.7-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.3.8-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -64,7 +64,7 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前版本是 **V1.3.7**（`1.3.7`），正式支持 macOS arm64、Linux arm64 和
+当前版本是 **V1.3.8**（`1.3.8`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
@@ -187,8 +187,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.3.7-PLATFORM-ARCH.tar.gz
-cd hhy-1.3.7-PLATFORM-ARCH
+tar -xzf hhy-1.3.8-PLATFORM-ARCH.tar.gz
+cd hhy-1.3.8-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -300,13 +300,16 @@ html.extract_report(body, "article.product", {
 
 API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
 
-## V1.3.7 Bytecode 状态
+## V1.3.8 Bytecode 状态
 
 V1.0 语言 contract 保持兼容；V1.3.0 正式提供 `hhy run --engine bytecode`，V1.3.1
 增加官方真实负载的双引擎兼容矩阵，V1.3.5 默认启用 Compiler/Verifier 验证的 Bytecode 路径，并固化 Runtime 内部边界、
 版本化治理检查和机器可读工作负载证据。V1.3.7 将 Stream Int fast path 的 magic kind
-替换为具名操作和集中 metadata，提供稳定 fallback reason、JSON 选择证据、内部关闭开关，
-并以 AST、通用 Bytecode、特化 Bytecode 三路径差分和变形测试持续验证；
+替换为具名操作和集中 metadata，提供稳定 fallback reason、JSON 选择证据、内部关闭开关。
+V1.3.8 将表达式特化识别从 Runtime 前移到 Compiler，生成版本化 Stream Kernel IR；
+独立 Verifier 检查 opcode、类型流、stack shape、常量与 RETURN，反汇编展示 kernel 计划，
+Runtime 只执行已验证 kernel，未知或动态 closure 无损回退通用 Bytecode，并以三路径差分、
+变形、损坏计划和 fuzz 持续验证；
 有界 instruction/frame/operand 执行计划、Profiler engine/source 标记、HHY Stack trace、
 故障注入以及完整 AST/Bytecode 双引擎测试。共享 Runtime 继续唯一负责 closure、异常、
 GC、取消、Stream、effect 和资源限制。默认执行引擎为 Bytecode，并永久保留 `--engine ast` 回退；

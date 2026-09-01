@@ -106,14 +106,7 @@ typedef struct {
     size_t instruction;
     size_t fast_expression;
     uint32_t parameter_constant;
-    int64_t fast_immediate_a;
-    int64_t fast_immediate_b;
-    enum {
-        BYTECODE_FAST_INT_NONE = 0,
-        BYTECODE_FAST_INT_MULTIPLY,
-        BYTECODE_FAST_INT_MODULO_EQUALS,
-        BYTECODE_FAST_INT_OPERATION_COUNT
-    } fast_int_operation;
+    const HhyStreamKernel *stream_kernel;
     bool has_fast_argument_expression;
 } BytecodeFunctionTarget;
 
@@ -129,33 +122,6 @@ typedef enum {
     BYTECODE_SPECIALIZATION_UNSUPPORTED_SOURCE,
     BYTECODE_SPECIALIZATION_RUNTIME_FALLBACK
 } BytecodeSpecializationReason;
-
-typedef struct {
-    const char *name;
-    uint8_t operand_count;
-    int8_t stack_effect;
-    bool checked_arithmetic;
-    bool returns_bool;
-} BytecodeFastIntMetadata;
-
-static const BytecodeFastIntMetadata bytecode_fast_int_metadata[] = {
-    [BYTECODE_FAST_INT_NONE] = {"none", 0, 0, false, false},
-    [BYTECODE_FAST_INT_MULTIPLY] = {"multiply_int_checked", 2, -1, true, false},
-    [BYTECODE_FAST_INT_MODULO_EQUALS] = {"modulo_equals_int_checked", 3, -2, true, true}
-};
-
-_Static_assert(sizeof(bytecode_fast_int_metadata) /
-                   sizeof(bytecode_fast_int_metadata[0]) ==
-               BYTECODE_FAST_INT_OPERATION_COUNT,
-               "fast Int operation metadata must cover every operation");
-
-static bool bytecode_fast_int_operation_valid(int operation) {
-    return operation > BYTECODE_FAST_INT_NONE &&
-           operation < BYTECODE_FAST_INT_OPERATION_COUNT &&
-           bytecode_fast_int_metadata[operation].name != NULL &&
-           bytecode_fast_int_metadata[operation].operand_count > 0 &&
-           bytecode_fast_int_metadata[operation].stack_effect < 0;
-}
 
 struct Value {
     ValueKind kind;
@@ -2716,15 +2682,71 @@ static void bytecode_specialization_report(BytecodeSpecializationReason reason,
         if (stage->kind == STREAM_MAP || stage->kind == STREAM_WHERE) {
             const BytecodeFunctionTarget *target =
                 (const BytecodeFunctionTarget *)stage->function.as.function.node;
-            if (target == NULL ||
-                !bytecode_fast_int_operation_valid(target->fast_int_operation))
+            if (target == NULL || target->stream_kernel == NULL)
                 name = "unverified";
             else
-                name = bytecode_fast_int_metadata[target->fast_int_operation].name;
+                name = target->stream_kernel->result == HHY_KERNEL_RESULT_BOOL ?
+                    "verified_bool_kernel" : "verified_int_kernel";
         }
         fprintf(stderr, "%s\"%s\"", reverse == stage_count ? "" : ",", name);
     }
     fputs("]}\n", stderr);
+}
+
+static bool bytecode_execute_stream_kernel(const HhyStreamKernel *kernel, Value item,
+                                           Value *result) {
+    if (kernel == NULL || item.kind != V_INT || result == NULL ||
+        kernel->version != HHY_STREAM_KERNEL_VERSION || kernel->max_stack == 0 ||
+        kernel->max_stack > HHY_STREAM_KERNEL_MAX_INSTRUCTIONS ||
+        kernel->instruction_count == 0 ||
+        kernel->instruction_count > HHY_STREAM_KERNEL_MAX_INSTRUCTIONS) return false;
+    int64_t stack[HHY_STREAM_KERNEL_MAX_INSTRUCTIONS];
+    size_t depth = 0;
+    for (uint32_t i = 0; i < kernel->instruction_count; i++) {
+        HhyStreamKernelInstruction instruction = kernel->instructions[i];
+        switch (instruction.opcode) {
+            case HHY_KERNEL_LOAD_ITEM:
+                if (depth >= kernel->max_stack) return false;
+                stack[depth++] = item.as.integer;
+                break;
+            case HHY_KERNEL_LOAD_INT:
+                if (depth >= kernel->max_stack) return false;
+                stack[depth++] = instruction.immediate;
+                break;
+            case HHY_KERNEL_MUL_INT_CHECKED: {
+                int64_t product;
+                if (depth < 2 || __builtin_mul_overflow(stack[depth - 2], stack[depth - 1],
+                                                        &product)) return false;
+                depth--;
+                stack[depth - 1] = product;
+                break;
+            }
+            case HHY_KERNEL_MOD_INT_CHECKED: {
+                if (depth < 2 || stack[depth - 1] == 0 ||
+                    (stack[depth - 2] == INT64_MIN && stack[depth - 1] == -1)) return false;
+                int64_t remainder = stack[depth - 2] % stack[depth - 1];
+                depth--;
+                stack[depth - 1] = remainder;
+                break;
+            }
+            case HHY_KERNEL_EQ_INT: {
+                if (depth < 2) return false;
+                bool equal = stack[depth - 2] == stack[depth - 1];
+                depth--;
+                stack[depth - 1] = equal ? 1 : 0;
+                break;
+            }
+            case HHY_KERNEL_RETURN:
+                if (depth != 1) return false;
+                *result = kernel->result == HHY_KERNEL_RESULT_BOOL ?
+                    bool_value(stack[0] != 0) : int_value(stack[0]);
+                return true;
+            case HHY_KERNEL_OP_COUNT:
+                return false;
+        }
+        if (depth > kernel->max_stack) return false;
+    }
+    return false;
 }
 
 static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
@@ -2769,7 +2791,7 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
             const BytecodeFunctionTarget *target =
                 (const BytecodeFunctionTarget *)base->function.as.function.node;
             if (target == NULL || !target->has_fast_argument_expression ||
-                !bytecode_fast_int_operation_valid(target->fast_int_operation)) {
+                target->stream_kernel == NULL) {
                 specialization_reason = BYTECODE_SPECIALIZATION_UNSUPPORTED_EXPRESSION;
                 fused = false;
                 break;
@@ -2830,26 +2852,9 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
                     const BytecodeFunctionTarget *target =
                         (const BytecodeFunctionTarget *)stage->function.as.function.node;
                     Value evaluated;
-                    bool used_int_opcode = false;
-                    if (item.kind == V_INT &&
-                        target->fast_int_operation == BYTECODE_FAST_INT_MULTIPLY) {
-                        int64_t product;
-                        if (!__builtin_mul_overflow(item.as.integer, target->fast_immediate_a,
-                                                    &product)) {
-                            evaluated = int_value(product);
-                            used_int_opcode = true;
-                        }
-                    } else if (item.kind == V_INT &&
-                               target->fast_int_operation ==
-                                   BYTECODE_FAST_INT_MODULO_EQUALS &&
-                               target->fast_immediate_a != 0 &&
-                               !(item.as.integer == INT64_MIN &&
-                                 target->fast_immediate_a == -1)) {
-                        evaluated = bool_value(item.as.integer % target->fast_immediate_a ==
-                                               target->fast_immediate_b);
-                        used_int_opcode = true;
-                    }
-                    if (!used_int_opcode && !bytecode_eval_argument_expression(rt,
+                    bool used_kernel = bytecode_execute_stream_kernel(target->stream_kernel,
+                                                                       item, &evaluated);
+                    if (!used_kernel && !bytecode_eval_argument_expression(rt,
                             (BytecodeCursor){.chunk = target->chunk,
                                              .instruction = target->fast_expression},
                             target->parameter_constant, item, &evaluated)) {
@@ -5856,21 +5861,6 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
     return result;
 }
 
-static bool bytecode_int_constant(BytecodeCursor cursor, int64_t *out) {
-    HhyInstruction instruction = cursor.chunk->code[cursor.instruction];
-    if (instruction.opcode != HHY_OP_LITERAL || instruction.token_kind != HHY_T_INT ||
-        instruction.constant == HHY_BYTECODE_NO_CONSTANT || instruction.token_length == 0 ||
-        instruction.token_length > 18) return false;
-    const char *text = cursor.chunk->constants[instruction.constant];
-    int64_t value = 0;
-    for (uint32_t i = 0; i < instruction.token_length; i++) {
-        if (text[i] < '0' || text[i] > '9') return false;
-        value = value * 10 + (text[i] - '0');
-    }
-    *out = value;
-    return true;
-}
-
 static BytecodeFunctionTarget *bytecode_function_target(Runtime *rt, BytecodeCursor cursor) {
     BytecodeFunctionTarget *target = rt_alloc(rt, sizeof(*target));
     target->chunk = cursor.chunk;
@@ -5884,33 +5874,8 @@ static BytecodeFunctionTarget *bytecode_function_target(Runtime *rt, BytecodeCur
             target->fast_expression = bytecode_child_cursor(body, 0).instruction;
             target->parameter_constant = parameter.chunk->code[parameter.instruction].constant;
             target->has_fast_argument_expression = true;
-            BytecodeCursor expression = bytecode_child_cursor(body, 0);
-            HhyInstruction root = expression.chunk->code[expression.instruction];
-            if (root.opcode == HHY_OP_BINARY && root.token_kind == HHY_T_STAR) {
-                BytecodeCursor left = bytecode_child_cursor(expression, 0);
-                BytecodeCursor right = bytecode_child_cursor(expression, 1);
-                HhyInstruction left_instruction = left.chunk->code[left.instruction];
-                if (left_instruction.opcode == HHY_OP_IDENTIFIER &&
-                    left_instruction.constant == target->parameter_constant &&
-                    bytecode_int_constant(right, &target->fast_immediate_a))
-                    target->fast_int_operation = BYTECODE_FAST_INT_MULTIPLY;
-            } else if (root.opcode == HHY_OP_BINARY &&
-                       root.token_kind == HHY_T_EQUAL_EQUAL) {
-                BytecodeCursor modulo = bytecode_child_cursor(expression, 0);
-                BytecodeCursor expected = bytecode_child_cursor(expression, 1);
-                HhyInstruction modulo_instruction = modulo.chunk->code[modulo.instruction];
-                if (modulo_instruction.opcode == HHY_OP_BINARY &&
-                    modulo_instruction.token_kind == HHY_T_MOD) {
-                    BytecodeCursor left = bytecode_child_cursor(modulo, 0);
-                    BytecodeCursor divisor = bytecode_child_cursor(modulo, 1);
-                    HhyInstruction left_instruction = left.chunk->code[left.instruction];
-                    if (left_instruction.opcode == HHY_OP_IDENTIFIER &&
-                        left_instruction.constant == target->parameter_constant &&
-                        bytecode_int_constant(divisor, &target->fast_immediate_a) &&
-                        bytecode_int_constant(expected, &target->fast_immediate_b))
-                        target->fast_int_operation = BYTECODE_FAST_INT_MODULO_EQUALS;
-                }
-            }
+            target->stream_kernel = hhy_bytecode_stream_kernel(cursor.chunk,
+                                                               cursor.instruction);
         }
     }
     return target;

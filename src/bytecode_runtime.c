@@ -10,7 +10,7 @@ struct HhyPreparedBytecode {
     HhyBytecodeExecutionPlan plan;
 };
 
-_Static_assert(HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION == 3u,
+_Static_assert(HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION == 4u,
                "Bytecode Runtime boundary changes require an explicit version bump");
 
 static HhyBytecodeResult boundary_error(const char *message) {

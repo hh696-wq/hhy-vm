@@ -27,9 +27,28 @@ selected_count=$(grep -c '"selected":true,"reason":"selected"' \
     "$specialization_tmp/specialized.jsonl" || true)
 [ "$selected_count" -eq 2 ] ||
     fail "expected two selected specialization reports, got $selected_count"
-grep -q '"operations":\["multiply_int_checked","modulo_equals_int_checked","distinct_stable"\]' \
+grep -q '"operations":\["verified_int_kernel","verified_bool_kernel","distinct_stable"\]' \
     "$specialization_tmp/specialized.jsonl" ||
     fail "selected report does not expose verified operation metadata"
+
+"$HHY_BIN" bytecode "$source_file" >"$specialization_tmp/disassembly.txt"
+grep -q '^stream_kernels 4 version=1$' "$specialization_tmp/disassembly.txt" ||
+    fail "disassembly does not expose versioned compiler kernels"
+grep -q 'MUL_INT_CHECKED' "$specialization_tmp/disassembly.txt" ||
+    fail "disassembly omits checked Int multiplication"
+grep -q 'MOD_INT_CHECKED' "$specialization_tmp/disassembly.txt" ||
+    fail "disassembly omits checked Int modulo"
+
+fallback_source=tests/valid/bytecode-specialization-fallback.hhy
+"$HHY_BIN" run --engine ast "$fallback_source" >"$specialization_tmp/fallback-ast.out"
+HHY_BYTECODE_SPECIALIZATION_REPORT=json \
+    "$HHY_BIN" run --engine bytecode "$fallback_source" \
+    >"$specialization_tmp/fallback-bytecode.out" 2>"$specialization_tmp/fallback.jsonl"
+cmp -s "$specialization_tmp/fallback-ast.out" "$specialization_tmp/fallback-bytecode.out" ||
+    fail "dynamic fallback changed observable output"
+grep -q '"selected":false,"reason":"unsupported_expression"' \
+    "$specialization_tmp/fallback.jsonl" ||
+    fail "dynamic closure did not report a stable fallback reason"
 
 HHY_BYTECODE_SPECIALIZATION=off HHY_BYTECODE_SPECIALIZATION_REPORT=json \
     "$HHY_BIN" run --engine bytecode "$source_file" \
