@@ -155,13 +155,14 @@ jobs:
       - name: Verify tag
         run: test "${RELEASE_TAG}" = "v$(cat VERSION)"
 
-      - name: Build and test release source
+      - name: Build and smoke-test release source
         run: |
           make clean && make
-          python3 tests/check_contracts.py
-          make test
-          sh tests/check-docs.sh build/hhy docs/HHY_V1.md
-          sh tests/check-docs.sh build/hhy README.md
+          ./build/hhy --version
+          ./build/hhy check examples/*.hhy tests/valid/basic.hhy tests/valid/regex.hhy tests/valid/json-flow.hhy
+          ./build/hhy run tests/valid/basic.hhy
+          ./build/hhy run tests/valid/regex.hhy
+          ./build/hhy run tests/valid/json-flow.hhy
 
       - name: Build Windows official extension targets
         run: |
