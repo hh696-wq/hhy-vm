@@ -343,6 +343,4 @@ jobs:
           npm exec --prefix practical-projects/my-crawler/renderer -- playwright install --with-deps chromium
 
       - name: Run project acceptance
-        run: |
-          ./practical-projects/my-crawler/self-test.sh
-          ./practical-projects/sitegraph-auditor/self-test.sh
+        run: HHY_WORKLOAD_BROWSER=1 make workload-test

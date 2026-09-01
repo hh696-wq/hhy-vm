@@ -8,6 +8,8 @@ workspace=$(mktemp -d "${TMPDIR:-/tmp}/asset-governance.XXXXXX")
 trap 'rm -rf "$workspace"' EXIT INT TERM
 mkdir -p "$output_dir"
 cp -R "$project_dir/fixtures/project/." "$workspace/"
+mkdir -p "$workspace/build"
+printf '%s\n' 'fixture bundle' > "$workspace/build/stale.bundle.js"
 touch -t 202001010000 "$workspace/tmp/old.tmp"
 
 "$hhy_bin" check "$project_dir/audit.hhy"
