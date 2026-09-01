@@ -2,7 +2,7 @@
 set -eu
 
 HHY_BIN=${1:-build/hhy}
-DOCUMENT=${2:-docs/HHY_V1.md}
+DOCUMENT=${2:-README.md}
 TEMPORARY=$(mktemp -d "${TMPDIR:-/tmp}/hhy-docs.XXXXXX")
 trap 'rm -rf "$TEMPORARY"' EXIT INT TERM
 

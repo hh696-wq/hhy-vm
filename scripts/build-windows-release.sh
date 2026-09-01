@@ -18,14 +18,11 @@ for executable in "$runtime" "$sample" "$html"; do
 done
 
 rm -rf "$stage"
-mkdir -p "$stage/bin" "$stage/docs" "$stage/examples" \
+mkdir -p "$stage/bin" "$stage/examples" \
     "$stage/extensions/sample/bin" "$stage/extensions/sample/lib" \
     "$stage/extensions/html/bin" "$stage/extensions/html/lib" dist
 cp "$runtime" "$stage/bin/hhy.exe"
 cp README.md INSTALL.md LICENSE NOTICE "$stage/"
-cp docs/HHY_V1.md docs/BYTECODE.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md \
-    docs/EXTENSION_PROTOCOL_V1.md docs/RUNTIME_GOVERNANCE.md \
-    docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md "$stage/docs/"
 CC="${CC:-cc}" sh scripts/build-info.sh "$runtime" > "$stage/BUILD_INFO.txt"
 cp examples/*.hhy examples/README.md "$stage/examples/"
 cp extensions/README.md "$stage/extensions/"

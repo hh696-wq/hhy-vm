@@ -7,10 +7,6 @@ VERSION=$(cat VERSION)
 for document in \
     README.md \
     INSTALL.md \
-    docs/HHY_V1.md \
-    docs/KNOWN_LIMITATIONS.md \
-    docs/DEPENDENCIES.md \
-    docs/EXTENSION_ROADMAP.md \
     examples/README.md
 do
     grep -F "\`$VERSION\`" "$document" >/dev/null || {

@@ -1,0 +1,16 @@
+let first = range(0, 31)
+    |> stream
+    |> map { value -> value * 5 }
+    |> where { value -> value % 7 == 0 }
+    |> distinct
+    |> collect
+
+let second = [9, 2, 9, 4, 7, 2]
+    |> stream
+    |> map { renamed -> renamed * 11 }
+    |> where { renamed -> renamed % 4 == 2 }
+    |> distinct
+    |> collect
+
+print(first)
+print(second)

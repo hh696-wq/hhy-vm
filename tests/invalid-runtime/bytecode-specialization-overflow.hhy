@@ -1,0 +1,6 @@
+let values = [9223372036854775807]
+    |> stream
+    |> map { value -> value * 2 }
+    |> collect
+
+print(values)

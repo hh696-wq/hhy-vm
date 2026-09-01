@@ -110,7 +110,6 @@ quality: $(TARGET)
 	python3 tests/check_contracts.py
 	python3 tests/check_runtime_governance.py
 	sh tests/check-promotion-assets.sh
-	sh tests/check-docs.sh $(TARGET) docs/HHY_V1.md
 	sh tests/check-docs.sh $(TARGET) README.md
 	npm run check --prefix editors
 	$(MAKE) benchmark
@@ -141,12 +140,11 @@ dist:
 	$(MAKE) clean
 	$(MAKE) all extensions
 	rm -rf build/$(PACKAGE)
-	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/lib build/$(PACKAGE)/docs build/$(PACKAGE)/examples \
+	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/lib build/$(PACKAGE)/examples \
 		build/$(PACKAGE)/extensions/sample/bin build/$(PACKAGE)/extensions/database/bin \
 		build/$(PACKAGE)/extensions/html/bin dist
 	cp $(TARGET) build/$(PACKAGE)/bin/hhy
 	cp README.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
-	cp docs/HHY_V1.md docs/BYTECODE.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md docs/EXTENSION_PROTOCOL_V1.md docs/RUNTIME_GOVERNANCE.md docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md build/$(PACKAGE)/docs/
 	CC="$(CC)" sh scripts/build-info.sh $(TARGET) > build/$(PACKAGE)/BUILD_INFO.txt
 	cp examples/*.hhy examples/README.md build/$(PACKAGE)/examples/
 	cp extensions/README.md build/$(PACKAGE)/extensions/

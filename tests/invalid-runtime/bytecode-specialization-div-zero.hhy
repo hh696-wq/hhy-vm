@@ -1,0 +1,6 @@
+let values = [1, 2, 3]
+    |> stream
+    |> where { value -> value % 0 == 0 }
+    |> collect
+
+print(values)

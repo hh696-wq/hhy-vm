@@ -1472,7 +1472,7 @@ export const chapters: Chapter[] = [
           { type: "p", text: "map/where/take 等转换保持惰性；collect、count、reduce 等终端操作消费 Stream；sort_by 与 group_by 会在资源上限内物化输入。parallel 使用有界隔离 worker 并保持输出顺序。" },
           callableList("stdFlow", "zh")
         ] },
-        { title: "文本、Regex、JSON 与 CSV（17）", blocks: [callableList("stdText", "zh")] },
+        { title: "文本、Regex、JSON 与 CSV（18）", blocks: [callableList("stdText", "zh")] },
         { title: "路径、文件与监听（15）", blocks: [
           { type: "p", text: "read_* 是读取操作；write_* 直接写入；save_* 使用临时文件加原子替换。文件系统 action 会被 dry-run 拦截。" },
           callableList("stdFiles", "zh")
@@ -1481,7 +1481,7 @@ export const chapters: Chapter[] = [
           { type: "p", text: "run 直接传递 argv，不经过 Shell；只有 shell 明确采用 Shell 解析。进程启动会受 timeout、输出和进程数限制。" },
           callableList("stdProcess", "zh")
         ] },
-        { title: "HTTP（9）", blocks: [
+        { title: "HTTP（10）", blocks: [
           { type: "p", text: "http.* 只构造不可变请求计划，timeout/retry 修改计划，只有 send 产生网络副作用。response_body 返回 UTF-8 文本，二进制响应使用 response_bytes。" },
           callableList("stdHttp", "zh")
         ] }
@@ -1496,7 +1496,7 @@ export const chapters: Chapter[] = [
           { type: "p", text: "Transformations such as map, where, and take stay lazy; terminals such as collect, count, and reduce consume the Stream. sort_by and group_by materialize input within resource limits. parallel uses bounded isolated workers and preserves output order." },
           callableList("stdFlow", "en")
         ] },
-        { title: "Text, Regex, JSON, and CSV (17)", blocks: [callableList("stdText", "en")] },
+        { title: "Text, Regex, JSON, and CSV (18)", blocks: [callableList("stdText", "en")] },
         { title: "Paths, files, and watch (15)", blocks: [
           { type: "p", text: "read_* functions read data, write_* functions write directly, and save_* functions use a temporary file plus atomic replacement. Dry-run intercepts filesystem actions." },
           callableList("stdFiles", "en")
@@ -1505,7 +1505,7 @@ export const chapters: Chapter[] = [
           { type: "p", text: "run passes argv directly without a shell; only shell explicitly uses shell parsing. Process launches obey timeout, output, and process-count limits." },
           callableList("stdProcess", "en")
         ] },
-        { title: "HTTP (9)", blocks: [
+        { title: "HTTP (10)", blocks: [
           { type: "p", text: "http.* only builds immutable request plans, timeout/retry transform a plan, and only send performs a network effect. response_body returns UTF-8 text; use response_bytes for binary data." },
           callableList("stdHttp", "en")
         ] }
@@ -1693,7 +1693,7 @@ export const chapters: Chapter[] = [
         { title: "完整命令", blocks: [
           { type: "code", language: "sh", code: code.cli },
           { type: "table", columns: ["命令", "用途"], rows: [["hhy run", "使用默认 Bytecode 引擎运行脚本并传递 args"], ["hhy run --engine ast|bytecode", "显式选择 AST 回退或 Bytecode 引擎"], ["hhy profile", "分析实际引擎的 CPU 热点、调用次数和托管 Heap 分配"], ["hhy repl", "启动交互环境"], ["hhy check", "检查语法和核心语义"], ["hhy fmt", "写入官方格式"], ["hhy fmt --check", "只检查格式"], ["hhy ast", "输出 AST"], ["hhy tokens", "输出 Lexer Token"], ["hhy run --dry-run", "预览脱敏执行计划"]] },
-          { type: "p", text: "hhy script.hhy 是 hhy run script.hhy 的简写。v1.3.6 默认使用 Bytecode；可用 --engine ast 或 HHY_ENGINE=ast 立即回退。脚本参数可能以 - 开头时，在 Runtime 选项后使用 -- 分隔。" }
+          { type: "p", text: `hhy script.hhy 是 hhy run script.hhy 的简写。${hhyVersionTag} 默认使用 Bytecode；可用 --engine ast 或 HHY_ENGINE=ast 立即回退。脚本参数可能以 - 开头时，在 Runtime 选项后使用 -- 分隔。` }
         ] },
         { title: "CPU 与 Heap 性能分析", blocks: [
           { type: "p", text: "profile 会真实执行脚本，默认在一次运行中同时收集 CPU 和托管 Heap 数据。报告写入 stderr，因此脚本 stdout 保持不变；命令返回脚本原有退出码。" },
@@ -1705,7 +1705,7 @@ export const chapters: Chapter[] = [
         { title: "解释器性能架构演进", blocks: [
           { type: "p", text: `${hhyVersionTag} 默认使用经 Compiler/Verifier 验证的 Bytecode VM。原生 Opcode dispatch、静态槽位、可复用调用帧和低分配 Closure 快路径降低 CPU 开销；AST Interpreter 永久保留为语义 oracle 与显式回退。` },
           { type: "runtime-performance-roadmap" },
-          { type: "note", text: "v1.3.6 的 run、profile 与脚本简写默认使用 Bytecode；可用 --engine ast 或 HHY_ENGINE=ast 立即回退。profile 的 Engine、<top-level>/<bytecode-top-level> 会明确标记实际路径。" }
+          { type: "note", text: `${hhyVersionTag} 的 run、profile 与脚本简写默认使用 Bytecode；可用 --engine ast 或 HHY_ENGINE=ast 立即回退。profile 的 Engine、<top-level>/<bytecode-top-level> 会明确标记实际路径。` }
         ] },
         { title: "Runtime 资源限制", blocks: [
           { type: "p", text: "run 的 --limit NAME=VALUE 可以重复出现。大小必须带 b/kb/mb/gb/kib/mib/gib，时间必须带 ns/us/ms/s/min/h，计数值不带单位。" },

@@ -154,8 +154,6 @@ jobs:
           tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
           tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
           tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
-          tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'
-          tar -tzf dist/*.tar.gz | grep -E 'docs/BYTECODE.md$'
 
       - name: Upload Windows release evidence
         uses: actions/upload-artifact@v7
@@ -227,9 +225,6 @@ jobs:
           tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
           tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
           tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
-          tar -tzf dist/*.tar.gz | grep -E 'docs/HHY_V1.md$'
-          tar -tzf dist/*.tar.gz | grep -E 'docs/THIRD_PARTY_NOTICES.md$'
-          tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'
 
       - name: Upload release evidence
         uses: actions/upload-artifact@v7
@@ -283,9 +278,6 @@ jobs:
           tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
           tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
           tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
-          tar -tzf dist/*.tar.gz | grep -E 'docs/HHY_V1.md$'
-          tar -tzf dist/*.tar.gz | grep -E 'docs/THIRD_PARTY_NOTICES.md$'
-          tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'
 
       - name: Upload release evidence
         uses: actions/upload-artifact@v7

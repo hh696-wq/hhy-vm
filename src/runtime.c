@@ -108,9 +108,54 @@ typedef struct {
     uint32_t parameter_constant;
     int64_t fast_immediate_a;
     int64_t fast_immediate_b;
-    uint8_t fast_int_kind;
+    enum {
+        BYTECODE_FAST_INT_NONE = 0,
+        BYTECODE_FAST_INT_MULTIPLY,
+        BYTECODE_FAST_INT_MODULO_EQUALS,
+        BYTECODE_FAST_INT_OPERATION_COUNT
+    } fast_int_operation;
     bool has_fast_argument_expression;
 } BytecodeFunctionTarget;
+
+typedef enum {
+    BYTECODE_SPECIALIZATION_SELECTED = 0,
+    BYTECODE_SPECIALIZATION_DISABLED,
+    BYTECODE_SPECIALIZATION_NOT_BYTECODE,
+    BYTECODE_SPECIALIZATION_PROFILER_UNSUPPORTED,
+    BYTECODE_SPECIALIZATION_UNSUPPORTED_STREAM,
+    BYTECODE_SPECIALIZATION_TOO_MANY_STAGES,
+    BYTECODE_SPECIALIZATION_DYNAMIC_CALLABLE,
+    BYTECODE_SPECIALIZATION_UNSUPPORTED_EXPRESSION,
+    BYTECODE_SPECIALIZATION_UNSUPPORTED_SOURCE,
+    BYTECODE_SPECIALIZATION_RUNTIME_FALLBACK
+} BytecodeSpecializationReason;
+
+typedef struct {
+    const char *name;
+    uint8_t operand_count;
+    int8_t stack_effect;
+    bool checked_arithmetic;
+    bool returns_bool;
+} BytecodeFastIntMetadata;
+
+static const BytecodeFastIntMetadata bytecode_fast_int_metadata[] = {
+    [BYTECODE_FAST_INT_NONE] = {"none", 0, 0, false, false},
+    [BYTECODE_FAST_INT_MULTIPLY] = {"multiply_int_checked", 2, -1, true, false},
+    [BYTECODE_FAST_INT_MODULO_EQUALS] = {"modulo_equals_int_checked", 3, -2, true, true}
+};
+
+_Static_assert(sizeof(bytecode_fast_int_metadata) /
+                   sizeof(bytecode_fast_int_metadata[0]) ==
+               BYTECODE_FAST_INT_OPERATION_COUNT,
+               "fast Int operation metadata must cover every operation");
+
+static bool bytecode_fast_int_operation_valid(int operation) {
+    return operation > BYTECODE_FAST_INT_NONE &&
+           operation < BYTECODE_FAST_INT_OPERATION_COUNT &&
+           bytecode_fast_int_metadata[operation].name != NULL &&
+           bytecode_fast_int_metadata[operation].operand_count > 0 &&
+           bytecode_fast_int_metadata[operation].stack_effect < 0;
+}
 
 struct Value {
     ValueKind kind;
@@ -2638,6 +2683,50 @@ static bool require_bounded_stream(Runtime *rt, const HhyNode *site, Value value
     return true;
 }
 
+static const char *bytecode_specialization_reason_name(BytecodeSpecializationReason reason) {
+    static const char *const names[] = {
+        [BYTECODE_SPECIALIZATION_SELECTED] = "selected",
+        [BYTECODE_SPECIALIZATION_DISABLED] = "disabled",
+        [BYTECODE_SPECIALIZATION_NOT_BYTECODE] = "not_bytecode",
+        [BYTECODE_SPECIALIZATION_PROFILER_UNSUPPORTED] = "profiler_unsupported",
+        [BYTECODE_SPECIALIZATION_UNSUPPORTED_STREAM] = "unsupported_stream",
+        [BYTECODE_SPECIALIZATION_TOO_MANY_STAGES] = "too_many_stages",
+        [BYTECODE_SPECIALIZATION_DYNAMIC_CALLABLE] = "dynamic_callable",
+        [BYTECODE_SPECIALIZATION_UNSUPPORTED_EXPRESSION] = "unsupported_expression",
+        [BYTECODE_SPECIALIZATION_UNSUPPORTED_SOURCE] = "unsupported_source",
+        [BYTECODE_SPECIALIZATION_RUNTIME_FALLBACK] = "runtime_fallback"
+    };
+    size_t count = sizeof(names) / sizeof(names[0]);
+    return (size_t)reason < count && names[reason] != NULL ? names[reason] : "unknown";
+}
+
+static void bytecode_specialization_report(BytecodeSpecializationReason reason,
+                                           Stream *const *stages, size_t stage_count) {
+    const char *enabled = getenv("HHY_BYTECODE_SPECIALIZATION_REPORT");
+    if (enabled == NULL || strcmp(enabled, "json") != 0) return;
+    fprintf(stderr,
+            "{\"schema_version\":1,\"event\":\"stream_specialization\","
+            "\"selected\":%s,\"reason\":\"%s\",\"stages\":%zu,"
+            "\"operations\":[",
+            reason == BYTECODE_SPECIALIZATION_SELECTED ? "true" : "false",
+            bytecode_specialization_reason_name(reason), stage_count);
+    for (size_t reverse = stage_count; reverse > 0; reverse--) {
+        Stream *stage = stages[reverse - 1];
+        const char *name = "distinct_stable";
+        if (stage->kind == STREAM_MAP || stage->kind == STREAM_WHERE) {
+            const BytecodeFunctionTarget *target =
+                (const BytecodeFunctionTarget *)stage->function.as.function.node;
+            if (target == NULL ||
+                !bytecode_fast_int_operation_valid(target->fast_int_operation))
+                name = "unverified";
+            else
+                name = bytecode_fast_int_metadata[target->fast_int_operation].name;
+        }
+        fprintf(stderr, "%s\"%s\"", reverse == stage_count ? "" : ",", name);
+    }
+    fputs("]}\n", stderr);
+}
+
 static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
     if (!require_bounded_stream(rt, site, value, "collect")) return null_value();
     if (!stream_claim(rt, site, value)) return null_value();
@@ -2649,25 +2738,57 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
     Stream *stages[16];
     size_t stage_count = 0;
     Stream *base = value.kind == V_STREAM ? value.as.stream : NULL;
-    bool fused = rt->engine == HHY_ENGINE_BYTECODE && rt->profiler == NULL;
+    BytecodeSpecializationReason specialization_reason = BYTECODE_SPECIALIZATION_SELECTED;
+    const char *specialization_setting = getenv("HHY_BYTECODE_SPECIALIZATION");
+    bool specialization_disabled = specialization_setting != NULL &&
+                                   strcmp(specialization_setting, "off") == 0;
+    bool fused = rt->engine == HHY_ENGINE_BYTECODE && rt->profiler == NULL &&
+                 !specialization_disabled;
+    if (specialization_disabled)
+        specialization_reason = BYTECODE_SPECIALIZATION_DISABLED;
+    else if (rt->engine != HHY_ENGINE_BYTECODE)
+        specialization_reason = BYTECODE_SPECIALIZATION_NOT_BYTECODE;
+    else if (rt->profiler != NULL)
+        specialization_reason = BYTECODE_SPECIALIZATION_PROFILER_UNSUPPORTED;
     while (fused && base != NULL &&
            (base->kind == STREAM_MAP || base->kind == STREAM_WHERE ||
             base->kind == STREAM_DISTINCT)) {
-        if (stage_count == sizeof(stages) / sizeof(stages[0])) { fused = false; break; }
+        if (stage_count == sizeof(stages) / sizeof(stages[0])) {
+            specialization_reason = BYTECODE_SPECIALIZATION_TOO_MANY_STAGES;
+            fused = false;
+            break;
+        }
         if (base->kind != STREAM_DISTINCT) {
             if (base->function.kind != V_FUNCTION || !base->function.as.function.is_bytecode ||
                 !base->function.as.function.is_closure ||
-                base->function.as.function.builtin != NULL) { fused = false; break; }
+                base->function.as.function.builtin != NULL) {
+                specialization_reason = BYTECODE_SPECIALIZATION_DYNAMIC_CALLABLE;
+                fused = false;
+                break;
+            }
             const BytecodeFunctionTarget *target =
                 (const BytecodeFunctionTarget *)base->function.as.function.node;
             if (target == NULL || !target->has_fast_argument_expression ||
-                target->fast_int_kind == 0) { fused = false; break; }
+                !bytecode_fast_int_operation_valid(target->fast_int_operation)) {
+                specialization_reason = BYTECODE_SPECIALIZATION_UNSUPPORTED_EXPRESSION;
+                fused = false;
+                break;
+            }
         }
         stages[stage_count++] = base;
-        if (base->source.kind != V_STREAM) { fused = false; break; }
+        if (base->source.kind != V_STREAM) {
+            specialization_reason = BYTECODE_SPECIALIZATION_UNSUPPORTED_SOURCE;
+            fused = false;
+            break;
+        }
         base = base->source.as.stream;
     }
-    if (base == NULL || (base->kind != STREAM_RANGE && base->kind != STREAM_LIST)) fused = false;
+    if (base == NULL || (base->kind != STREAM_RANGE && base->kind != STREAM_LIST)) {
+        if (fused) specialization_reason = BYTECODE_SPECIALIZATION_UNSUPPORTED_SOURCE;
+        fused = false;
+    }
+    if (!fused && specialization_reason == BYTECODE_SPECIALIZATION_SELECTED)
+        specialization_reason = BYTECODE_SPECIALIZATION_UNSUPPORTED_STREAM;
 
     size_t count = 0, capacity = 8;
     Value *temporary = rt_value_array_grow(rt, NULL, 0, capacity);
@@ -2710,14 +2831,17 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
                         (const BytecodeFunctionTarget *)stage->function.as.function.node;
                     Value evaluated;
                     bool used_int_opcode = false;
-                    if (item.kind == V_INT && target->fast_int_kind == 1) {
+                    if (item.kind == V_INT &&
+                        target->fast_int_operation == BYTECODE_FAST_INT_MULTIPLY) {
                         int64_t product;
                         if (!__builtin_mul_overflow(item.as.integer, target->fast_immediate_a,
                                                     &product)) {
                             evaluated = int_value(product);
                             used_int_opcode = true;
                         }
-                    } else if (item.kind == V_INT && target->fast_int_kind == 2 &&
+                    } else if (item.kind == V_INT &&
+                               target->fast_int_operation ==
+                                   BYTECODE_FAST_INT_MODULO_EQUALS &&
                                target->fast_immediate_a != 0 &&
                                !(item.as.integer == INT64_MIN &&
                                  target->fast_immediate_a == -1)) {
@@ -2729,6 +2853,7 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
                             (BytecodeCursor){.chunk = target->chunk,
                                              .instruction = target->fast_expression},
                             target->parameter_constant, item, &evaluated)) {
+                        specialization_reason = BYTECODE_SPECIALIZATION_RUNTIME_FALLBACK;
                         fused = false;
                         break;
                     }
@@ -2791,10 +2916,14 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
             }
             result.as.list.items[count++] = item;
         }
+        bytecode_specialization_report(
+            fused && !rt->failed ? BYTECODE_SPECIALIZATION_SELECTED : specialization_reason,
+            stages, stage_count);
         stream_close(value.as.stream);
         result.as.list.count = count;
         return result;
     }
+    bytecode_specialization_report(specialization_reason, stages, stage_count);
     while (stream_next(rt, site, value.as.stream, &item)) {
         if (count >= HHY_MAX_COLLECTION_ITEMS) {
             runtime_error_kind(rt, site, "ResourceLimitError", "HHY_COLLECTION_LIMIT",
@@ -5764,7 +5893,7 @@ static BytecodeFunctionTarget *bytecode_function_target(Runtime *rt, BytecodeCur
                 if (left_instruction.opcode == HHY_OP_IDENTIFIER &&
                     left_instruction.constant == target->parameter_constant &&
                     bytecode_int_constant(right, &target->fast_immediate_a))
-                    target->fast_int_kind = 1; /* LOAD_LOCAL, LOAD_CONST, MUL_INT */
+                    target->fast_int_operation = BYTECODE_FAST_INT_MULTIPLY;
             } else if (root.opcode == HHY_OP_BINARY &&
                        root.token_kind == HHY_T_EQUAL_EQUAL) {
                 BytecodeCursor modulo = bytecode_child_cursor(expression, 0);
@@ -5779,7 +5908,7 @@ static BytecodeFunctionTarget *bytecode_function_target(Runtime *rt, BytecodeCur
                         left_instruction.constant == target->parameter_constant &&
                         bytecode_int_constant(divisor, &target->fast_immediate_a) &&
                         bytecode_int_constant(expected, &target->fast_immediate_b))
-                        target->fast_int_kind = 2; /* LOAD_LOCAL, MOD_INT, EQ_INT */
+                        target->fast_int_operation = BYTECODE_FAST_INT_MODULO_EQUALS;
                 }
             }
         }

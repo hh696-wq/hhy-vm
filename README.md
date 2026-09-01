@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.3.6-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.3.7-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -64,7 +64,7 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前版本是 **V1.3.6**（`1.3.6`），正式支持 macOS arm64、Linux arm64 和
+当前版本是 **V1.3.7**（`1.3.7`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
@@ -187,8 +187,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.3.6-PLATFORM-ARCH.tar.gz
-cd hhy-1.3.6-PLATFORM-ARCH
+tar -xzf hhy-1.3.7-PLATFORM-ARCH.tar.gz
+cd hhy-1.3.7-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -300,14 +300,16 @@ html.extract_report(body, "article.product", {
 
 API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
 
-## V1.3.6 Bytecode 状态
+## V1.3.7 Bytecode 状态
 
 V1.0 语言 contract 保持兼容；V1.3.0 正式提供 `hhy run --engine bytecode`，V1.3.1
 增加官方真实负载的双引擎兼容矩阵，V1.3.5 默认启用 Compiler/Verifier 验证的 Bytecode 路径，并固化 Runtime 内部边界、
-版本化治理检查和机器可读工作负载证据；
+版本化治理检查和机器可读工作负载证据。V1.3.7 将 Stream Int fast path 的 magic kind
+替换为具名操作和集中 metadata，提供稳定 fallback reason、JSON 选择证据、内部关闭开关，
+并以 AST、通用 Bytecode、特化 Bytecode 三路径差分和变形测试持续验证；
 有界 instruction/frame/operand 执行计划、Profiler engine/source 标记、HHY Stack trace、
 故障注入以及完整 AST/Bytecode 双引擎测试。共享 Runtime 继续唯一负责 closure、异常、
-GC、取消、Stream、effect 和资源限制。真实性能门槛未全部通过，因此默认仍是 AST；
+GC、取消、Stream、effect 和资源限制。默认执行引擎为 Bytecode，并永久保留 `--engine ast` 回退；
 Bytecode 不提供持久磁盘格式或公开 ABI。V1.2.2 使用官方 HTML 0.2.0 扩展验证真实网页批量抽取、
 可观察截断、结构化扩展错误以及三平台依赖发行，现有 Protocol 1 同步批量路径足以满足
 当前有界负载，因此不提前加入 Stream credit 或 Opaque Handle。V1.2.1 完成官方扩展签名 Registry、确定性依赖解析、
@@ -327,20 +329,17 @@ Linux arm64、Linux x86_64 和 Windows x86_64 MSYS2 上执行相应的严格编�
 文档验证、发行包内容检查和 SHA-256 校验。
 
 - 当前版本来源：[VERSION](VERSION)
-- 语言的唯一规范来源：[docs/HHY_V1.md](docs/HHY_V1.md)
-- Runtime 治理规则：[docs/RUNTIME_GOVERNANCE.md](docs/RUNTIME_GOVERNANCE.md)
-- 实验性 Bytecode 边界：[docs/BYTECODE.md](docs/BYTECODE.md)
-- 已知限制：[docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md)
+- 语言手册与标准库：[hhylang.dev/zh/learn](https://hhylang.dev/zh/learn)
+- Bytecode 与 CLI：[CLI Reference](https://hhylang.dev/zh/learn/cli-reference)
+- 当前健康状态：[Language Health Report](https://hhylang.dev/zh/learn/language-health-report)
 - 四平台持续验证：[GitHub Actions](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
 
 ## 文档
 
-- [HHY Language V1.0 统一规范](docs/HHY_V1.md)
+- [HHY 在线语言手册](https://hhylang.dev/zh/learn)
 - [安装说明](INSTALL.md)
 - [典型脚本](examples/README.md)
-- [扩展系统路线图](docs/EXTENSION_ROADMAP.md)
-- [第三方依赖与许可证](docs/DEPENDENCIES.md)
-- [第三方许可证声明](docs/THIRD_PARTY_NOTICES.md)
+- [扩展系统](https://hhylang.dev/zh/learn/extensions)
 
 ## 许可证
 

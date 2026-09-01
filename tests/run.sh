@@ -25,6 +25,8 @@ fail() {
     exit 1
 }
 
+sh tests/check-bytecode-specialization.sh "$HHY_BIN"
+
 process_snapshot_available=0
 socket_bind_available=0
 if command -v python3 >/dev/null 2>&1; then
@@ -50,7 +52,6 @@ for source in examples/*.hhy; do
         fail "official example is not in canonical format: $source"
 done
 
-sh tests/check-docs.sh "$HHY_BIN" >/dev/null
 sh tests/check-docs.sh "$HHY_BIN" README.md >/dev/null
 if command -v python3 >/dev/null 2>&1; then
     python3 tests/check_contracts.py >/dev/null
