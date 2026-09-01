@@ -1,0 +1,8 @@
+let result = range(0, 1000000)
+    |> stream
+    |> map { value -> value * 5 }
+    |> where { value -> value % 7 == 0 }
+    |> distinct
+    |> collect
+
+print(length(result))

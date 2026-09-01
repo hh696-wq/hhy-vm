@@ -114,7 +114,6 @@ typedef enum {
     BYTECODE_SPECIALIZATION_SELECTED = 0,
     BYTECODE_SPECIALIZATION_DISABLED,
     BYTECODE_SPECIALIZATION_NOT_BYTECODE,
-    BYTECODE_SPECIALIZATION_PROFILER_UNSUPPORTED,
     BYTECODE_SPECIALIZATION_UNSUPPORTED_STREAM,
     BYTECODE_SPECIALIZATION_TOO_MANY_STAGES,
     BYTECODE_SPECIALIZATION_DYNAMIC_CALLABLE,
@@ -2654,7 +2653,6 @@ static const char *bytecode_specialization_reason_name(BytecodeSpecializationRea
         [BYTECODE_SPECIALIZATION_SELECTED] = "selected",
         [BYTECODE_SPECIALIZATION_DISABLED] = "disabled",
         [BYTECODE_SPECIALIZATION_NOT_BYTECODE] = "not_bytecode",
-        [BYTECODE_SPECIALIZATION_PROFILER_UNSUPPORTED] = "profiler_unsupported",
         [BYTECODE_SPECIALIZATION_UNSUPPORTED_STREAM] = "unsupported_stream",
         [BYTECODE_SPECIALIZATION_TOO_MANY_STAGES] = "too_many_stages",
         [BYTECODE_SPECIALIZATION_DYNAMIC_CALLABLE] = "dynamic_callable",
@@ -2666,8 +2664,36 @@ static const char *bytecode_specialization_reason_name(BytecodeSpecializationRea
     return (size_t)reason < count && names[reason] != NULL ? names[reason] : "unknown";
 }
 
-static void bytecode_specialization_report(BytecodeSpecializationReason reason,
+static void bytecode_specialization_report(Runtime *rt,
+                                           BytecodeSpecializationReason reason,
                                            Stream *const *stages, size_t stage_count) {
+    HhyProfileOptimizationStage profile_stages[HHY_PROFILE_MAX_OPTIMIZATION_STAGES];
+    memset(profile_stages, 0, sizeof(profile_stages));
+    for (size_t output = 0; output < stage_count; output++) {
+        Stream *stage = stages[stage_count - output - 1];
+        HhyProfileOptimizationStage *profile_stage = &profile_stages[output];
+        profile_stage->operation = "distinct_stable";
+        if (stage->kind == STREAM_MAP || stage->kind == STREAM_WHERE) {
+            const BytecodeFunctionTarget *target =
+                (const BytecodeFunctionTarget *)stage->function.as.function.node;
+            if (target == NULL || target->stream_kernel == NULL) {
+                profile_stage->operation = "unverified";
+                continue;
+            }
+            const HhyStreamKernel *kernel = target->stream_kernel;
+            profile_stage->operation = kernel->result == HHY_KERNEL_RESULT_BOOL ?
+                "verified_bool_kernel" : "verified_int_kernel";
+            profile_stage->kernel_version = kernel->version;
+            profile_stage->opcode_count = kernel->instruction_count;
+            for (size_t opcode = 0; opcode < profile_stage->opcode_count; opcode++)
+                profile_stage->opcodes[opcode] =
+                    hhy_stream_kernel_opcode_name(kernel->instructions[opcode].opcode);
+        }
+    }
+    hhy_profiler_optimization(rt->profiler,
+                              reason == BYTECODE_SPECIALIZATION_SELECTED,
+                              bytecode_specialization_reason_name(reason),
+                              profile_stages, stage_count);
     const char *enabled = getenv("HHY_BYTECODE_SPECIALIZATION_REPORT");
     if (enabled == NULL || strcmp(enabled, "json") != 0) return;
     fprintf(stderr,
@@ -2764,14 +2790,11 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
     const char *specialization_setting = getenv("HHY_BYTECODE_SPECIALIZATION");
     bool specialization_disabled = specialization_setting != NULL &&
                                    strcmp(specialization_setting, "off") == 0;
-    bool fused = rt->engine == HHY_ENGINE_BYTECODE && rt->profiler == NULL &&
-                 !specialization_disabled;
+    bool fused = rt->engine == HHY_ENGINE_BYTECODE && !specialization_disabled;
     if (specialization_disabled)
         specialization_reason = BYTECODE_SPECIALIZATION_DISABLED;
     else if (rt->engine != HHY_ENGINE_BYTECODE)
         specialization_reason = BYTECODE_SPECIALIZATION_NOT_BYTECODE;
-    else if (rt->profiler != NULL)
-        specialization_reason = BYTECODE_SPECIALIZATION_PROFILER_UNSUPPORTED;
     while (fused && base != NULL &&
            (base->kind == STREAM_MAP || base->kind == STREAM_WHERE ||
             base->kind == STREAM_DISTINCT)) {
@@ -2813,9 +2836,27 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
         specialization_reason = BYTECODE_SPECIALIZATION_UNSUPPORTED_STREAM;
 
     size_t count = 0, capacity = 8;
-    Value *temporary = rt_value_array_grow(rt, NULL, 0, capacity);
+    Value *temporary = NULL;
     Value item;
     if (fused) {
+        size_t kernel_profile_entries[HHY_PROFILE_MAX_OPTIMIZATION_STAGES];
+        for (size_t i = 0; i < stage_count; i++) kernel_profile_entries[i] = SIZE_MAX;
+        for (size_t i = 0; i < stage_count; i++) {
+            Stream *stage = stages[i];
+            if (stage->kind != STREAM_MAP && stage->kind != STREAM_WHERE) continue;
+            const BytecodeFunctionTarget *target =
+                (const BytecodeFunctionTarget *)stage->function.as.function.node;
+            const HhyStreamKernel *kernel = target->stream_kernel;
+            HhyInstruction source = target->chunk->code[kernel->source_instruction];
+            kernel_profile_entries[i] = hhy_profiler_register(
+                rt->profiler,
+                kernel->result == HHY_KERNEL_RESULT_BOOL ?
+                    "<stream-kernel:Bool>" : "<stream-kernel:Int>",
+                rt->source->path, source.line, source.column);
+        }
+        size_t collect_profile_entry = hhy_profiler_register(
+            rt->profiler, "<stream-collect>", rt->source->path,
+            site->token.line, site->token.column);
         size_t maximum_output = HHY_MAX_COLLECTION_ITEMS;
         if (base->kind == STREAM_LIST && base->source.as.list.count < maximum_output)
             maximum_output = base->source.as.list.count;
@@ -2830,7 +2871,10 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
            a million Values, then grow the final list directly without a second
            materialization buffer. */
         size_t result_capacity = maximum_output < 4096 ? maximum_output : 4096;
+        size_t collect_previous = hhy_profiler_enter_registered(rt->profiler,
+                                                                collect_profile_entry);
         Value result = list_new(rt, result_capacity);
+        hhy_profiler_leave(rt->profiler, collect_previous);
         result.as.list.count = 0;
         for (;;) {
             /* Match loop execution's bounded safepoint cadence.  Calling
@@ -2852,8 +2896,12 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
                     const BytecodeFunctionTarget *target =
                         (const BytecodeFunctionTarget *)stage->function.as.function.node;
                     Value evaluated;
+                    size_t stage_index = reverse - 1;
+                    size_t kernel_previous = hhy_profiler_enter_registered(
+                        rt->profiler, kernel_profile_entries[stage_index]);
                     bool used_kernel = bytecode_execute_stream_kernel(target->stream_kernel,
                                                                        item, &evaluated);
+                    hhy_profiler_leave(rt->profiler, kernel_previous);
                     if (!used_kernel && !bytecode_eval_argument_expression(rt,
                             (BytecodeCursor){.chunk = target->chunk,
                                              .instruction = target->fast_expression},
@@ -2915,20 +2963,24 @@ static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
             if (count == result_capacity) {
                 size_t next = result_capacity < 8 ? 8 : result_capacity * 2;
                 if (next > maximum_output) next = maximum_output;
+                collect_previous = hhy_profiler_enter_registered(rt->profiler,
+                                                                 collect_profile_entry);
                 Value *grown = rt_value_array_grow(rt, result.as.list.items, count, next);
+                hhy_profiler_leave(rt->profiler, collect_previous);
                 result.as.list.items = grown;
                 result_capacity = next;
             }
             result.as.list.items[count++] = item;
         }
-        bytecode_specialization_report(
+        bytecode_specialization_report(rt,
             fused && !rt->failed ? BYTECODE_SPECIALIZATION_SELECTED : specialization_reason,
             stages, stage_count);
         stream_close(value.as.stream);
         result.as.list.count = count;
         return result;
     }
-    bytecode_specialization_report(specialization_reason, stages, stage_count);
+    bytecode_specialization_report(rt, specialization_reason, stages, stage_count);
+    temporary = rt_value_array_grow(rt, NULL, 0, capacity);
     while (stream_next(rt, site, value.as.stream, &item)) {
         if (count >= HHY_MAX_COLLECTION_ITEMS) {
             runtime_error_kind(rt, site, "ResourceLimitError", "HHY_COLLECTION_LIMIT",

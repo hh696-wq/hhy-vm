@@ -51,6 +51,7 @@ jobs:
           path: |
             build/benchmarks/engine-comparison.json
             build/benchmarks/bytecode-rc-decision.json
+            build/benchmarks/profiler-overhead.json
           if-no-files-found: error
           retention-days: 30
 

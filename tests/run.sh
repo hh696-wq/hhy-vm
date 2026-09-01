@@ -319,6 +319,8 @@ grep -F '"warnings": [' tests/output/basic.profile.json >/dev/null ||
 if command -v python3 >/dev/null 2>&1; then
     python3 -m json.tool tests/output/basic.profile.json >/dev/null ||
         fail "profile JSON is invalid"
+    python3 tests/check-profile-consistency.py "$HHY_BIN" ||
+        fail "Profiler optimization consistency checks failed"
 fi
 
 set +e

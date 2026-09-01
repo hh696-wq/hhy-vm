@@ -21,6 +21,22 @@ typedef struct {
     uint64_t allocations;
 } ProfileEntry;
 
+typedef struct {
+    char *operation;
+    uint32_t kernel_version;
+    size_t opcode_count;
+    char *opcodes[HHY_PROFILE_MAX_KERNEL_OPCODES];
+} ProfileOptimizationStage;
+
+typedef struct {
+    bool selected;
+    char *reason;
+    size_t stage_count;
+    ProfileOptimizationStage stages[HHY_PROFILE_MAX_OPTIMIZATION_STAGES];
+} ProfileOptimizationDecision;
+
+#define HHY_PROFILE_MAX_OPTIMIZATION_DECISIONS 1024u
+
 struct HhyProfiler {
     HhyProfileOptions options;
     char *source_path;
@@ -28,6 +44,10 @@ struct HhyProfiler {
     ProfileEntry *entries;
     size_t entry_count;
     size_t entry_capacity;
+    ProfileOptimizationDecision *decisions;
+    size_t decision_count;
+    size_t decision_capacity;
+    size_t decisions_dropped;
     volatile sig_atomic_t current_entry;
     volatile sig_atomic_t total_samples;
     uint64_t total_allocated;
@@ -179,6 +199,25 @@ size_t hhy_profiler_enter_n(HhyProfiler *profiler, const char *name, size_t name
     return previous;
 }
 
+size_t hhy_profiler_register(HhyProfiler *profiler, const char *name,
+                             const char *path, uint32_t line, uint32_t column) {
+    if (profiler == NULL) return SIZE_MAX;
+    sigset_t blocked, previous_mask;
+    sigemptyset(&blocked); sigaddset(&blocked, SIGPROF);
+    sigprocmask(SIG_BLOCK, &blocked, &previous_mask);
+    size_t entry = find_or_add(profiler, name, strlen(name), path, line, column);
+    sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+    return entry;
+}
+
+size_t hhy_profiler_enter_registered(HhyProfiler *profiler, size_t entry) {
+    if (profiler == NULL || entry >= profiler->entry_count) return SIZE_MAX;
+    size_t previous = profiler->current_entry < 0 ? SIZE_MAX : (size_t)profiler->current_entry;
+    profiler->entries[entry].calls++;
+    profiler->current_entry = (sig_atomic_t)entry;
+    return previous;
+}
+
 bool hhy_profiler_tracks_heap(const HhyProfiler *profiler) {
     return profiler != NULL && profiler->options.heap;
 }
@@ -200,6 +239,58 @@ void hhy_profiler_allocation(HhyProfiler *profiler, size_t bytes, size_t heap_cu
         profiler->entries[index].allocated_bytes += bytes;
         profiler->entries[index].allocations++;
     }
+}
+
+void hhy_profiler_optimization(HhyProfiler *profiler, bool selected,
+                               const char *reason,
+                               const HhyProfileOptimizationStage *stages,
+                               size_t stage_count) {
+    if (profiler == NULL || reason == NULL || stages == NULL ||
+        stage_count > HHY_PROFILE_MAX_OPTIMIZATION_STAGES) return;
+    if (profiler->decision_count >= HHY_PROFILE_MAX_OPTIMIZATION_DECISIONS) {
+        profiler->decisions_dropped++;
+        return;
+    }
+    if (profiler->decision_count == profiler->decision_capacity) {
+        size_t capacity = profiler->decision_capacity < 8 ? 8 :
+                          profiler->decision_capacity * 2;
+        ProfileOptimizationDecision *decisions =
+            realloc(profiler->decisions, capacity * sizeof(*decisions));
+        if (decisions == NULL) return;
+        profiler->decisions = decisions;
+        profiler->decision_capacity = capacity;
+    }
+    ProfileOptimizationDecision *decision =
+        &profiler->decisions[profiler->decision_count];
+    memset(decision, 0, sizeof(*decision));
+    decision->selected = selected;
+    decision->reason = copy_text(reason);
+    if (decision->reason == NULL) return;
+    decision->stage_count = stage_count;
+    for (size_t i = 0; i < stage_count; i++) {
+        ProfileOptimizationStage *destination = &decision->stages[i];
+        destination->operation = copy_text(stages[i].operation);
+        if (destination->operation == NULL) goto allocation_failed;
+        destination->kernel_version = stages[i].kernel_version;
+        destination->opcode_count = stages[i].opcode_count;
+        if (destination->opcode_count > HHY_PROFILE_MAX_KERNEL_OPCODES)
+            destination->opcode_count = HHY_PROFILE_MAX_KERNEL_OPCODES;
+        for (size_t opcode = 0; opcode < destination->opcode_count; opcode++) {
+            destination->opcodes[opcode] = copy_text(stages[i].opcodes[opcode]);
+            if (destination->opcodes[opcode] == NULL) goto allocation_failed;
+        }
+    }
+    profiler->decision_count++;
+    return;
+
+allocation_failed:
+    free(decision->reason);
+    for (size_t i = 0; i < stage_count; i++) {
+        free(decision->stages[i].operation);
+        for (size_t opcode = 0; opcode < decision->stages[i].opcode_count; opcode++)
+            free(decision->stages[i].opcodes[opcode]);
+    }
+    memset(decision, 0, sizeof(*decision));
 }
 
 static int compare_cpu(const void *left, const void *right) {
@@ -228,7 +319,7 @@ static void json_string(FILE *out, const char *text) {
 }
 
 static void print_json(HhyProfiler *p, FILE *out) {
-    fputs("{\n  \"source\": ", out); json_string(out, p->source_path);
+    fputs("{\n  \"schema_version\": 2,\n  \"source\": ", out); json_string(out, p->source_path);
     fputs(",\n  \"engine\": ", out); json_string(out, p->engine);
     fprintf(out, ",\n  \"wall_seconds\": %.9f,\n  \"cpu_seconds\": %.9f,"
             "\n  \"cpu_samples\": %d,\n  \"cpu_sample_period_us\": 1000,"
@@ -252,7 +343,30 @@ static void print_json(HhyProfiler *p, FILE *out) {
                 ", \"allocations\": %" PRIu64 "}", e->line, e->column, e->calls,
                 (int)e->samples, e->allocated_bytes, e->allocations);
     }
-    fputs(p->entry_count ? "\n  ]\n}\n" : "]\n}\n", out);
+    fputs(p->entry_count ? "\n  ],\n  \"optimization_decisions\": [" :
+                            "],\n  \"optimization_decisions\": [", out);
+    for (size_t i = 0; i < p->decision_count; i++) {
+        ProfileOptimizationDecision *decision = &p->decisions[i];
+        fprintf(out, "%s{\"selected\": %s, \"reason\": ", i ? ",\n    " : "\n    ",
+                decision->selected ? "true" : "false");
+        json_string(out, decision->reason);
+        fputs(", \"stages\": [", out);
+        for (size_t stage = 0; stage < decision->stage_count; stage++) {
+            ProfileOptimizationStage *item = &decision->stages[stage];
+            fputs(stage ? ", {\"operation\": " : "{\"operation\": ", out);
+            json_string(out, item->operation);
+            fprintf(out, ", \"kernel_version\": %u, \"opcodes\": [",
+                    item->kernel_version);
+            for (size_t opcode = 0; opcode < item->opcode_count; opcode++) {
+                if (opcode) fputs(", ", out);
+                json_string(out, item->opcodes[opcode]);
+            }
+            fputs("]}", out);
+        }
+        fputs("]}", out);
+    }
+    fprintf(out, "%s,\n  \"optimization_decisions_dropped\": %zu\n}\n",
+            p->decision_count ? "\n  ]" : "]", p->decisions_dropped);
 }
 
 static void print_bytes(FILE *out, uint64_t bytes) {
@@ -304,6 +418,16 @@ static void print_text(HhyProfiler *p, FILE *out) {
                     e->name, e->path, e->line, e->column);
         }
     }
+    if (p->decision_count) {
+        fputs("\nOptimization decisions\n  Selected  Reason                Stages\n", out);
+        for (size_t i = 0; i < p->decision_count; i++)
+            fprintf(out, "  %-8s  %-20s  %zu\n",
+                    p->decisions[i].selected ? "yes" : "no",
+                    p->decisions[i].reason, p->decisions[i].stage_count);
+    }
+    if (p->decisions_dropped)
+        fprintf(out, "  Note: %zu additional optimization decisions were omitted.\n",
+                p->decisions_dropped);
     free(sorted);
 }
 
@@ -338,5 +462,15 @@ void hhy_profiler_free(HhyProfiler *profiler) {
     for (size_t i = 0; i < profiler->entry_count; i++) {
         free(profiler->entries[i].name); free(profiler->entries[i].path);
     }
-    free(profiler->entries); free(profiler->source_path); free(profiler->engine); free(profiler);
+    for (size_t i = 0; i < profiler->decision_count; i++) {
+        free(profiler->decisions[i].reason);
+        for (size_t stage = 0; stage < profiler->decisions[i].stage_count; stage++) {
+            free(profiler->decisions[i].stages[stage].operation);
+            for (size_t opcode = 0;
+                 opcode < profiler->decisions[i].stages[stage].opcode_count; opcode++)
+                free(profiler->decisions[i].stages[stage].opcodes[opcode]);
+        }
+    }
+    free(profiler->decisions); free(profiler->entries);
+    free(profiler->source_path); free(profiler->engine); free(profiler);
 }
