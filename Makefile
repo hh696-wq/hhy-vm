@@ -44,7 +44,7 @@ PACKAGE := hhy-$(VERSION)-$(SYSTEM)-$(ARCH)
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: all clean extensions test test-bytecode test-debug debug benchmark benchmark-bytecode quality install dist registry-package bytecode-test fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
+.PHONY: all clean extensions test test-bytecode workload-test test-debug debug benchmark benchmark-bytecode quality install dist registry-package bytecode-test fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
 
 all: $(TARGET)
 
@@ -90,6 +90,9 @@ test: $(TARGET) extensions bytecode-test
 
 test-bytecode: $(TARGET) extensions bytecode-test
 	HHY_ENGINE=bytecode sh tests/run.sh $(TARGET)
+
+workload-test: $(TARGET) extensions
+	python3 scripts/run-bytecode-workloads.py --binary $(TARGET)
 
 test-debug: $(DEBUG_TARGET) extensions bytecode-test
 	HHY_SKIP_GC_STRESS=1 sh tests/run.sh $(DEBUG_TARGET)

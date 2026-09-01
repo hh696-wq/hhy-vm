@@ -79,6 +79,7 @@ jobs:
           python3 tests/check_contracts.py
           make test
           make test-bytecode
+          make workload-test
           make benchmark-bytecode
           sh tests/check-docs.sh build/hhy docs/HHY_V1.md
           sh tests/check-docs.sh build/hhy README.md

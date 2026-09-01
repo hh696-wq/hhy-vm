@@ -1,4 +1,4 @@
-export const hhyVersion = "1.3.0" as const;
+export const hhyVersion = "1.3.1" as const;
 export const hhyVersionLabel = `V${hhyVersion}` as const;
 export const hhyVersionTag = `v${hhyVersion}` as const;
 export const hhyReleaseUrl = `https://github.com/hh696-wq/hhy-vm/releases/tag/${hhyVersionTag}` as const;
@@ -8,13 +8,13 @@ export const hhyCoreCallableCount = 96;
 // the homepage title and description pointing at an older release theme.
 export const hhyCurrentRelease = {
   zh: {
-    title: "可选择的 Bytecode 执行引擎",
-    summary: "正式提供经过 Verifier 的 Bytecode 执行入口、双引擎语义对照、Profiler 与 HHY Stack trace；AST 因性能门槛未全部通过而继续作为默认引擎。",
-    verification: "AST 与 Bytecode 完整测试套件分别通过；非法 Bytecode 失败关闭；默认切换由机器可读性能门禁决定。"
+    title: "Bytecode 真实负载兼容加固",
+    summary: "在正式 Bytecode 可选引擎上增加官方真实项目的双引擎兼容矩阵，并持续保留 AST 默认与语义基准。",
+    verification: "本地文件治理负载在 AST/Bytecode 下通过；具备 loopback 能力的三平台 CI 继续验证 ETL、FlowGuard、采集器、Crawler 与 SiteGraph。"
   },
   en: {
-    title: "Opt-in Bytecode execution engine",
-    summary: "Ships a verified Bytecode execution entry, dual-engine semantic conformance, profiling, and HHY stack traces. AST remains the default because not every performance switch gate passed.",
-    verification: "The complete suite passes independently under AST and Bytecode; malformed Bytecode fails closed; a machine-readable performance gate controls any default switch."
+    title: "Bytecode real-workload compatibility hardening",
+    summary: "Adds a dual-engine compatibility matrix for official real projects on top of the opt-in Bytecode engine while retaining AST as the default and semantic oracle.",
+    verification: "The local asset-governance workload passes both engines; three-platform CI with loopback support validates ETL, FlowGuard, collectors, Crawler, and SiteGraph."
   }
 } as const;
