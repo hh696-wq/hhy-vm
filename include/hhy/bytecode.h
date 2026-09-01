@@ -46,8 +46,14 @@ typedef enum {
 
 typedef struct {
     HhyOpcode opcode;
+    HhyTokenKind token_kind;
     uint32_t constant;
     uint32_t child_count;
+    uint32_t subtree_size;
+    uint32_t frame_slot_count;
+    uint32_t local_env_depth;
+    uint32_t local_binding_slot;
+    bool local_slot_resolved;
     uint32_t line;
     uint32_t column;
 } HhyInstruction;

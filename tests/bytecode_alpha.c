@@ -17,12 +17,14 @@ static HhyBytecodeChunk minimal_chunk(void) {
     chunk.capacity = 3;
     chunk.count = 2;
     chunk.code[0] = (HhyInstruction){
-        .opcode = HHY_OP_PROGRAM, .constant = HHY_BYTECODE_NO_CONSTANT,
-        .child_count = 0, .line = 1, .column = 1
+        .opcode = HHY_OP_PROGRAM, .token_kind = HHY_T_EOF,
+        .constant = HHY_BYTECODE_NO_CONSTANT, .child_count = 0,
+        .subtree_size = 1, .line = 1, .column = 1
     };
     chunk.code[1] = (HhyInstruction){
-        .opcode = HHY_OP_HALT, .constant = HHY_BYTECODE_NO_CONSTANT,
-        .child_count = 0, .line = 1, .column = 1
+        .opcode = HHY_OP_HALT, .token_kind = HHY_T_EOF,
+        .constant = HHY_BYTECODE_NO_CONSTANT, .child_count = 0,
+        .subtree_size = 1, .line = 1, .column = 1
     };
     return chunk;
 }
@@ -52,6 +54,10 @@ int main(void) {
     chunk.code[0].constant = 0;
     expect_failure(&chunk, "constant index");
     chunk.code[0].constant = HHY_BYTECODE_NO_CONSTANT;
+
+    chunk.code[0].subtree_size = 0;
+    expect_failure(&chunk, "subtree size");
+    chunk.code[0].subtree_size = 1;
 
     chunk.code[0].child_count = 1;
     expect_failure(&chunk, "invalid node opcode");

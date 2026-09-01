@@ -94,10 +94,20 @@ static HhyBytecodeResult compile_node(const HhyNode *node, HhyBytecodeChunk *chu
         return result(false, chunk->count, "constant pool exceeds %u", HHY_BYTECODE_MAX_CONSTANTS);
     if (!reserve_code(chunk))
         return result(false, chunk->count, "instruction count exceeds %u", HHY_BYTECODE_MAX_INSTRUCTIONS);
+    if (node->frame_slot_count > UINT32_MAX || node->local_env_depth > UINT32_MAX ||
+        node->local_binding_slot > UINT32_MAX)
+        return result(false, chunk->count, "resolved slot metadata exceeds Bytecode limits");
+    size_t instruction_index = chunk->count;
     chunk->code[chunk->count++] = (HhyInstruction){
         .opcode = opcode,
+        .token_kind = node->token.kind,
         .constant = constant,
         .child_count = (uint32_t)node->child_count,
+        .subtree_size = 0,
+        .frame_slot_count = (uint32_t)node->frame_slot_count,
+        .local_env_depth = (uint32_t)node->local_env_depth,
+        .local_binding_slot = (uint32_t)node->local_binding_slot,
+        .local_slot_resolved = node->local_slot_resolved,
         .line = node->token.line,
         .column = node->token.column
     };
@@ -105,6 +115,10 @@ static HhyBytecodeResult compile_node(const HhyNode *node, HhyBytecodeChunk *chu
         HhyBytecodeResult child = compile_node(node->children[i], chunk, depth + 1);
         if (!child.ok) return child;
     }
+    size_t subtree_size = chunk->count - instruction_index;
+    if (subtree_size > UINT32_MAX)
+        return result(false, instruction_index, "Bytecode subtree exceeds addressable range");
+    chunk->code[instruction_index].subtree_size = (uint32_t)subtree_size;
     return result(true, chunk->count, NULL);
 }
 
@@ -118,8 +132,9 @@ HhyBytecodeResult hhy_bytecode_compile(const HhyNode *program, HhyBytecodeChunk 
     uint32_t line = program == NULL ? 0 : program->token.line;
     uint32_t column = program == NULL ? 0 : program->token.column;
     chunk->code[chunk->count++] = (HhyInstruction){
-        .opcode = HHY_OP_HALT, .constant = HHY_BYTECODE_NO_CONSTANT,
-        .child_count = 0, .line = line, .column = column
+        .opcode = HHY_OP_HALT, .token_kind = HHY_T_EOF,
+        .constant = HHY_BYTECODE_NO_CONSTANT, .child_count = 0,
+        .subtree_size = 1, .line = line, .column = column
     };
     return hhy_bytecode_verify(chunk);
 }
@@ -133,6 +148,11 @@ static HhyBytecodeResult verify_node(const HhyBytecodeChunk *chunk, size_t *curs
     HhyInstruction instruction = chunk->code[current];
     if (instruction.opcode < HHY_OP_PROGRAM || instruction.opcode > HHY_OP_LITERAL)
         return result(false, current, "invalid node opcode %d", (int)instruction.opcode);
+    if (instruction.token_kind < HHY_T_EOF || instruction.token_kind > HHY_T_NOT)
+        return result(false, current, "invalid token kind %d", (int)instruction.token_kind);
+    if (instruction.subtree_size == 0 ||
+        instruction.subtree_size > chunk->count - current)
+        return result(false, current, "invalid subtree size %u", instruction.subtree_size);
     if (instruction.constant != HHY_BYTECODE_NO_CONSTANT &&
         instruction.constant >= chunk->constant_count)
         return result(false, current, "constant index %u is out of range", instruction.constant);
@@ -142,6 +162,8 @@ static HhyBytecodeResult verify_node(const HhyBytecodeChunk *chunk, size_t *curs
         HhyBytecodeResult child = verify_node(chunk, cursor, depth + 1);
         if (!child.ok) return child;
     }
+    if (*cursor - current != instruction.subtree_size)
+        return result(false, current, "subtree size does not match encoded children");
     return result(true, current, NULL);
 }
 
@@ -164,8 +186,9 @@ HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk) {
         return result(false, 0, "root instruction must be PROGRAM");
     if (cursor >= chunk->count) return result(false, cursor, "chunk is missing HALT");
     HhyInstruction halt = chunk->code[cursor];
-    if (halt.opcode != HHY_OP_HALT || halt.constant != HHY_BYTECODE_NO_CONSTANT ||
-        halt.child_count != 0)
+    if (halt.opcode != HHY_OP_HALT || halt.token_kind != HHY_T_EOF ||
+        halt.constant != HHY_BYTECODE_NO_CONSTANT || halt.child_count != 0 ||
+        halt.subtree_size != 1)
         return result(false, cursor, "root must be followed by a canonical HALT");
     if (cursor + 1 != chunk->count)
         return result(false, cursor + 1, "instructions follow HALT");
@@ -235,8 +258,9 @@ void hhy_bytecode_disassemble(const HhyBytecodeChunk *chunk, FILE *output) {
             chunk->constant_count, chunk->count);
     for (size_t i = 0; i < chunk->count; i++) {
         HhyInstruction instruction = chunk->code[i];
-        fprintf(output, "%04zu %-13s children=%u", i, hhy_opcode_name(instruction.opcode),
-                instruction.child_count);
+        fprintf(output, "%04zu %-13s children=%u subtree=%u", i,
+                hhy_opcode_name(instruction.opcode), instruction.child_count,
+                instruction.subtree_size);
         if (instruction.constant != HHY_BYTECODE_NO_CONSTANT &&
             instruction.constant < chunk->constant_count) {
             fprintf(output, " constant=%u ", instruction.constant);
