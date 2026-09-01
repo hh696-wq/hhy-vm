@@ -29,7 +29,7 @@ def main() -> int:
             "maximum": 1.25,
         },
         "io_json_no_material_regression": {
-            "actual": comparisons["json_flow"]["bytecode_to_ast_wall_ratio"],
+            "actual": comparisons["json_flow_sustained"]["bytecode_to_ast_wall_ratio"],
             "maximum": 1.10,
         },
     }

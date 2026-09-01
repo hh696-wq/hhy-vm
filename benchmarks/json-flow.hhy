@@ -1,0 +1,15 @@
+let source = read_text(path("tests/fixtures/users.json"))
+let mut encoded = ""
+
+for iteration in range(0, 500) {
+    encoded = source
+        |> parse_json
+        |> get("users")
+        |> stream
+        |> where { user -> user.active }
+        |> map { user -> user.name }
+        |> collect
+        |> encode_json
+}
+
+print(encoded)

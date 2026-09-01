@@ -84,6 +84,7 @@ def main() -> int:
         "core_flow_100k": ("benchmarks/core-flow.hhy", "33334"),
         "core_flow_1m": ("benchmarks/core-flow-1m.hhy", "333334"),
         "json_flow": ("tests/valid/json-flow.hhy", '["Ada", "Grace"]'),
+        "json_flow_sustained": ("benchmarks/json-flow.hhy", '["Ada", "Grace"]'),
     }
     cli_version = run_case([binary, "--version"], args.iterations, None)
     engines: dict[str, dict[str, object]] = {"ast": {}, "bytecode": {}}
