@@ -25,11 +25,11 @@ function PrintBlock({ block, language }: { block: DocBlock; language: Language }
   const special = language === "zh" ? {
     "extension-flow": ["扩展加载流程", "HHY 脚本 → Runtime 校验 → 隔离扩展进程 → 协议注册 → 调用执行 → 结构化结果或错误。"],
     "evolution-roadmap": ["语言与 VM 演进路线图", "核心语义冻结后，依次推进性能加固、官方扩展工具链，以及由真实生态证据驱动的 ABI 决策。"],
-    "runtime-performance-roadmap": ["AST 与 Bytecode VM 性能演进", "AST 预解析 → Slot 绑定 → Lightweight CallFrame → Identifier Cache → 逃逸安全复用 → Profiling 门禁；AST 默认，v1.3.2 Bytecode 可选。"]
+    "runtime-performance-roadmap": ["AST 与 Bytecode VM 性能演进", "Compiler/Verifier → 原生 Opcode dispatch → Slot/CallFrame → 低分配 Closure → 性能门禁；v1.3.5 Bytecode 默认，AST 回退。"]
   } : {
     "extension-flow": ["Extension loading flow", "HHY script → Runtime validation → isolated extension process → protocol registration → call execution → structured result or error."],
     "evolution-roadmap": ["Language and VM evolution", "After core semantics freeze: performance hardening, official extension tooling, and an ABI decision driven by real ecosystem evidence."],
-    "runtime-performance-roadmap": ["AST and Bytecode VM performance evolution", "AST pre-resolution → slots → lightweight CallFrame → identifier cache → escape-safe reuse → profiling gate; AST is default and v1.3.2 Bytecode is opt-in."]
+    "runtime-performance-roadmap": ["AST and Bytecode VM performance evolution", "Compiler/Verifier → native Opcode dispatch → slots/call frames → low-allocation closures → performance gate; v1.3.5 defaults to Bytecode with AST fallback."]
   };
   const [title, detail] = special[block.type];
   return <aside className="print-diagram-summary"><strong>{title}</strong><p>{detail}</p></aside>;

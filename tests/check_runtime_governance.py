@@ -38,18 +38,18 @@ for forbidden in (
     "hhy_bytecode_compile(",
     "hhy_bytecode_verify(",
     "hhy_bytecode_prepare_execution(",
-    "HhyBytecodeChunk",
 ):
     if forbidden in runtime:
         raise SystemExit(f"Runtime bypasses the Bytecode boundary: {forbidden}")
 for required in (
     "hhy_bytecode_runtime_prepare(",
     "hhy_bytecode_runtime_free(",
+    "hhy_bytecode_runtime_chunk(",
     "HHY_BYTECODE_MAX_NESTING + 1u",
 ):
     if required not in bytecode_runtime:
         raise SystemExit(f"Bytecode Runtime boundary is incomplete: {required}")
-if "HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION 2u" not in bytecode_boundary:
+if "HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION 3u" not in bytecode_boundary:
     raise SystemExit("Bytecode Runtime internal boundary version changed without review")
 
 for line_number, line in enumerate(runtime.splitlines(), 1):

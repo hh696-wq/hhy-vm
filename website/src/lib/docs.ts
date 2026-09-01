@@ -1703,9 +1703,9 @@ export const chapters: Chapter[] = [
           { type: "note", text: "CPU 使用进程 CPU 时间采样，文件、HTTP 和进程等待不会被误算成 CPU 热点。运行不足数毫秒的脚本可能样本太少，应增大输入或重复负载。Heap 只统计 HHY 的 Boehm GC 托管内存，不包含扩展子进程或原生库自行管理的内存。" }
         ] },
         { title: "解释器性能架构演进", blocks: [
-          { type: "p", text: `${hhyVersionTag} 继续保留 AST Interpreter，通过预解析、静态槽位和可复用轻量调用帧降低函数调用成本。确定的局部变量走 Slot 快路径；闭包捕获、全局变量与 builtin 保留兼容的 Env 路径。` },
+          { type: "p", text: `${hhyVersionTag} 默认使用经 Compiler/Verifier 验证的 Bytecode VM。原生 Opcode dispatch、静态槽位、可复用调用帧和低分配 Closure 快路径降低 CPU 开销；AST Interpreter 永久保留为语义 oracle 与显式回退。` },
           { type: "runtime-performance-roadmap" },
-          { type: "note", text: "v1.3.2 已提供可选 Bytecode VM，可在 run 和 profile 中使用 --engine bytecode；AST 仍是默认引擎和语义 oracle。当前真实性能门禁未证明 CPU-bound 负载有足够收益，因此不会仅因 Bytecode 已发布就切换默认值。" }
+          { type: "note", text: "v1.3.5 的 run、profile 与脚本简写默认使用 Bytecode；可用 --engine ast 或 HHY_ENGINE=ast 立即回退。1M CPU workload ratio 0.6805，短任务 0.9258，JSON/I/O 0.9976，全部通过机器可读门禁。" }
         ] },
         { title: "Runtime 资源限制", blocks: [
           { type: "p", text: "run 的 --limit NAME=VALUE 可以重复出现。大小必须带 b/kb/mb/gb/kib/mib/gib，时间必须带 ns/us/ms/s/min/h，计数值不带单位。" },
@@ -1736,9 +1736,9 @@ export const chapters: Chapter[] = [
           { type: "note", text: "CPU profiling samples process CPU time, so file, HTTP, and process waits are not misreported as CPU hotspots. Scripts that finish in a few milliseconds may need a larger or repeated workload. Heap metrics cover memory managed by HHY's Boehm GC, not extension subprocesses or memory owned directly by native libraries." }
         ] },
         { title: "Interpreter performance evolution", blocks: [
-          { type: "p", text: `${hhyVersionTag} keeps the AST Interpreter and reduces function-call cost through resolution, static slots, and reusable lightweight frames. Deterministic locals use the Slot fast path, while closure captures, globals, and builtins retain the compatible Env path.` },
+          { type: "p", text: `${hhyVersionTag} defaults to the Compiler/Verifier-validated Bytecode VM. Native Opcode dispatch, static slots, reusable call frames, and low-allocation closure fast paths reduce CPU cost; the AST Interpreter remains the permanent semantic oracle and explicit fallback.` },
           { type: "runtime-performance-roadmap" },
-          { type: "note", text: "v1.3.2 provides an opt-in Bytecode VM through --engine bytecode for run and profile. AST remains the default engine and semantic oracle because current measured CPU-bound performance does not satisfy the default-switch gate." }
+          { type: "note", text: "v1.3.5 defaults run, profile, and script shorthand to Bytecode. Use --engine ast or HHY_ENGINE=ast for immediate rollback. The measured ratios are 0.6805 for the 1M CPU workload, 0.9258 for short scripts, and 0.9976 for JSON/I/O; all machine-readable gates pass." }
         ] },
         { title: "Runtime resource limits", blocks: [
           { type: "p", text: "The run command accepts repeatable --limit NAME=VALUE options. Sizes require b/kb/mb/gb/kib/mib/gib, durations require ns/us/ms/s/min/h, and counts have no unit." },
@@ -2286,25 +2286,25 @@ export const chapters: Chapter[] = [
     sections: {
       zh: [
         { title: "发布摘要", blocks: [
-          { type: "note", text: "HHY 当前正式语言基线为 v1.3.2。核心语义保持稳定；v1.3.0–v1.3.2 已交付可选 Bytecode 引擎、双引擎语义对照、真实负载加固与版本化 VM 内部边界，并通过 Linux、macOS、Windows Actions 和正式发行验收。真实性能门禁未证明 Bytecode 适合默认启用，因此 AST 继续作为默认引擎。" },
-          { type: "table", columns: ["报告维度", "回答的问题", "当前结论"], rows: [["语言基线", "核心语义是否稳定", "Pipe、Value、Stream、Error 与核心 callable contract 已冻结，AST/Bytecode 持续对照"], ["Runtime 健康度", "资源、内存与取消边界是否可靠", "具备资源上限、GC stress、sanitizer、fuzz、故障注入与显式所有权治理"], ["执行引擎", "Bytecode 是否可用且适合默认启用", "Bytecode 可显式启用；语义门禁通过，CPU 收益门槛未通过，AST 保持默认"], ["工程治理", "变化是否可审计", "四平台 CI、真实 workload、分层门禁、版本一致性和发行证据已形成闭环"]] }
+          { type: "note", text: "HHY v1.3.5 实现已完成：核心语义保持稳定，Bytecode 正常路径使用原生 Opcode dispatch，并已切换为默认执行引擎；AST 永久保留为语义 oracle 与紧急回退。正式发行状态以四平台 Actions 和 Release 资产验收为准。" },
+          { type: "table", columns: ["报告维度", "回答的问题", "当前结论"], rows: [["语言基线", "核心语义是否稳定", "Pipe、Value、Stream、Error 与核心 callable contract 保持稳定，AST/Bytecode 持续对照"], ["Runtime 健康度", "资源、内存与取消边界是否可靠", "资源上限、GC stress、sanitizer、fuzz、故障注入与显式所有权治理通过"], ["执行引擎", "Bytecode 是否适合默认启用", "原生 Opcode 路径语义门禁与性能门禁通过，Bytecode 默认，AST 可显式回退"], ["工程治理", "变化是否可审计", "四平台 CI、真实 workload、分层门禁、版本一致性和发行证据形成闭环"]] }
         ] },
         { title: "本期数据概览", blocks: [
-          { type: "table", columns: ["数据项", "结果", "证据口径"], rows: [["当前正式版本", "v1.3.2", "四平台 Release 归档、逐包 SHA-256 与 SHA256SUMS"], ["执行引擎", "AST 默认 / Bytecode 可选", "完整套件双引擎对照与机器可读切换决策"], ["核心 callable", "96", "Runtime Callable Contract Registry"], ["网站 HHY 示例", "47 个通过", "每次生产构建执行 Parser/Checker 验证"], ["持续验证平台", "4 个", "macOS arm64、Linux arm64、Linux x86_64、Windows x86_64"], ["真实性能门禁", "未通过默认切换", "CPU ratio 1.0121 > 0.90；短任务与 JSON/I/O 门禁通过"], ["完整实战项目", "6 个", "AST/Bytecode 端到端 acceptance 与稳定退出码"]] }
+          { type: "table", columns: ["数据项", "结果", "证据口径"], rows: [["当前实现版本", "v1.3.5", "正式状态由四平台 Release 资产验收确认"], ["执行引擎", "Bytecode 默认 / AST 回退", "完整套件双引擎对照与机器可读切换决策"], ["核心 callable", "96", "Runtime Callable Contract Registry"], ["网站 HHY 示例", "47 个通过", "每次生产构建执行 Parser/Checker 验证"], ["持续验证平台", "4 个", "macOS arm64、Linux arm64、Linux x86_64、Windows x86_64"], ["真实性能门禁", "通过默认切换", "1M CPU 0.6805；短任务 0.9258；JSON/I/O 0.9976"], ["完整实战项目", "6 个", "AST/Bytecode 端到端 acceptance 与稳定退出码"]] }
         ] },
         { title: "总体基线与兼容性", blocks: [
           { type: "table", columns: ["基线", "稳定承诺", "验证方式"], rows: [["语言语义", "不引入第二套 Pipe、Stream 或 Error 模型", "规范示例、Parser/Checker fixtures 与合法程序回归"], ["Callable contract", "名称、arity、effect、lazy、cancellable 和 threading 可机器读取", "Contract Registry JSON 与 96 项 contract 一致性检查"], ["诊断", "CLI 文本与 JSON/LSP 使用同一 Core 检查路径", "诊断 schema 与 LSP 协议测试"], ["扩展边界", "第三方能力优先走 Process Extension Protocol", "清单完整性、Protocol 1 与官方扩展验收"], ["C ABI", "当前不公开 Runtime 内部 ABI", "只有真实集成证据证明进程协议不足时才重新决策"]] },
-          { type: "p", text: "当前发行基线为 v1.3.2。下方性能表保留 v1.1.8 的同环境 CI 历史采样点，用于连续回归比较；它不再代表当前发布版本。v1.3 没有改变核心语言语义，AST evaluator 继续作为默认引擎和语义 oracle，Bytecode 可通过 --engine bytecode 显式使用。" }
+          { type: "p", text: "当前实现基线为 v1.3.5。下方历史表保留 v1.1.8 同环境采样点用于回归比较；默认切换采用独立的 AST/Bytecode schema 2 门禁。Bytecode 现为默认引擎，AST evaluator 继续作为语义 oracle，可通过 --engine ast 显式使用。" }
         ] },
         { title: "v1.2.2 发行与扩展状态", blocks: [
           { type: "table", columns: ["能力", "当前状态", "验收结果"], rows: [["扩展分发", "Ed25519 签名 Registry、确定性依赖解析", "篡改、来源不明和依赖冲突稳定拒绝"], ["可复现环境", "Lockfile、content-addressed 离线缓存", "同一 lock 得到同一依赖图，干净环境可离线重建"], ["安全变更", "事务式安装、升级和显式回滚", "失败升级不破坏旧环境"], ["HTML 0.2.0", "Lexbor、CSS selector、单次解析多字段投影", "畸形 HTML、硬上限、截断和结构化错误通过四平台验收"], ["协议决策", "保留同步有界批量 API", "没有真实证据需要 Stream credit、跨调用取消或 Opaque Handle"]] },
           { type: "note", text: "v1.2.2 正式 Release 已包含 macOS arm64、Linux x86_64、Linux arm64、Windows x86_64 归档、逐包 SHA-256 与合并 SHA256SUMS。HTML 扩展保持 effect = none，不自行读取文件、访问网络或执行子进程。" },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.2.2", label: "查看 HHY Language v1.2.2 正式发行", description: "下载四平台归档、校验文件并查看完整发行说明。" }
         ] },
-        { title: "v1.3.2 Bytecode VM 状态", blocks: [
-          { type: "table", columns: ["能力", "当前状态", "验收结果"], rows: [["执行选择", "hhy run/profile 支持 --engine ast|bytecode", "AST 默认，Bytecode 可显式启用"], ["语义一致性", "完整 fixtures 与真实 workload 双引擎运行", "AST oracle 持续通过，无已知高优先级语义差异"], ["诊断与安全", "Profiler、HHY Stack trace、Verifier、故障注入、取消与资源上限", "非法 Bytecode 拒绝，错误和资源路径纳入门禁"], ["内部边界", "版本化 bytecode_runtime compiler/VM contract", "静态治理阻止 Runtime 绕过 Compiler/Verifier"], ["默认切换", "由真实性能 benchmark 决策", "CPU 收益门槛未通过，保持 AST 默认"]] },
-          { type: "note", text: "v1.3.0、v1.3.1、v1.3.2 均已正式发布。每版包含 macOS arm64、Linux x86_64、Linux arm64、Windows x86_64 归档、逐包 SHA-256 与合并 SHA256SUMS；v1.3.2 为 latest。" },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.3.2", label: "查看 HHY Language v1.3.2 正式发行", description: "下载四平台归档、校验文件并查看 VM 稳定化发行说明。" }
+        { title: "v1.3.5 Bytecode VM 状态", blocks: [
+          { type: "table", columns: ["能力", "当前状态", "验收结果"], rows: [["执行选择", "hhy run/profile 支持 --engine ast|bytecode", "Bytecode 默认，AST 可显式回退"], ["语义一致性", "完整 fixtures 与真实 workload 双引擎运行", "AST oracle 持续通过，无已知高优先级语义差异"], ["原生执行", "Verifier 后直接 dispatch Opcode", "正常 Bytecode 路径不调用 AST evaluator"], ["诊断与安全", "Profiler、HHY Stack trace、Verifier、故障注入、取消与资源上限", "非法 Bytecode 拒绝，错误和资源路径纳入门禁"], ["默认切换", "真实性能 benchmark 决策", "CPU、短任务与 JSON/I/O 三项门禁全部通过"]] },
+          { type: "note", text: "v1.3.5 实现与本地发行门禁已完成；正式发布后提供 macOS arm64、Linux x86_64、Linux arm64、Windows x86_64 归档、逐包 SHA-256 与 SHA256SUMS。" },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.3.5", label: "查看 HHY Language v1.3.5 正式发行", description: "下载四平台归档、核对校验文件并查看 Bytecode 默认引擎发行说明。" }
         ] },
         { title: "性能实测", blocks: [
           { type: "p", text: "历史 CI 采样环境：GitHub Actions Ubuntu 24.04，Linux 6.17 Azure x86_64，4 vCPU，Python 3.12.3；提交 43db191，HHY v1.1.8。每项连续执行 5 次，单位为毫秒。该表作为同口径历史基线保留；当前发行版本为 v1.3.2。v1.3 的 AST/Bytecode 切换由独立机器可读 benchmark 决策。" },
@@ -2313,31 +2313,31 @@ export const chapters: Chapter[] = [
           { type: "note", text: "这些数字用于跟踪 HHY 自身回归，不用于宣称跨语言性能排名。原始样本保存在对应 GitHub Actions performance baseline artifact 中；预算修改必须附带数据与原因。" }
         ] },
         { title: "治理结论与后续观察", blocks: [
-          { type: "list", items: ["总体状态：v1.3.2 已发布，语言语义、双引擎一致性、Runtime、扩展工具链与四平台发行门禁健康。", "执行引擎策略：AST 保持默认和语义 oracle；只有真实性能门禁通过后才考虑默认切换 Bytecode。", "当前主要风险：Bytecode 尚无 CPU-bound 实质收益，不能因版本已发布而绕过性能证据。", "原生依赖策略：新增原生扩展必须复用 Windows 私有 DLL 打包与可移植运行验收。", "协议策略：继续由真实集成触发新增能力，不为版本号引入 Stream credit、跨调用取消或 Handle。", "更新规则：发布基线、测量方法、引擎决策或总体风险结论变化时同步更新本报告。"] },
+          { type: "list", items: ["总体状态：v1.3.5 实现与本地门禁完成，语言语义、双引擎一致性、Runtime 与扩展工具链健康。", "执行引擎策略：Bytecode 默认；AST 永久保留为语义 oracle、差分测试和 --engine ast 紧急回退。", "性能结论：1M CPU ratio 0.6805，短任务与 JSON/I/O 无明显回退，机器可读门禁通过。", "当前主要风险：默认切换后的现场兼容性与四平台长期漂移，继续由双引擎 CI 和真实 workload 监测。", "协议策略：继续由真实集成触发新增能力，不为版本号引入 Stream credit、跨调用取消或 Handle。", "更新规则：发布基线、测量方法、引擎决策或总体风险结论变化时同步更新本报告。"] },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/actions/runs/33470597434", label: "查看 v1.3.2 持续验证证据", description: "Linux、macOS、Windows 双引擎构建，sanitizer、fuzz、性能决策与真实项目验收。" }
         ] }
       ],
       en: [
         { title: "Release summary", blocks: [
-          { type: "note", text: "The current published HHY language baseline is v1.3.2. Core semantics remain stable. Releases v1.3.0–v1.3.2 deliver an opt-in Bytecode engine, dual-engine semantic comparison, real-workload hardening, and a versioned VM boundary, all verified by Linux, macOS, and Windows Actions. AST remains the default because the measured CPU performance gate did not pass." },
+          { type: "note", text: "HHY v1.3.5 implementation is complete. Core semantics remain stable, normal Bytecode execution uses native Opcode dispatch, and Bytecode is now the default engine. AST remains the permanent semantic oracle and emergency fallback. Formal publication status is confirmed by four-platform Actions and release assets." },
           { type: "table", columns: ["Dimension", "Question", "Current conclusion"], rows: [["Language baseline", "Are core semantics stable?", "Pipe, Value, Stream, Error, and core callable contracts are frozen"], ["Runtime health", "Are resource, memory, and cancellation boundaries reliable?", "Resource limits, GC stress, sanitizers, fuzzing, and explicit ownership governance are present"], ["Performance", "Is performance measurable and controlled?", "Fixed workloads, five-sample medians, machine-readable evidence, and blocking budgets are established"], ["Engineering governance", "Are changes auditable?", "Four-platform CI, layered gates, version consistency, and release evidence form a closed loop"]] }
         ] },
         { title: "Data at a glance", blocks: [
-          { type: "table", columns: ["Signal", "Result", "Evidence basis"], rows: [["Current release", "v1.3.2", "Four platform archives, per-package SHA-256, and SHA256SUMS"], ["Execution engines", "AST default / Bytecode opt-in", "Full dual-engine suite and machine-readable switch decision"], ["Core callables", "96", "Runtime Callable Contract Registry"], ["Website HHY examples", "47 passing", "Parser/Checker validation on every production build"], ["Continuous-verification platforms", "4", "macOS arm64, Linux arm64, Linux x86_64, Windows x86_64"], ["Performance switch gate", "Default switch rejected", "CPU ratio 1.0121 > 0.90; short-task and JSON/I/O gates pass"], ["Complete practical projects", "6", "AST/Bytecode end-to-end acceptance with stable exit status"]] }
+          { type: "table", columns: ["Signal", "Result", "Evidence basis"], rows: [["Current implementation", "v1.3.5", "Formal status is confirmed by four-platform release assets"], ["Execution engines", "Bytecode default / AST fallback", "Full dual-engine suite and machine-readable switch decision"], ["Core callables", "96", "Runtime Callable Contract Registry"], ["Website HHY examples", "47 passing", "Parser/Checker validation on every production build"], ["Continuous-verification platforms", "4", "macOS arm64, Linux arm64, Linux x86_64, Windows x86_64"], ["Performance switch gate", "Default switch accepted", "1M CPU 0.6805; short script 0.9258; JSON/I/O 0.9976"], ["Complete practical projects", "6", "AST/Bytecode end-to-end acceptance with stable exit status"]] }
         ] },
         { title: "Overall baseline and compatibility", blocks: [
           { type: "table", columns: ["Baseline", "Stable commitment", "Verification"], rows: [["Language semantics", "No second Pipe, Stream, or Error model", "Specification examples, Parser/Checker fixtures, and valid-program regression"], ["Callable contracts", "Names, arity, effect, lazy, cancellable, and threading metadata are machine-readable", "Contract Registry JSON and 96-contract consistency checks"], ["Diagnostics", "CLI text and JSON/LSP share the Core checking path", "Diagnostic schema and LSP protocol tests"], ["Extension boundary", "Third-party capabilities prefer the Process Extension Protocol", "Manifest integrity, Protocol 1, and official-extension acceptance"], ["C ABI", "Runtime internals are not currently a public ABI", "Reconsider only when real integrations prove the process protocol insufficient"]] },
-          { type: "p", text: "The current release baseline is v1.3.2. The performance table below retains the v1.1.8 same-environment CI sample as a historical regression point. v1.3 does not change core semantics: the AST evaluator remains the default engine and semantic oracle, while Bytecode is available through --engine bytecode." }
+          { type: "p", text: "The current implementation baseline is v1.3.5. The historical table below retains the v1.1.8 same-environment sample for regression comparison; a separate AST/Bytecode schema-2 gate governs the default switch. Bytecode is now default, while the AST evaluator remains the semantic oracle and is selectable with --engine ast." }
         ] },
         { title: "v1.2.2 release and extension status", blocks: [
           { type: "table", columns: ["Capability", "Current state", "Acceptance result"], rows: [["Extension distribution", "Ed25519-signed Registry and deterministic resolution", "Tampering, unknown sources, and dependency conflicts fail closed"], ["Reproducible environment", "Lockfile and content-addressed offline cache", "The same lock yields the same graph and rebuilds offline"], ["Safe change", "Transactional install, upgrade, and explicit rollback", "Failed upgrades preserve the old environment"], ["HTML 0.2.0", "Lexbor, CSS selectors, and single-parse multi-field projection", "Malformed HTML, hard limits, truncation, and structured errors pass on four platforms"], ["Protocol decision", "Retain the bounded synchronous batch API", "No real evidence requires stream credit, cross-call cancellation, or opaque handles"]] },
           { type: "note", text: "The v1.2.2 release contains macOS arm64, Linux x86_64, Linux arm64, and Windows x86_64 archives, per-package SHA-256 files, and a combined SHA256SUMS. The HTML extension remains effect = none and performs no independent file, network, or subprocess access." },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.2.2", label: "Open the HHY Language v1.2.2 release", description: "Download all four platform archives and checksums and read the release notes." }
         ] },
-        { title: "v1.3.2 Bytecode VM status", blocks: [
-          { type: "table", columns: ["Capability", "Current state", "Acceptance result"], rows: [["Engine selection", "hhy run/profile supports --engine ast|bytecode", "AST is the default; Bytecode is explicitly selectable"], ["Semantic consistency", "Full fixtures and real workloads run under both engines", "The AST oracle remains green with no known high-priority semantic difference"], ["Diagnostics and safety", "Profiler, HHY stack traces, verifier, fault injection, cancellation, and resource limits", "Invalid Bytecode is rejected and failure/resource paths are gated"], ["Internal boundary", "Versioned bytecode_runtime compiler/VM contract", "Static governance prevents bypassing Compiler/Verifier"], ["Default switch", "Decided by measured performance", "The CPU benefit gate failed, so AST remains the default"]] },
-          { type: "note", text: "v1.3.0, v1.3.1, and v1.3.2 are formal releases. Each includes macOS arm64, Linux x86_64, Linux arm64, and Windows x86_64 archives, per-package SHA-256 files, and SHA256SUMS. v1.3.2 is latest." },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.3.2", label: "Open the HHY Language v1.3.2 release", description: "Download all four platform archives and checksums and read the VM stabilization release notes." }
+        { title: "v1.3.5 Bytecode VM status", blocks: [
+          { type: "table", columns: ["Capability", "Current state", "Acceptance result"], rows: [["Engine selection", "hhy run/profile supports --engine ast|bytecode", "Bytecode is default; AST is the explicit fallback"], ["Semantic consistency", "Full fixtures and real workloads run under both engines", "The AST oracle remains green with no known high-priority semantic difference"], ["Native execution", "Dispatches Opcodes after verification", "Normal Bytecode execution does not call the AST evaluator"], ["Diagnostics and safety", "Profiler, HHY stack traces, verifier, fault injection, cancellation, and resource limits", "Invalid Bytecode is rejected and failure/resource paths are gated"], ["Default switch", "Decided by measured performance", "CPU, short-script, and JSON/I/O gates all pass"]] },
+          { type: "note", text: "v1.3.5 implementation and local release gates are complete. The formal release provides macOS arm64, Linux x86_64, Linux arm64, and Windows x86_64 archives, per-package SHA-256 files, and SHA256SUMS." },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.3.5", label: "Open the HHY Language v1.3.5 release", description: "Download all four platform archives and checksums and read the Bytecode-default release notes." }
         ] },
         { title: "Measured performance", blocks: [
           { type: "p", text: "Historical CI environment: GitHub Actions Ubuntu 24.04, Linux 6.17 Azure x86_64, 4 vCPUs, Python 3.12.3; commit 43db191, HHY v1.1.8. Each workload ran five consecutive times. This remains a same-method historical baseline; the current release is v1.3.2. A separate machine-readable benchmark governs the AST/Bytecode switch." },
@@ -2346,7 +2346,7 @@ export const chapters: Chapter[] = [
           { type: "note", text: "These numbers track HHY regressions; they are not a cross-language ranking claim. Raw samples are retained in the corresponding GitHub Actions performance-baseline artifact. Budget changes require data and an explanation." }
         ] },
         { title: "Governance conclusion and watch list", blocks: [
-          { type: "list", items: ["Overall status: v1.3.2 is released; language semantics, dual-engine consistency, Runtime, extension tooling, and four-platform release gates are healthy.", "Engine policy: AST remains the default and semantic oracle; Bytecode becomes the default only after measured performance gates pass.", "Primary current risk: Bytecode has not demonstrated a material CPU-bound benefit, so release status must not override performance evidence.", "Native dependency policy: new native extensions must reuse Windows private-DLL packaging and portable-run acceptance.", "Protocol policy: add capabilities only from real integration evidence, not to justify a version number.", "Update rule: synchronize this report whenever the release baseline, measurement method, engine decision, or overall risk conclusion changes."] },
+          { type: "list", items: ["Overall status: v1.3.5 implementation and local gates are complete; language semantics, dual-engine consistency, Runtime, and extension tooling are healthy.", "Engine policy: Bytecode is default; AST remains permanently available as the semantic oracle, differential-test engine, and --engine ast emergency fallback.", "Performance conclusion: the 1M CPU ratio is 0.6805 with no material short-script or JSON/I/O regression; the machine-readable gate passes.", "Primary current risk: field compatibility and long-term four-platform drift after the default switch, continuously monitored by dual-engine CI and real workloads.", "Protocol policy: add capabilities only from real integration evidence, not to justify a version number.", "Update rule: synchronize this report whenever the release baseline, measurement method, engine decision, or overall risk conclusion changes."] },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/actions/runs/33470597434", label: "Open v1.3.2 continuous verification evidence", description: "Linux, macOS, and Windows dual-engine builds, sanitizers, fuzzing, performance decisions, and practical-project acceptance." }
         ] }
       ]
@@ -2356,11 +2356,11 @@ export const chapters: Chapter[] = [
     slug: "language-vm-roadmap",
     order: 23,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "v1.3.2 已完成可选 Bytecode 引擎、真实负载加固与内部边界稳定化，AST 因真实性能门槛未通过而继续作为默认引擎。", en: "v1.3.2 completes the opt-in Bytecode engine, real-workload hardening, and internal boundary stabilization. AST remains the default because the measured performance switch gate did not pass." },
+    summary: { zh: "v1.3.5 已完成原生 Opcode 执行、性能门禁与 Bytecode 默认切换，AST 永久保留为语义 oracle 和回退引擎。", en: "v1.3.5 completes native Opcode execution, performance gates, and the Bytecode default switch while permanently retaining AST as the semantic oracle and fallback." },
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.3.0–v1.3.2 已于 2026-09-01 正式发布：可选 Bytecode 执行、Profiler/HHY Stack trace、真实 workload 双引擎矩阵、版本化内部边界与持续 AST oracle 均已通过 Linux、macOS、Windows Actions；真实性能门槛未支持默认切换。" },
+          { type: "note", text: "v1.3.3–v1.3.5 已完成原生 Opcode dispatch、低分配 Closure/常量快速路径和默认切换实现；1M CPU、短任务与 JSON/I/O 门禁均通过。Bytecode 为默认引擎，AST 继续作为语义 oracle 与 --engine ast 回退。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2384,6 +2384,9 @@ export const chapters: Chapter[] = [
             ["v1.3.0 · 已发布", "2026-09-01", "可选 Bytecode 正式执行路径", "完整套件双引擎通过；性能决策保持 AST 默认并保留显式回退"],
             ["v1.3.1 · 已发布", "2026-09-01", "真实负载兼容加固", "官方 workload 双引擎矩阵和能力探测证据已通过三平台 CI"],
             ["v1.3.2 · 已发布", "2026-09-01", "VM 内部边界稳定化", "版本化 Bytecode Runtime 边界、静态治理与持续 AST oracle"],
+            ["v1.3.3 · 已完成", "并入 v1.3.5", "原生 Opcode 执行闭环", "正常 Bytecode 路径不再调用 AST evaluator，完整双引擎语义对照通过"],
+            ["v1.3.4 · 已完成", "并入 v1.3.5", "VM 数据路径优化", "1M CPU workload ratio 0.6805；短任务与 JSON/I/O 无明显回退"],
+            ["v1.3.5 · 待发行", "2026-09-01", "Bytecode 默认引擎", "run/profile/简写默认 Bytecode；AST 显式回退与 oracle 永久保留"],
             ["v1.4 · 规划", "v1.3 稳定后", "旗舰场景与外部采用", "模板、CI、运维文档和 3–5 个外部真实案例"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
@@ -2399,7 +2402,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.3.0–v1.3.2 were released on 2026-09-01: opt-in Bytecode execution, profiling and HHY stack traces, a real-workload dual-engine matrix, a versioned internal boundary, and a continuous AST oracle all passed Linux, macOS, and Windows Actions. Measured performance does not justify a default switch." },
+          { type: "note", text: "v1.3.3–v1.3.5 complete native Opcode dispatch, low-allocation closure and constant fast paths, and the default switch. The 1M CPU, short-script, and JSON/I/O gates pass. Bytecode is the default; AST remains the semantic oracle and --engine ast fallback." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
@@ -2423,6 +2426,9 @@ export const chapters: Chapter[] = [
             ["v1.3.0 · Released", "2026-09-01", "Opt-in production Bytecode path", "The full suite passes both engines; the performance decision retains AST as default with explicit fallback"],
             ["v1.3.1 · Released", "2026-09-01", "Real-workload compatibility hardening", "The official workload dual-engine matrix and capability evidence passed three-platform CI"],
             ["v1.3.2 · Released", "2026-09-01", "VM internal-boundary stabilization", "Versioned Bytecode Runtime boundary, static governance, and continuous AST oracle"],
+            ["v1.3.3 · Completed", "Merged into v1.3.5", "Native Opcode execution", "Normal Bytecode execution no longer calls the AST evaluator; full dual-engine semantics pass"],
+            ["v1.3.4 · Completed", "Merged into v1.3.5", "VM data-path optimization", "1M CPU workload ratio is 0.6805 with no material short-script or JSON/I/O regression"],
+            ["v1.3.5 · Pending release", "2026-09-01", "Bytecode default engine", "run, profile, and shorthand default to Bytecode; AST remains the permanent oracle and explicit fallback"],
             ["v1.4 · Planned", "After v1.3 stabilizes", "Flagship scenarios and external adoption", "Templates, CI, operations documentation, and 3–5 real external cases"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },

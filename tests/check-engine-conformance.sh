@@ -63,3 +63,21 @@ do
     }
 done
 printf '%s\n' 'AST/Bytecode engine conformance tests passed'
+
+"$HHY_BIN" run tests/valid/basic.hhy >"$conformance_tmp/default.out" 2>"$conformance_tmp/default.err"
+"$HHY_BIN" run --engine bytecode tests/valid/basic.hhy >"$conformance_tmp/explicit-bytecode.out" 2>"$conformance_tmp/explicit-bytecode.err"
+cmp -s "$conformance_tmp/default.out" "$conformance_tmp/explicit-bytecode.out" || {
+    echo "default engine output does not match explicit Bytecode" >&2
+    exit 1
+}
+cmp -s "$conformance_tmp/default.err" "$conformance_tmp/explicit-bytecode.err" || {
+    echo "default engine diagnostics do not match explicit Bytecode" >&2
+    exit 1
+}
+
+HHY_ENGINE=ast "$HHY_BIN" run tests/valid/basic.hhy >"$conformance_tmp/fallback.out" 2>"$conformance_tmp/fallback.err"
+cmp -s "$conformance_tmp/fallback.out" "$conformance_tmp/explicit-bytecode.out" || {
+    echo "AST fallback output does not match Bytecode default" >&2
+    exit 1
+}
+printf '%s\n' 'Bytecode default and AST fallback tests passed'

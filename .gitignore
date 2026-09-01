@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 node_modules/
 build/
+performance-analysis/
 .hhy-private/
 dist/
 src/*.o

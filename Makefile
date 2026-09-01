@@ -104,7 +104,7 @@ benchmark: $(TARGET)
 benchmark-bytecode: $(TARGET)
 	python3 scripts/run-benchmarks.py --binary $(TARGET) --output build/benchmarks/engine-comparison.json
 	python3 scripts/check-performance.py --report build/benchmarks/engine-comparison.json
-	python3 scripts/check-bytecode-rc.py
+	python3 scripts/check-bytecode-rc.py --require-ready
 
 quality: $(TARGET)
 	python3 tests/check_contracts.py

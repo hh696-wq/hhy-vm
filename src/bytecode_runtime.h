@@ -6,7 +6,7 @@
 
 typedef struct HhyPreparedBytecode HhyPreparedBytecode;
 
-#define HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION 2u
+#define HHY_BYTECODE_RUNTIME_BOUNDARY_VERSION 3u
 
 HhyBytecodeResult hhy_bytecode_runtime_prepare(const HhyNode *program,
                                                const char *fault_injection,

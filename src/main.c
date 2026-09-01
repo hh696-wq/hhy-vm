@@ -443,7 +443,7 @@ int main(int argc, char **argv) {
     Command command;
     int source_index = 2;
     bool dry_run = false;
-    HhyExecutionEngine engine = HHY_ENGINE_AST;
+    HhyExecutionEngine engine = HHY_ENGINE_BYTECODE;
     bool check_json = false;
     bool profile_cpu = false, profile_heap = false, profile_selection = false;
     bool profile_json = false;
@@ -463,7 +463,7 @@ int main(int argc, char **argv) {
         return 3;
     }
     const char *environment_engine = getenv("HHY_ENGINE");
-    if (command == COMMAND_RUN && environment_engine != NULL) {
+    if ((command == COMMAND_RUN || command == COMMAND_PROFILE) && environment_engine != NULL) {
         if (strcmp(environment_engine, "ast") == 0) engine = HHY_ENGINE_AST;
         else if (strcmp(environment_engine, "bytecode") == 0) engine = HHY_ENGINE_BYTECODE;
         else {

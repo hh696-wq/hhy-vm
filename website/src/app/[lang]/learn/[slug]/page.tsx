@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight, Code, Handshake, PuzzlePiece, RocketLaunch, ShieldCheck, TerminalWindow, WarningDiamond } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, Code, Gauge, Handshake, PuzzlePiece, RocketLaunch, ShieldCheck, TerminalWindow, WarningDiamond } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { ElementType } from "react";
@@ -142,23 +142,23 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
               if (block.type === "image") return <figure className={`doc-image ${block.size}`} key={index}><a href={block.src} target="_blank" rel="noreferrer" aria-label={lang === "zh" ? "查看原图" : "View full-size image"}><Image src={block.src} alt={block.alt} width={block.width} height={block.height} sizes={block.size === "medium" ? "(max-width: 560px) calc(100vw - 32px), 480px" : "(max-width: 720px) calc(100vw - 32px), 680px"} /></a><figcaption>{block.caption}</figcaption></figure>;
               if (block.type === "runtime-performance-roadmap") {
                 const copy = lang === "zh" ? {
-                  eyebrow: `${hhyVersionTag} · 双引擎执行路径`, title: "AST 与 Bytecode VM 性能演进", current: "默认引擎 · AST Interpreter",
+                  eyebrow: `${hhyVersionTag} · 双引擎执行路径`, title: "AST 与 Bytecode VM 性能演进", current: "语义 oracle · AST Interpreter",
                   resolver: "AST 预解析 / Resolve Pass", resolverItems: ["参数绑定到 slot", "局部变量绑定到 slot", "标记 global / builtin / closure"],
                   frame: "Lightweight CallFrame", call: "function call", frameCode: "slots[]  ·  parent/env  ·  function",
                   fast: "Local / Param", fastDetail: "slots[index] · 快路径", slow: "Closure / Global / Builtin", slowDetail: "Env lookup · 兼容慢路径",
                   cache: "Identifier Cache", cacheDetail: "无法 slot 化的变量缓存 env depth + binding slot/index",
                   pool: "Frame Pool", reuse: "未逃逸 Frame", reuseDetail: "reset → reuse", escaped: "Closure / Stream 捕获", escapedDetail: "mark escaped · 不复用 · GC managed",
-                  profile: "Profiling + GC / Allocation 优化", decision: "机器可读门禁决定默认引擎；当前 CPU 收益不足，AST 保持默认", future: "当前可选引擎", bytecode: "Bytecode VM · --engine bytecode",
-                  caption: "AST 保持默认与语义 oracle；v1.3.2 Bytecode VM 已正式可选，完整双引擎对照持续运行。"
+                  profile: "Profiling + GC / Allocation 优化", decision: "机器可读门禁已通过；1M CPU ratio 0.6805", future: "默认执行引擎", bytecode: "Bytecode VM · 默认（--engine ast 回退）",
+                  caption: "v1.3.5 默认使用原生 Opcode dispatch 的 Bytecode VM；AST 永久保留为语义 oracle 与显式回退。"
                 } : {
-                  eyebrow: `${hhyVersionTag} · Dual-engine execution`, title: "AST and Bytecode VM performance evolution", current: "Default engine · AST Interpreter",
+                  eyebrow: `${hhyVersionTag} · Dual-engine execution`, title: "AST and Bytecode VM performance evolution", current: "Semantic oracle · AST Interpreter",
                   resolver: "AST pre-resolution / Resolve Pass", resolverItems: ["Bind parameters to slots", "Bind locals to slots", "Mark globals / builtins / closures"],
                   frame: "Lightweight CallFrame", call: "function call", frameCode: "slots[]  ·  parent/env  ·  function",
                   fast: "Local / Param", fastDetail: "slots[index] · fast path", slow: "Closure / Global / Builtin", slowDetail: "Env lookup · compatibility path",
                   cache: "Identifier Cache", cacheDetail: "Cache env depth + binding slot/index for values that cannot use static slots",
                   pool: "Frame Pool", reuse: "Non-escaped frame", reuseDetail: "reset → reuse", escaped: "Captured by Closure / Stream", escapedDetail: "mark escaped · no reuse · GC managed",
-                  profile: "Profiling + GC / Allocation optimization", decision: "A machine-readable gate selects the default; current CPU gains are insufficient, so AST remains default", future: "Current opt-in engine", bytecode: "Bytecode VM · --engine bytecode",
-                  caption: "AST remains the default and semantic oracle; the v1.3.2 Bytecode VM is formally available with continuous dual-engine comparison."
+                  profile: "Profiling + GC / Allocation optimization", decision: "The machine-readable gate passed; 1M CPU ratio is 0.6805", future: "Default execution engine", bytecode: "Bytecode VM · default (--engine ast fallback)",
+                  caption: "v1.3.5 defaults to the native Opcode-dispatch Bytecode VM; AST remains the permanent semantic oracle and explicit fallback."
                 };
                 return <figure className="runtime-performance-roadmap" key={index}>
                   <header><span>{copy.eyebrow}</span><strong>{copy.title}</strong></header>
@@ -193,7 +193,8 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.3.0-alpha", date: "2026-09-01", title: "可验证 Bytecode 编译器骨架", detail: "Chunk、Opcode、常量池、源码位置、AST compiler、Verifier 与反汇编；AST 仍为默认引擎", icon: Code },
                     { version: "v1.3.0", date: "2026-09-01", title: "可选 Bytecode 正式执行路径", detail: "完整双引擎套件、Profiler、HHY Stack trace 与故障注入；性能门禁保持 AST 默认", icon: Code },
                     { version: "v1.3.1", date: "2026-09-01", title: "真实负载兼容加固", detail: "官方 workload 双引擎矩阵、能力探测与机器可读证据", icon: ShieldCheck },
-                    { version: "v1.3.2", date: "2026-09-01", title: "VM 内部边界稳定化", detail: "版本化 Bytecode Runtime 边界、静态治理与持续 AST oracle", icon: ShieldCheck }
+                    { version: "v1.3.2", date: "2026-09-01", title: "VM 内部边界稳定化", detail: "版本化 Bytecode Runtime 边界、静态治理与持续 AST oracle", icon: ShieldCheck },
+                    { version: "v1.3.3–v1.3.5", date: "2026-09-01", title: "原生 Opcode 与默认切换", detail: "消除 AST bridge，性能门禁通过，Bytecode 默认并保留 AST 回退", icon: Gauge }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
@@ -212,7 +213,8 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.3.0-alpha", date: "2026-09-01", title: "Verifiable Bytecode compiler skeleton", detail: "Chunks, opcodes, a constant pool, source locations, an AST compiler, verifier, and disassembler; AST remains the default", icon: Code },
                     { version: "v1.3.0", date: "2026-09-01", title: "Opt-in production Bytecode path", detail: "Full dual-engine suite, profiling, HHY stack traces, and fault injection; the performance gate retains AST as default", icon: Code },
                     { version: "v1.3.1", date: "2026-09-01", title: "Real-workload compatibility hardening", detail: "Official workload dual-engine matrix, capability probes, and machine-readable evidence", icon: ShieldCheck },
-                    { version: "v1.3.2", date: "2026-09-01", title: "VM internal-boundary stabilization", detail: "Versioned Bytecode Runtime boundary, static governance, and a continuous AST oracle", icon: ShieldCheck }
+                    { version: "v1.3.2", date: "2026-09-01", title: "VM internal-boundary stabilization", detail: "Versioned Bytecode Runtime boundary, static governance, and a continuous AST oracle", icon: ShieldCheck },
+                    { version: "v1.3.3–v1.3.5", date: "2026-09-01", title: "Native Opcode execution and default switch", detail: "Removes the AST bridge, passes performance gates, defaults to Bytecode, and retains AST fallback", icon: Gauge }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [

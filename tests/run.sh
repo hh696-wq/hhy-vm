@@ -299,7 +299,7 @@ grep -F 'CPU hotspots' tests/output/basic.profile.txt >/dev/null ||
     fail "profile text report omitted CPU hotspots"
 grep -F 'Allocation hotspots' tests/output/basic.profile.txt >/dev/null ||
     fail "profile text report omitted allocation hotspots"
-grep -F '<top-level>' tests/output/basic.profile.txt >/dev/null ||
+grep -F '<bytecode-top-level>' tests/output/basic.profile.txt >/dev/null ||
     fail "profile did not account for top-level execution"
 
 profile_json_output=$("$HHY_BIN" profile --heap --format json \
@@ -307,7 +307,7 @@ profile_json_output=$("$HHY_BIN" profile --heap --format json \
 [ "$profile_json_output" = "$run_output" ] || fail "JSON profile changed script stdout"
 grep -F '"allocated_bytes"' tests/output/basic.profile.json >/dev/null ||
     fail "JSON profile omitted allocation data"
-grep -F '"name": "<top-level>"' tests/output/basic.profile.json >/dev/null ||
+grep -F '"name": "<bytecode-top-level>"' tests/output/basic.profile.json >/dev/null ||
     fail "JSON profile omitted top-level execution"
 grep -F '"cpu_sample_period_us": 1000' tests/output/basic.profile.json >/dev/null ||
     fail "JSON profile omitted CPU sample period"
