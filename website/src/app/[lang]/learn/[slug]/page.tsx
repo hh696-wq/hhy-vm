@@ -186,7 +186,10 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.1.6", date: "2026-08-31", title: "稳定基线与测试治理", detail: "宿主能力探测、分层 CI、机器可读性能基线与发布一致性门禁", icon: ShieldCheck },
                     { version: "v1.1.7", date: "2026-08-31", title: "诊断与编辑器基线", detail: "版本化 JSON diagnostics、Contract Registry JSON、LSP 与 VS Code 编辑闭环", icon: ShieldCheck },
                     { version: "v1.1.8", date: "2026-08-31", title: "Runtime 渐进治理", detail: "首个模块边界、内部所有权规则、GC/sanitizer 与性能回归门禁", icon: ShieldCheck },
-                    { version: "v1.2.0", date: "2026-08-31", title: "官方扩展分发与签名", detail: "Ed25519 签名 Registry、传递依赖解析、dry-run 与事务式安装", icon: Handshake }
+                    { version: "v1.2.0", date: "2026-08-31", title: "官方扩展分发与签名", detail: "Ed25519 签名 Registry、传递依赖解析、dry-run 与事务式安装", icon: Handshake },
+                    { version: "v1.2.1", date: "2026-09-01", title: "锁定、离线与安全回滚", detail: "Lockfile、离线缓存、可复现安装、事务式升级与回滚", icon: Handshake },
+                    { version: "v1.2.2", date: "2026-09-01", title: "官方 HTML 复杂扩展验证", detail: "批量抽取、可观察截断、结构化错误与四平台发行", icon: Handshake },
+                    { version: "v1.3.0-alpha", date: "2026-09-01", title: "可验证 Bytecode 编译器骨架", detail: "Chunk、Opcode、常量池、源码位置、AST compiler、Verifier 与反汇编；AST 仍为默认引擎", icon: Code }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
@@ -199,17 +202,18 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.1.6", date: "2026-08-31", title: "Stable engineering baseline", detail: "Host capability probes, layered CI, machine-readable performance baselines, and release consistency gates", icon: ShieldCheck },
                     { version: "v1.1.7", date: "2026-08-31", title: "Diagnostics and editor baseline", detail: "Versioned JSON diagnostics, Contract Registry JSON, LSP, and a VS Code editing loop", icon: ShieldCheck },
                     { version: "v1.1.8", date: "2026-08-31", title: "Gradual Runtime governance", detail: "First module boundary, internal ownership rules, GC/sanitizer, and a performance-regression gate", icon: ShieldCheck },
-                    { version: "v1.2.0", date: "2026-08-31", title: "Official extension distribution and signing", detail: "Ed25519-signed Registry, transitive resolution, dry runs, and transaction-safe installs", icon: Handshake }
+                    { version: "v1.2.0", date: "2026-08-31", title: "Official extension distribution and signing", detail: "Ed25519-signed Registry, transitive resolution, dry runs, and transaction-safe installs", icon: Handshake },
+                    { version: "v1.2.1", date: "2026-09-01", title: "Locking, offline installs, and safe rollback", detail: "Lockfiles, offline caches, reproducible installs, transactional upgrades, and rollback", icon: Handshake },
+                    { version: "v1.2.2", date: "2026-09-01", title: "Official HTML complex-extension validation", detail: "Batch extraction, observable truncation, structured errors, and four-platform releases", icon: Handshake },
+                    { version: "v1.3.0-alpha", date: "2026-09-01", title: "Verifiable Bytecode compiler skeleton", detail: "Chunks, opcodes, a constant pool, source locations, an AST compiler, verifier, and disassembler; AST remains the default", icon: Code }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
-                    { version: "v1.2.1", window: "2026-09-01 已发布", title: "锁定、离线与安全回滚", items: ["Lockfile 与精确依赖图", "离线缓存和可复现安装", "显式升级与版本回滚"], icon: Handshake },
-                    { version: "v1.2.2", window: "开发中", title: "官方 HTML 复杂扩展验证", items: ["真实网页批量抽取", "可观察结果上限", "结构化错误与三平台发行"], icon: Handshake },
+                    { version: "v1.4", window: "v1.3 稳定后", title: "旗舰场景与外部采用", items: ["官方项目模板与 CI", "运维和故障诊断文档", "3–5 个外部真实案例"], icon: Handshake },
                     { version: "v2.0", window: "生态证据充分后", title: "生态开放与 ABI 决策", items: ["以真实集成测量进程协议边界", "评估 embedding / FFI", "仅在必要时发布 Native ABI"], icon: RocketLaunch }
                   ]
                   : [
-                    { version: "v1.2.1", window: "Released 2026-09-01", title: "Locking, offline installs, and safe rollback", items: ["Lockfiles and exact dependency graphs", "Offline caches and reproducible installs", "Explicit upgrades and version rollback"], icon: Handshake },
-                    { version: "v1.2.2", window: "In development", title: "Official HTML complex-extension validation", items: ["Real-page batch extraction", "Observable result bounds", "Structured errors and three-platform distribution"], icon: Handshake },
+                    { version: "v1.4", window: "After v1.3 stabilizes", title: "Flagship scenarios and external adoption", items: ["Official project templates and CI", "Operations and troubleshooting documentation", "3–5 real external cases"], icon: Handshake },
                     { version: "v2.0", window: "After sufficient ecosystem evidence", title: "Ecosystem and ABI decision", items: ["Measure process-protocol limits with real integrations", "Evaluate embedding / FFI", "Publish a Native ABI only if necessary"], icon: RocketLaunch }
                   ];
                 const principles = lang === "zh"

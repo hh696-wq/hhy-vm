@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.2.2-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.3.0--alpha-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -64,7 +64,7 @@ source |> transform |> filter |> action
 
 ## 快速开始
 
-当前开发版本是 **V1.2.2**（`1.2.2`），正式支持 macOS arm64、Linux arm64 和
+当前开发版本是 **V1.3.0-alpha**（`1.3.0-alpha`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
@@ -187,8 +187,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.2.2-PLATFORM-ARCH.tar.gz
-cd hhy-1.2.2-PLATFORM-ARCH
+tar -xzf hhy-1.3.0-alpha-PLATFORM-ARCH.tar.gz
+cd hhy-1.3.0-alpha-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -208,6 +208,7 @@ cd hhy-1.2.2-PLATFORM-ARCH
 | `hhy contracts --format json` | 输出工具可消费的 Callable Contract Registry |
 | `hhy fmt <file.hhy>...` | 格式化源码 |
 | `hhy ast <file.hhy>` | 输出抽象语法树 |
+| `hhy bytecode <file.hhy>` | 编译、验证并反汇编实验性 Bytecode IR；不执行 Bytecode |
 | `hhy tokens <file.hhy>` | 输出词法 Token |
 | `hhy run --dry-run <file.hhy>` | 生成脱敏执行计划，不执行外部副作用 |
 | `hhy install <local-path>` | 在 staging 校验权限与 SHA-256 后原子安装本地进程扩展 |
@@ -299,9 +300,12 @@ html.extract_report(body, "article.product", {
 
 API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
 
-## V1.2.2 状态
+## V1.3.0-alpha 状态
 
-V1.0 语言 contract 保持兼容；V1.2.2 使用官方 HTML 0.2.0 扩展验证真实网页批量抽取、
+V1.0 语言 contract 保持兼容；V1.3.0-alpha 增加内部 Chunk、Opcode、常量池、源码位置、
+AST → Bytecode compiler、Verifier 和反汇编入口。所有现有合法示例必须同时通过 Parser、
+Checker 和 Bytecode Verifier；`hhy run` 仍默认使用 AST evaluator，alpha 不承诺 opcode、
+磁盘格式或执行引擎兼容。V1.2.2 使用官方 HTML 0.2.0 扩展验证真实网页批量抽取、
 可观察截断、结构化扩展错误以及三平台依赖发行，现有 Protocol 1 同步批量路径足以满足
 当前有界负载，因此不提前加入 Stream credit 或 Opaque Handle。V1.2.1 完成官方扩展签名 Registry、确定性依赖解析、
 事务式安装、锁定、离线重建与安全回滚闭环。V1.1.8 增加的首个 Runtime
@@ -322,6 +326,7 @@ Linux arm64、Linux x86_64 和 Windows x86_64 MSYS2 上执行相应的严格编�
 - 当前版本来源：[VERSION](VERSION)
 - 语言的唯一规范来源：[docs/HHY_V1.md](docs/HHY_V1.md)
 - Runtime 治理规则：[docs/RUNTIME_GOVERNANCE.md](docs/RUNTIME_GOVERNANCE.md)
+- 实验性 Bytecode 边界：[docs/BYTECODE.md](docs/BYTECODE.md)
 - 已知限制：[docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md)
 - 四平台持续验证：[GitHub Actions](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
 

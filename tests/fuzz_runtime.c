@@ -1,4 +1,5 @@
 #include "hhy/ast.h"
+#include "hhy/bytecode.h"
 #include "hhy/common.h"
 #include "hhy/fuzz.h"
 #include "hhy/parser.h"
@@ -22,9 +23,39 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     HhyNode *program = NULL;
     if (hhy_lex(&source, &tokens)) {
         if (trace) { fputs("  parse\n", stderr); fflush(stderr); }
-        (void)hhy_parse(&source, &tokens, &program);
+        HhyParseResult parsed = hhy_parse(&source, &tokens, &program);
+        if (parsed.ok) {
+            if (trace) { fputs("  bytecode compile\n", stderr); fflush(stderr); }
+            HhyBytecodeChunk chunk;
+            hhy_bytecode_chunk_init(&chunk);
+            HhyBytecodeResult compiled = hhy_bytecode_compile(program, &chunk);
+            if (compiled.ok) (void)hhy_bytecode_verify(&chunk);
+            hhy_bytecode_chunk_free(&chunk);
+        }
     }
     hhy_node_free(program); hhy_tokens_free(&tokens); free(text);
+
+    if (trace) { fputs("  bytecode verify\n", stderr); fflush(stderr); }
+    size_t instruction_count = size / 5;
+    if (instruction_count > 256) instruction_count = 256;
+    HhyBytecodeChunk raw;
+    hhy_bytecode_chunk_init(&raw);
+    if (instruction_count > 0) {
+        raw.code = hhy_alloc(instruction_count * sizeof(*raw.code));
+        raw.count = raw.capacity = instruction_count;
+        for (size_t i = 0; i < instruction_count; i++) {
+            size_t offset = i * 5;
+            raw.code[i] = (HhyInstruction){
+                .opcode = (HhyOpcode)data[offset],
+                .constant = data[offset + 1] == 0xff ? HHY_BYTECODE_NO_CONSTANT : data[offset + 1],
+                .child_count = data[offset + 2],
+                .line = data[offset + 3],
+                .column = data[offset + 4]
+            };
+        }
+    }
+    (void)hhy_bytecode_verify(&raw);
+    hhy_bytecode_chunk_free(&raw);
 
     unsigned mode = size == 0 ? 0 : data[0] % 3;
     if (trace) { fprintf(stderr, "  runtime %u\n", mode); fflush(stderr); }

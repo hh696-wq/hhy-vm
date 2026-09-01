@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "hhy/ast.h"
+#include "hhy/bytecode.h"
 #include "hhy/common.h"
 #include "hhy/checker.h"
 #include "hhy/contracts.h"
@@ -25,6 +26,7 @@
 typedef enum {
     COMMAND_CHECK,
     COMMAND_AST,
+    COMMAND_BYTECODE,
     COMMAND_TOKENS,
     COMMAND_FMT,
     COMMAND_PROFILE,
@@ -39,6 +41,7 @@ static void usage(FILE *stream) {
         "  hhy check <file.hhy>...   Validate syntax and core semantics\n"
         "  hhy check --format json <files>  Emit versioned JSON diagnostics\n"
         "  hhy ast <file.hhy>        Print the parsed AST\n"
+        "  hhy bytecode <file.hhy>   Compile, verify, and disassemble experimental Bytecode\n"
         "  hhy tokens <file.hhy>     Print lexer tokens\n"
         "  hhy fmt <file.hhy>...     Format source files in place\n"
         "  hhy fmt --check <files>   Verify canonical formatting\n"
@@ -230,6 +233,24 @@ static int process_file(const char *path, Command command, bool quiet_success,
     if (lex_ok && command != COMMAND_TOKENS) {
         parsed = hhy_parse(&source, &tokens, &program);
         if (parsed.ok && command == COMMAND_AST) hhy_ast_print(program);
+        if (parsed.ok && command == COMMAND_BYTECODE) {
+            HhyCheckResult checked = hhy_check(&source, program);
+            parsed.ok = checked.ok;
+            if (parsed.ok) {
+                hhy_resolve_slots(program);
+                HhyBytecodeChunk chunk;
+                hhy_bytecode_chunk_init(&chunk);
+                HhyBytecodeResult compiled = hhy_bytecode_compile(program, &chunk);
+                if (compiled.ok) hhy_bytecode_disassemble(&chunk, stdout);
+                else {
+                    fprintf(stderr, "%s:%u:%u: bytecode error at instruction %zu: %s\n",
+                            path, program->token.line, program->token.column,
+                            compiled.instruction, compiled.message);
+                    parsed.ok = false;
+                }
+                hhy_bytecode_chunk_free(&chunk);
+            }
+        }
         if (parsed.ok && command == COMMAND_CHECK) {
             HhyCheckResult checked = hhy_check(&source, program);
             parsed.ok = checked.ok;
@@ -424,6 +445,7 @@ int main(int argc, char **argv) {
     if (has_hhy_suffix(argv[1])) { command = COMMAND_RUN; source_index = 1; }
     else if (strcmp(argv[1], "check") == 0) command = COMMAND_CHECK;
     else if (strcmp(argv[1], "ast") == 0) command = COMMAND_AST;
+    else if (strcmp(argv[1], "bytecode") == 0) command = COMMAND_BYTECODE;
     else if (strcmp(argv[1], "tokens") == 0) command = COMMAND_TOKENS;
     else if (strcmp(argv[1], "fmt") == 0) command = COMMAND_FMT;
     else if (strcmp(argv[1], "profile") == 0) command = COMMAND_PROFILE;

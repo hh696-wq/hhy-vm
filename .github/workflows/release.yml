@@ -9,7 +9,7 @@ on:
       tag:
         description: "Semantic release tag (must match VERSION)"
         required: true
-        default: "v1.2.2"
+        default: "v1.3.0-alpha"
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -160,6 +160,8 @@ jobs:
           make clean && make
           ./build/hhy --version
           ./build/hhy check examples/*.hhy tests/valid/basic.hhy tests/valid/regex.hhy tests/valid/json-flow.hhy
+          ./build/hhy bytecode examples/00-hello.hhy | grep 'HALT'
+          make bytecode-test
           ./build/hhy run tests/valid/basic.hhy
           ./build/hhy run tests/valid/regex.hhy
           ./build/hhy run tests/valid/json-flow.hhy
@@ -197,6 +199,7 @@ jobs:
           tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
           tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
           tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/BYTECODE.md$'
 
       - name: Attest Windows release archive
         uses: actions/attest@v4
@@ -240,6 +243,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(cat VERSION)
+          prerelease_option=""
+          if printf '%s' "$version" | grep -q -- '-'; then
+            prerelease_option="--prerelease"
+          fi
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             tag_option="--verify-tag"
           else
@@ -249,12 +256,18 @@ jobs:
             gh release upload "$RELEASE_TAG" release-assets/* --clobber
             gh release edit "$RELEASE_TAG" \
               --title "HHY Language $version" \
+              $prerelease_option \
               --notes-file "docs/releases/v$version.md"
           else
             gh release create "$RELEASE_TAG" release-assets/* \
               $tag_option \
+              $prerelease_option \
               --draft \
               --title "HHY Language $version" \
               --notes-file "docs/releases/v$version.md"
           fi
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          if [ -n "$prerelease_option" ]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi

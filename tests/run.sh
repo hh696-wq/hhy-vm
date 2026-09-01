@@ -42,6 +42,7 @@ fi
 
 for source in examples/*.hhy tests/valid/*.hhy tests/acceptance/*.hhy tests/acceptance/lib/*.hhy; do
     "$HHY_BIN" check "$source" >/dev/null || fail "expected $source to parse"
+    "$HHY_BIN" bytecode "$source" >/dev/null || fail "expected $source to compile to verified Bytecode"
 done
 
 for source in examples/*.hhy; do
@@ -145,6 +146,19 @@ cmp -s tests/output/language-basics.tokens.txt tests/fixtures/language-basics.to
 "$HHY_BIN" ast examples/07-language-basics.hhy > tests/output/language-basics.ast.txt
 cmp -s tests/output/language-basics.ast.txt tests/fixtures/language-basics.ast.txt ||
     fail "Parser AST snapshot changed"
+bytecode_output=$("$HHY_BIN" bytecode examples/00-hello.hhy)
+case "$bytecode_output" in
+    "HHY Bytecode v1 (experimental)"*"constants 21"*"instructions 40"*"0000 PROGRAM"*"0001 LET_DECL"*"0039 HALT"*) ;;
+    *) fail "Bytecode compiler or disassembler output changed unexpectedly" ;;
+esac
+run_after_bytecode=$("$HHY_BIN" run examples/00-hello.hhy)
+case "$run_after_bytecode" in
+    '6
+8
+10
+Hello HHY') ;;
+    *) fail "experimental Bytecode command changed the default AST run path" ;;
+esac
 set +e
 recovery_output=$("$HHY_BIN" check tests/invalid/multiple-errors.hhy 2>&1)
 recovery_status=$?

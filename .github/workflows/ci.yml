@@ -83,6 +83,8 @@ jobs:
         run: |
           ./build/hhy --version
           ./build/hhy check examples/*.hhy tests/valid/basic.hhy tests/valid/regex.hhy tests/valid/json-flow.hhy
+          ./build/hhy bytecode examples/00-hello.hhy | grep 'HALT'
+          make bytecode-test
           ./build/hhy run tests/valid/basic.hhy
           ./build/hhy run tests/valid/regex.hhy
           ./build/hhy run tests/valid/json-flow.hhy
@@ -138,6 +140,7 @@ jobs:
           tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
           tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
           tar -tzf dist/*.tar.gz | grep -E 'docs/KNOWN_LIMITATIONS.md$'
+          tar -tzf dist/*.tar.gz | grep -E 'docs/BYTECODE.md$'
 
       - name: Upload Windows release evidence
         uses: actions/upload-artifact@v7

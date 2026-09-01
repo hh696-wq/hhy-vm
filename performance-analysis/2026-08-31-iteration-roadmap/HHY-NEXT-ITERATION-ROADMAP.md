@@ -19,9 +19,9 @@ v1.2.1  锁定、离线、可复现安装与回滚
     ↓
 v1.2.2  官方复杂扩展验证与证据驱动的协议补强
     ↓
-v1.3    真实用户与旗舰场景
+v1.3    有条件的 AST → Bytecode VM 演进
     ↓
-v1.4    有条件的 AST → Bytecode VM 演进
+v1.4    真实用户与旗舰场景
     ↓
 v2.0    有条件的生态开放与 ABI 决策
 ```
@@ -43,22 +43,22 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.2.0 | **已完成 · 2026-08-31** | 官方扩展分发与签名 | 包身份、Ed25519 签名、依赖解析、静态官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
 | v1.2.1 | **已完成并发布 · 2026-09-01** | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
 | v1.2.2 | **已完成并发布 · 2026-09-01** | 官方 HTML 复杂扩展验证与协议补强 | Lexbor HTML 解析、CSS 选择器、可观察批量结构化抽取、端到端发行与兼容验证；扩展错误元数据兼容增强 | HTML 扩展通过三平台、最小权限、错误和资源验收；无证据需要的 Stream、取消与 Handle 不进入实现 |
-| v1.3 | 规划 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
-| v1.4 | 条件规划 | AST → Bytecode VM | 保留语言语义，把 AST lowering 为可验证 Bytecode，并建立新执行引擎 | 真实负载证明 AST dispatch 是主瓶颈；双引擎语义一致 |
+| v1.3 | **v1.3.0-alpha 实现完成 · 2026-09-01；待四平台预发布门禁** | AST → Bytecode VM | 保留语言语义，把 AST lowering 为可验证 Bytecode，并建立新执行引擎 | 现有 profiler 与 CPU-bound 基准证明 AST dispatch 值得优化；双引擎语义一致 |
+| v1.4 | 规划 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
 | v2.0 | 条件规划 | 生态开放与 ABI 决策 | 进程协议边界报告、Embedding/FFI/Native ABI 决策 | 至少两个真实集成证明进程协议不足，否则不开放 ABI |
 
-总表只列稳定版本和 release train，避免把开发阶段误解为多个并列产品版本。v1.4 的交付阶段单列如下：
+总表只列稳定版本和 release train，避免把开发阶段误解为多个并列产品版本。v1.3 的交付阶段单列如下：
 
-| v1.4 阶段 | 阶段目标 | 关键交付 | 退出门槛 |
+| v1.3 阶段 | 阶段目标 | 关键交付 | 退出门槛 |
 | --- | --- | --- | --- |
-| v1.4.0-alpha | Bytecode 设计与编译器骨架 | Chunk、Opcode、常量池、源码位置表、AST compiler、Verifier、反汇编 | 核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎 |
-| v1.4.0-beta | Bytecode VM 执行核心 | Operand stack、CallFrame、Closure/Upvalue、异常、GC roots、取消和资源限制 | 核心 fixtures 通过 AST/Bytecode 双引擎语义对照 |
-| v1.4.0-rc | 性能与默认切换评估 | 真实 benchmark、Profiler、Stack trace、三平台和故障注入 | 语义零差异；CPU 负载有实质收益；I/O 负载无明显回退 |
-| v1.4.0 | Bytecode 正式发布 | 达标时默认启用 Bytecode，保留 `--engine ast` 回退 | 至少一个 RC 周期稳定；诊断、资源安全和跨平台证据完整 |
-| v1.4.1 | 真实负载兼容加固 | 修复现场差异、性能回退和可观测性问题 | 双引擎测试持续通过；无新增高优先级正确性问题 |
-| v1.4.2 | VM 稳定化 | 固化 compiler/VM 内部边界，持续保留 AST 语义 oracle | 多版本无语义漂移；AST 对照测试持续运行 |
+| v1.3.0-alpha | **实现完成；待四平台预发布门禁** · Bytecode 设计与编译器骨架 | Chunk、Opcode、常量池、源码位置表、AST compiler、Verifier、反汇编 | 核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎 |
+| v1.3.0-beta | Bytecode VM 执行核心 | Operand stack、CallFrame、Closure/Upvalue、异常、GC roots、取消和资源限制 | 核心 fixtures 通过 AST/Bytecode 双引擎语义对照 |
+| v1.3.0-rc | 性能与默认切换评估 | 真实 benchmark、Profiler、Stack trace、三平台和故障注入 | 语义零差异；CPU 负载有实质收益；I/O 负载无明显回退 |
+| v1.3.0 | Bytecode 正式发布 | 达标时默认启用 Bytecode，保留 `--engine ast` 回退 | 至少一个 RC 周期稳定；诊断、资源安全和跨平台证据完整 |
+| v1.3.1 | 真实负载兼容加固 | 修复现场差异、性能回退和可观测性问题 | 双引擎测试持续通过；无新增高优先级正确性问题 |
+| v1.3.2 | VM 稳定化 | 固化 compiler/VM 内部边界，持续保留 AST 语义 oracle | 多版本无语义漂移；AST 对照测试持续运行 |
 
-说明：官网的“v1.2 官方扩展包分发与工具链”是整个 v1.2 release train 的总目标。v1.2.0 建立安全分发主链路和最低限度的事务式安装；v1.2.1 补齐离线锁定、可复现安装和显式回滚，至此完成公开 v1.2 目标闭环。v1.4 只有满足启动条件才进入 alpha；alpha、beta、rc 是质量门禁，不是可以按日期强行发布的功能版本。
+说明：官网的“v1.2 官方扩展包分发与工具链”是整个 v1.2 release train 的总目标。v1.2.0 建立安全分发主链路和最低限度的事务式安装；v1.2.1 补齐离线锁定、可复现安装和显式回滚，至此完成公开 v1.2 目标闭环。v1.3 只有满足启动条件才进入 alpha；alpha、beta、rc 是质量门禁，不是可以按日期强行发布的功能版本。外部采用后移到 v1.4，不作为启动 VM 原型的前置阻塞条件。
 
 ## 3. v1.1.x：稳定基线、诊断体验与 Runtime 治理
 
@@ -461,58 +461,11 @@ HTML 扩展必须使用真实网页 fixture 和批量抽取负载完成验收，
 - [x] GitHub Actions 上 Linux x86_64、Linux arm64、macOS arm64、Windows x86_64 全部通过并产出对应归档；
 - [x] 上述门禁全绿后执行最后一步 GitHub Release。
 
-## 5. v1.3：真实用户与旗舰场景
-
-### 版本目标
-
-证明外部用户能够独立安装、理解、开发、部署和维护真实 HHY 项目。
-
-### 推荐定位
-
-> 面向 CI、数据收集和系统运维的安全确定性自动化语言。
-
-### 旗舰项目
-
-1. **FlowGuard**：CI 质量门禁入口，体现退出码、dry-run、安全和报告；
-2. **多 API 数据采集器**：展示 Flow、HTTP、并发、重试和结构化数据；
-3. **Crawler/SiteGraph Auditor**：高级案例，展示边界、SSRF 防护、恢复和渲染。
-
-### 产品化工作
-
-- `hhy init <template>` 创建官方模板；
-- 模板包含配置、源码、测试、CI、README 和安全默认值；
-- GitHub Actions 示例可直接复制；
-- `hhy doctor` 检查 Core、扩展、lockfile 和宿主能力；
-- 测量首次安装到成功运行的时间；
-- 建立常见故障诊断文档；
-- 官方模板锁定依赖并支持离线重建；
-- 发布性能、内存和资源预算；
-- 反馈模板记录任务、环境、阻塞点和放弃原因。
-
-### 外部验证与门槛
-
-- 至少 3–5 个非项目作者用户；
-- 覆盖 CI、数据收集、系统运维中的至少两个场景；
-- 用户无需作者远程操作即可部署；
-- 至少一个项目持续运行一周或进入真实 CI；
-- 功能诉求按频率、影响和替代方案归类；
-- 形成公开案例、复现步骤和首次失败原因分布；
-- 只有重复出现的真实阻塞进入后续路线。
-
-### 进入 v1.4 前的语言语义基线
-
-- 将规范中的冻结语义整理为独立 conformance suite；
-- 测试覆盖 Value、Pipe、控制流、函数、Closure、Module、Stream、Error、取消、资源上限和退出码；
-- 将实现细节测试与语言行为测试分开，后者不依赖 AST evaluator 内部结构；
-- 为 diagnostics、stack trace、dry-run 和 profiler 建立稳定快照；
-- 保存 v1.3 真实项目的 profile corpus，作为是否启动 Bytecode 的决策输入；
-- 没有完成 conformance suite，不进入 v1.4 compiler/VM 开发。
-
-## 6. v1.4：有条件的 AST → Bytecode VM 演进
+## 5. v1.3：有条件的 AST → Bytecode VM 演进
 
 ### 版本定位
 
-v1.4 是条件版本，不因 v1.3 完成而自动启动。它只解决已经被真实项目和 profiler 证明的 AST dispatch、节点遍历、环境查找或调用开销，不增加语言语法，不改变扩展分发路线，也不与 Native ABI 同时开发。
+v1.3 是条件版本。它只解决已经被现有 profiler、CPU-bound benchmark 和仓库内真实项目证明的 AST dispatch、节点遍历、环境查找或调用开销，不增加语言语法，不改变扩展分发路线，也不与 Native ABI 同时开发。外部用户采用不再作为启动原型的前置条件，但默认引擎切换仍必须由真实性能证据决定。
 
 AST evaluator 在迁移期继续作为语义基准和回退引擎。Bytecode VM 必须复用现有 Parser、Checker、Resolver、Value、Stream、Error、Effect、Cancellation 和资源限制 contract，不能形成第二套语言行为。
 
@@ -520,16 +473,31 @@ AST evaluator 在迁移期继续作为语义基准和回退引擎。Bytecode VM 
 
 以下条件必须同时满足：
 
-- v1.3 已取得至少 3–5 个外部真实项目的 profile；
+- v1.2.2 的语言语义、扩展协议和四平台发行基线保持全绿；
+- 已建立不依赖 AST evaluator 内部结构的语言 conformance suite；
 - 至少两个 CPU-bound 工作负载持续显示 AST dispatch/节点遍历为主要热点；
 - Resolver、slot、CallFrame、identifier cache、allocation 和算法优化已经实施；
 - 工作负载瓶颈不是 HTTP、文件、扩展 IPC、序列化或错误的调用粒度；
 - 预期收益足以覆盖 compiler、VM、debug info、stack trace 和双引擎测试的维护成本；
 - 已冻结的 v1 语言语义可以保持不变。
 
-未满足条件时跳过 v1.4，项目可直接继续维护 AST evaluator，或进入不涉及执行引擎的后续版本。
+未满足条件时不进入 v1.3.0-alpha，项目继续维护 AST evaluator；可以先做受限实验原型，但不得以正式版本承诺替代性能证据。
 
-### 6.1 v1.4.0-alpha：Bytecode 设计与编译器骨架
+### 启动准备与语义基线
+
+- 将规范中的冻结语义整理为独立 conformance suite；
+- 测试覆盖 Value、Pipe、控制流、函数、Closure、Module、Stream、Error、取消、资源上限和退出码；
+- 将实现细节测试与语言行为测试分开，后者不依赖 AST evaluator 内部结构；
+- 为 diagnostics、stack trace、dry-run 和 profiler 建立稳定快照；
+- 保存现有 benchmark、FlowGuard、Crawler 和 SiteGraph Auditor 的 profile corpus；
+- 先完成 Resolver、slot、CallFrame、identifier cache、allocation 与算法层面的低风险优化排查；
+- 没有完成 conformance suite 和启动证据审计，不进入 compiler/VM 正式开发。
+
+### 5.1 v1.3.0-alpha：Bytecode 设计与编译器骨架
+
+> **状态：实现完成（2026-09-01），待 Linux、macOS、Windows Actions 与最终 prerelease**<br>
+> 实现边界：本阶段交付可验证的结构化 Bytecode IR 和编译工具链，不交付执行 VM。控制流、函数和 Pipe 均以明确 Opcode 与子节点 stack shape 编译；可执行跳转、CallFrame 和 operand stack 属于 beta。<br>
+> 固定发布约束：四个平台 Actions 与对应归档全部通过后，GitHub prerelease 才作为最后一步执行；稳定版 v1.2.2 继续保持 latest。
 
 #### 目标
 
@@ -539,33 +507,35 @@ AST evaluator 在迁移期继续作为语义基准和回退引擎。Bytecode VM 
 
 | 模块 | 计划内容 |
 | --- | --- |
-| Chunk | 指令数组、常量池、源码位置表、函数元数据、最大 slot/stack 深度 |
-| Opcode | 常量、slot/global/closure 访问、算术比较、跳转、调用、返回、集合、Pipe、异常、资源检查 |
+| Chunk | 有界指令数组、去重常量池和逐指令源码位置；指令数、常量数与嵌套深度有硬上限 |
+| Opcode | 每个当前 AST 节点种类具有明确 Opcode，覆盖声明、表达式、控制流、函数、集合、Pipe 与异常结构 |
 | Compiler | 在 Parser、Checker、Resolver 后把 AST lowering 为 Bytecode，不重复解析或类型规则 |
-| Control flow | if/else、短路逻辑、循环、break/continue、return、try/catch/throw 的跳转与 unwind |
-| Function | 参数 slot、局部 slot、closure capture/upvalue、递归和嵌套函数 |
+| Control flow | if/else、短路逻辑、循环、break/continue、return、try/catch/throw 编译为可验证结构；可执行跳转与 unwind 留给 beta |
+| Function | 函数、参数、closure、递归和嵌套函数进入结构化 IR；CallFrame 与 upvalue 执行留给 beta |
 | Debug info | 每条指令映射原文件、行、列和 AST site，保留现有错误定位 |
 | Tooling | `hhy compile`、`hhy bytecode` 或等价的内部 dump/verify 命令 |
 
 #### 初始指令设计原则
 
 - 采用小而明确的操作码集合，暂不做复杂超级指令；
-- 操作数宽度、字节序、跳转范围和最大 chunk 大小明确；
-- 常量池、函数和源码位置均有硬上限；
-- 编译期间检查 stack effect 和跳转目标；
+- 操作数宽度和最大 chunk 大小明确；
+- 常量池、源码位置和结构嵌套均有硬上限；
+- Verifier 检查每个节点的子节点 stack shape；可执行跳转目标检查在 beta 引入跳转指令时启用；
 - Bytecode 只作为内存内部格式，alpha 阶段不承诺磁盘格式兼容；
 - 不把 `HhyValue` 内部布局暴露为公共 ABI；
 - 系统 I/O、Stream 和扩展调用继续经过现有 Runtime/Contract Registry。
 
 #### Alpha 发布门槛
 
-- literals、变量、表达式、分支、循环和函数可编译并反汇编；
-- verifier 能拒绝非法 opcode、越界常量、错误跳转和不一致 stack effect；
-- compiler 对源码错误继续使用现有 diagnostics；
-- fuzz 可同时覆盖 Parser → Compiler → Verifier；
-- 默认 `hhy run` 仍使用 AST evaluator。
+- [x] literals、变量、表达式、分支、循环和函数可编译并反汇编；
+- [x] verifier 能拒绝非法 opcode、越界常量、损坏的节点 stack shape、非规范 HALT 与尾随指令；
+- [x] compiler 对源码错误继续使用现有 diagnostics；
+- [x] fuzz 同时覆盖 Parser → Compiler → Verifier 和随机损坏指令流；
+- [x] 默认 `hhy run` 仍使用 AST evaluator；
+- [ ] Linux x86_64、Linux arm64、macOS arm64、Windows x86_64 Actions 全部通过并产出对应 alpha 归档；
+- [ ] 上述门禁全绿后执行最后一步 GitHub prerelease，并保持 v1.2.2 为 latest。
 
-### 6.2 v1.4.0-beta：Bytecode VM 执行核心
+### 5.2 v1.3.0-beta：Bytecode VM 执行核心
 
 #### 目标
 
@@ -619,7 +589,7 @@ hhy bytecode script.hhy
 - 强制取消、OOM、递归上限和扩展崩溃不会泄漏 VM roots/resources；
 - Bytecode 引擎仍不是默认执行路径。
 
-### 6.3 v1.4.0-rc：性能、可观测性与默认切换评估
+### 5.3 v1.3.0-rc：性能、可观测性与默认切换评估
 
 #### 目标
 
@@ -655,11 +625,11 @@ hhy bytecode script.hhy
 
 若门槛未满足，AST 继续作为默认引擎，Bytecode 保持实验状态或终止开发；不能为兑现版本号强行切换。
 
-### 6.4 v1.4.x：迁移与兼容策略
+### 5.4 v1.3.x：迁移与兼容策略
 
-- v1.4.0：满足门槛时默认启用 Bytecode，同时保留 `--engine ast` 回退；
-- v1.4.1：修复真实负载差异，继续运行全部双引擎测试；
-- v1.4.2：固化 compiler/VM 内部边界，持续运行 AST/Bytecode 对照；
+- v1.3.0：满足门槛时默认启用 Bytecode，同时保留 `--engine ast` 回退；
+- v1.3.1：修复真实负载差异，继续运行全部双引擎测试；
+- v1.3.2：固化 compiler/VM 内部边界，持续运行 AST/Bytecode 对照；
 - AST evaluator 在整个 v1.x 保留为语义 oracle、调试回退和差分测试引擎，不在 patch 版本删除；
 - 将来若考虑移除 AST 执行入口，必须作为单独的重大兼容决策，不与普通稳定化版本捆绑；
 - Bytecode 磁盘缓存另行评估，不能在内部格式尚未稳定时默认持久化；
@@ -667,7 +637,7 @@ hhy bytecode script.hhy
 - 不加载未经 verifier 验证的外部 Bytecode；
 - Bytecode 版本与语言版本、扩展协议版本、包版本分别管理。
 
-### v1.4 明确不做
+### v1.3 明确不做
 
 - 不在同一版本开放 Native ABI；
 - 不同时实现 JIT、LLVM 或本地编译；
@@ -675,6 +645,54 @@ hhy bytecode script.hhy
 - 不让扩展直接提交未验证 Bytecode；
 - 不承诺 alpha 阶段的 opcode 或二进制格式稳定；
 - 不在缺少真实性能收益时移除 AST evaluator。
+
+## 6. v1.4：真实用户与旗舰场景
+
+### 版本目标
+
+在 v1.3 执行引擎稳定后，证明外部用户能够独立安装、理解、开发、部署和维护真实 HHY 项目。v1.4 是采用验证版本，不以继续增加语言特性为主要目标。
+
+### 推荐定位
+
+> 面向 CI、数据收集和系统运维的安全确定性自动化语言。
+
+### 旗舰项目
+
+1. **FlowGuard**：CI 质量门禁入口，体现退出码、dry-run、安全和报告；
+2. **多 API 数据采集器**：展示 Flow、HTTP、并发、重试和结构化数据；
+3. **Crawler/SiteGraph Auditor**：高级案例，展示边界、SSRF 防护、恢复和渲染。
+
+### 产品化工作
+
+- `hhy init <template>` 创建官方模板；
+- 模板包含配置、源码、测试、CI、README 和安全默认值；
+- GitHub Actions 示例可直接复制；
+- `hhy doctor` 检查 Core、扩展、lockfile 和宿主能力；
+- 测量首次安装到成功运行的时间；
+- 建立常见故障诊断文档；
+- 官方模板锁定依赖并支持离线重建；
+- 发布性能、内存和资源预算；
+- 反馈模板记录任务、环境、阻塞点和放弃原因。
+
+### 外部验证与门槛
+
+- 至少 3–5 个非项目作者用户；
+- 覆盖 CI、数据收集、系统运维中的至少两个场景；
+- 用户无需作者远程操作即可部署；
+- 至少一个项目持续运行一周或进入真实 CI；
+- Linux、macOS、Windows 的真实使用记录合计覆盖三个平台；
+- 功能诉求按文档、工具链、语言、协议、平台和产品边界归类；
+- 形成公开案例、复现步骤和首次失败原因分布；
+- 只有重复出现的真实阻塞进入后续路线。
+
+### 外部采用前的稳定基线
+
+- v1.3 至少完成一个稳定 RC 周期；若 Bytecode 未达到默认切换门槛，则明确保留 AST 默认引擎；
+- 独立 conformance suite 覆盖 Value、Pipe、控制流、函数、Closure、Module、Stream、Error、取消、资源上限和退出码；
+- 模板与语言行为测试不得依赖 AST 或 Bytecode 内部结构；
+- diagnostics、stack trace、dry-run 和 profiler 在当前默认引擎上具备稳定快照；
+- 保存外部真实项目的 profile corpus，作为 v1.3.x 优化或后续执行引擎决策输入；
+- 不允许为了外部展示绕过 lockfile、权限、资源上限和跨平台门禁。
 
 ## 7. v2.0：有条件的生态开放与 ABI 决策
 
@@ -774,8 +792,8 @@ PermissionError: [Errno 1] Operation not permitted
     > 结构化诊断与编辑器闭环
     > 官方扩展可信分发与可复现安装
     > 复杂扩展对协议的真实验证
-    > 外部用户与旗舰项目
     > 证据驱动的 AST → Bytecode VM
+    > 外部用户与旗舰项目
     > 有条件的 ABI 决策
 ```
 

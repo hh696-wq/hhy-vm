@@ -1,4 +1,4 @@
-export const hhyVersion = "1.2.2" as const;
+export const hhyVersion = "1.3.0-alpha" as const;
 export const hhyVersionLabel = `V${hhyVersion}` as const;
 export const hhyVersionTag = `v${hhyVersion}` as const;
 export const hhyReleaseUrl = `https://github.com/hh696-wq/hhy-vm/releases/tag/${hhyVersionTag}` as const;
@@ -8,13 +8,13 @@ export const hhyCoreCallableCount = 96;
 // the homepage title and description pointing at an older release theme.
 export const hhyCurrentRelease = {
   zh: {
-    title: "锁定、离线与安全回滚",
-    summary: "增加精确 lockfile、内容寻址离线缓存、可复现安装，以及保留已验证旧环境的事务式升级与回滚。",
-    verification: "签名 fixture 覆盖索引漂移、缓存损坏、离线重建、失败升级和显式回滚；三系统 CI 作为最终发布门禁。"
+    title: "可验证 Bytecode 编译器骨架",
+    summary: "增加内部 Chunk、Opcode、常量池、源码位置、AST compiler、Verifier 和反汇编，同时保留 AST 默认执行路径。",
+    verification: "所有合法示例编译为通过 Verifier 的 Bytecode；非法 opcode、常量越界、结构损坏和 HALT 错误稳定拒绝。"
   },
   en: {
-    title: "Locking, offline installs, and safe rollback",
-    summary: "Adds exact lockfiles, content-addressed offline caches, reproducible installs, and transactional upgrades and rollbacks that preserve the last verified environment.",
-    verification: "Signed fixtures cover index drift, damaged caches, offline rebuilds, failed upgrades, and explicit rollback, with Linux, macOS, and Windows CI as the final release gate."
+    title: "Verifiable Bytecode compiler skeleton",
+    summary: "Adds internal chunks, opcodes, a constant pool, source locations, an AST compiler, a verifier, and a disassembler while retaining the AST default execution path.",
+    verification: "Every valid example compiles to verified Bytecode; invalid opcodes, constant bounds, malformed structure, and HALT errors fail closed."
   }
 } as const;

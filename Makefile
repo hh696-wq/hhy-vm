@@ -34,6 +34,7 @@ DEBUG_OBJECTS := $(addprefix build/debug/,$(SOURCE_NAMES))
 TARGET := build/hhy
 DEBUG_TARGET := build/hhy-debug
 FUZZ_TARGET := build/hhy-fuzz
+BYTECODE_TEST_TARGET := build/hhy-bytecode-test
 LIBFUZZ_TARGET := build/hhy-libfuzzer
 FUZZ_SOURCES := $(filter-out src/main.c,$(SOURCES)) tests/fuzz_runtime.c
 SYSTEM := $(shell uname -s | tr '[:upper:]' '[:lower:]')
@@ -43,7 +44,7 @@ PACKAGE := hhy-$(VERSION)-$(SYSTEM)-$(ARCH)
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: all clean extensions test test-debug debug benchmark quality install dist registry-package fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
+.PHONY: all clean extensions test test-debug debug benchmark quality install dist registry-package bytecode-test fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
 
 all: $(TARGET)
 
@@ -77,10 +78,17 @@ extensions:
 	$(MAKE) -C extensions/database
 	$(MAKE) -C extensions/html
 
-test: $(TARGET) extensions
+$(BYTECODE_TEST_TARGET): tests/bytecode_alpha.c src/bytecode.c src/common.c include/hhy/bytecode.h
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/bytecode_alpha.c src/bytecode.c src/common.c -o $@
+
+bytecode-test: $(BYTECODE_TEST_TARGET)
+	$(BYTECODE_TEST_TARGET)
+
+test: $(TARGET) extensions bytecode-test
 	sh tests/run.sh $(TARGET)
 
-test-debug: $(DEBUG_TARGET) extensions
+test-debug: $(DEBUG_TARGET) extensions bytecode-test
 	HHY_SKIP_GC_STRESS=1 sh tests/run.sh $(DEBUG_TARGET)
 
 benchmark: $(TARGET)
@@ -127,7 +135,7 @@ dist:
 		build/$(PACKAGE)/extensions/html/bin dist
 	cp $(TARGET) build/$(PACKAGE)/bin/hhy
 	cp README.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
-	cp docs/HHY_V1.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md docs/EXTENSION_PROTOCOL_V1.md docs/RUNTIME_GOVERNANCE.md docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md build/$(PACKAGE)/docs/
+	cp docs/HHY_V1.md docs/BYTECODE.md docs/DEPENDENCIES.md docs/EXTENSION_ROADMAP.md docs/EXTENSION_PROTOCOL_V1.md docs/RUNTIME_GOVERNANCE.md docs/THIRD_PARTY_NOTICES.md docs/KNOWN_LIMITATIONS.md build/$(PACKAGE)/docs/
 	CC="$(CC)" sh scripts/build-info.sh $(TARGET) > build/$(PACKAGE)/BUILD_INFO.txt
 	cp examples/*.hhy examples/README.md build/$(PACKAGE)/examples/
 	cp extensions/README.md build/$(PACKAGE)/extensions/

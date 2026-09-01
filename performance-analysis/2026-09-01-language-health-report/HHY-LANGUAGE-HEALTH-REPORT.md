@@ -1,0 +1,125 @@
+# HHY 语言状态报告
+
+报告日期：2026-09-01<br>
+报告对象：[HHY 语言状态报告网页](http://127.0.0.1:9800/zh/learn/language-health-report)<br>
+当前正式版本：HHY v1.2.2<br>
+发布提交：`da50525`<br>
+报告结论：**健康，可发布；网页状态信息需要从 v1.1.8 更新至 v1.2.2。**
+
+## 1. 执行摘要
+
+截至 2026-09-01，HHY 已完成 v1.2 release train 的主要工程闭环：核心语言语义保持稳定，Runtime 具备资源和所有权治理，官方扩展支持签名分发、确定性依赖解析、Lockfile、离线缓存、可复现安装、事务式升级与回滚；HTML 0.2.0 复杂扩展已通过 macOS arm64、Linux x86_64、Linux arm64 和 Windows x86_64 的构建、安装、运行与发行验收。
+
+正式 v1.2.2 Release 已包含四个平台归档、逐包 SHA-256 和合并 `SHA256SUMS`。现有 HTML 工作负载没有证明必须增加 Stream credit、跨调用取消或 Opaque Handle，因此协议保持兼容、边界保持克制。
+
+当前网页的结构、信息分层和证据口径仍然有效，但标题、发布摘要、采样点和生态状态仍停留在 2026-08-31 / v1.1.8，与当前已发布的 v1.2.2 不一致。这是本报告发现的首要文档健康问题，不是 Runtime 或发行阻断问题。
+
+## 2. 健康度总览
+
+| 维度 | 状态 | 结论 | 主要证据 |
+| --- | --- | --- | --- |
+| 语言语义 | 健康 | Pipe、Value、Stream、Error 与核心 callable contract 保持稳定 | 规范示例、Parser/Checker fixtures、96 项 callable contract 检查 |
+| Runtime | 健康 | 资源上限、所有权、GC stress、sanitizer、fuzz 和稳定错误形成门禁 | Release/Debug suite、Runtime governance、CI 分层门禁 |
+| 扩展协议 | 健康 | Protocol 1 保持兼容，只追加可忽略的错误元数据 | `operation`、`stage`、`cause` 兼容测试；旧扩展无需重发 |
+| 扩展分发 | 健康 | 签名、依赖、锁定、离线、可复现安装和回滚形成闭环 | v1.2.0–v1.2.2 发行与 Registry 验收 |
+| 复杂扩展 | 健康 | HTML 0.2.0 可安全解析畸形 HTML 并有界批量抽取 | Lexbor、CSS selector、真实目录 fixture、硬上限与结构化错误 |
+| 跨平台发行 | 健康 | 四个平台构建与正式资产完整 | macOS arm64、Linux x86_64、Linux arm64、Windows x86_64 |
+| 性能治理 | 健康 | 固定 workload、五次采样中位数和阻断预算持续有效 | `benchmarks/performance-budget.json` 与 CI baseline artifact |
+| 网站内容时效性 | 待更新 | 页面仍宣称 v1.1.8，未反映 v1.2.2 已正式发布 | 2026-09-01 对目标网页的可见内容检查 |
+
+## 3. 当前发布基线
+
+### 3.1 v1.2.2 已交付能力
+
+- 官方 `html` 0.2.0 使用 Lexbor 解析不可信或畸形 HTML；
+- 支持有界 CSS 选择和单次解析、多字段结构化抽取；
+- `html.extract_report` 返回 `rows`、`matched`、`returned`、`truncated` 和 `input_bytes`；
+- 扩展保持 `effect = none`，不自行读取文件、访问网络或执行子进程；
+- HHY Error 可保留扩展 `operation`、`stage` 与 `cause`，同时兼容旧 Protocol 1 扩展；
+- 已验证签名 Registry 安装、确定性 lock、离线重建、篡改拒绝、升级和回滚；
+- Windows 扩展原生 DLL 放入包内私有 `lib`，Runtime 启动扩展时使用该受控路径，避免依赖宿主机全局 PATH。
+
+### 3.2 协议决策
+
+当前实测边界为 768 KiB 输入、最多 10,000 条结果和 1 MiB 协议消息。真实 HTML 集成可以通过同步、有界、批量 API 完成任务，没有证据支持在 v1.2.2 引入 Stream credit、跨调用取消或 Opaque Handle。这些能力继续作为条件规划项，只有真实集成和兼容测试证明必要时才进入协议。
+
+## 4. 可复核发行证据
+
+| 证据 | 结果 |
+| --- | --- |
+| 开发门禁 | [Release Evidence #33463216421](https://github.com/hh696-wq/hhy-vm/actions/runs/33463216421) 全部通过 |
+| 标签后门禁 | [Release Evidence #33463496696](https://github.com/hh696-wq/hhy-vm/actions/runs/33463496696) 全部通过 |
+| 网站检查 | [Website #33463496691](https://github.com/hh696-wq/hhy-vm/actions/runs/33463496691) 通过 |
+| 正式发行 | [Publish HHY release #33463496715](https://github.com/hh696-wq/hhy-vm/actions/runs/33463496715) 通过 |
+| GitHub Release | [HHY Language v1.2.2](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.2.2)，非 draft、非 prerelease |
+
+正式 Release 资产：
+
+- `hhy-1.2.2-darwin-arm64.tar.gz`；
+- `hhy-1.2.2-linux-arm64.tar.gz`；
+- `hhy-1.2.2-linux-x86_64.tar.gz`；
+- `hhy-1.2.2-windows-x86_64.tar.gz`；
+- 每个平台对应的 `.sha256`；
+- 合并校验文件 `SHA256SUMS`。
+
+## 5. 性能状态
+
+性能数据用于 HHY 自身回归治理，不用于跨语言性能排名。
+
+### 5.1 当前本机 v1.2.2 样本
+
+环境：macOS 26.6.2 arm64，10 CPU，Python 3.14.7；提交 `6c850b2`。每项连续运行 5 次，报告中位数。
+
+| Workload | 中位数 | 最小–最大 | 绝对预算 | 预算占用 |
+| --- | ---: | ---: | ---: | ---: |
+| CLI `--version` | 3.478 ms | 3.247–3.891 ms | 100 ms | 3.5% |
+| Basic Flow | 7.855 ms | 7.761–9.313 ms | 250 ms | 3.1% |
+| Core Flow 100k | 18.729 ms | 18.608–19.048 ms | 500 ms | 3.7% |
+| JSON Flow | 7.943 ms | 7.626–8.531 ms | 250 ms | 3.2% |
+
+四项 workload 均远低于绝对预算。不同机器的绝对耗时不可直接横向比较；正式趋势判断应继续使用 CI 中相同环境、相同输入和相同采样方法产生的 artifact。
+
+### 5.2 网页现有历史样本
+
+目标网页展示的是 v1.1.8 / 提交 `43db191` 的 Ubuntu 24.04 x86_64 样本。该数据仍可作为历史测量点保留，但必须明确标注为“历史基线”，不应继续描述为“当前语言基线”。
+
+## 6. 网页一致性检查
+
+### 6.1 保持正确的内容
+
+- 页面按发布摘要、数据概览、兼容性、性能和治理结论组织，结构清楚；
+- 96 项核心 callable、21 个完整规范代码块、4 个持续验证平台等口径有自动检查支撑；
+- 性能数据明确声明只用于自身回归，不做跨语言排名；
+- Process Extension Protocol 优先、Native ABI 证据驱动的治理原则仍然正确。
+
+### 6.2 需要更新的内容
+
+| 页面字段 | 当前展示 | 应更新为 |
+| --- | --- | --- |
+| 标题日期 | 2026-08-31 | 2026-09-01 或“持续更新” |
+| 当前语言基线 | v1.1.8 | v1.2.2 |
+| 最新采样点表述 | v1.1.8 | 区分 v1.1.8 CI 历史样本与 v1.2.2 当前发行基线 |
+| 扩展状态 | Protocol 1 与官方扩展的一般描述 | 增加签名 Registry、Lockfile、离线、回滚和 HTML 0.2.0 验收 |
+| 发行证据 | workflow 总入口 | 增加 v1.2.2 的具体 Actions run 和 Release 链接 |
+| 风险列表 | Runtime 集中为主要风险 | 保留该风险，并增加网页状态漂移和跨平台原生依赖打包风险 |
+
+## 7. 风险与后续观察
+
+1. **Runtime 集中度**：仍需按稳定职责渐进拆分，不能以大规模重写替代可验证治理。
+2. **文档状态漂移**：版本发布后网页报告未同步更新，会削弱“当前状态报告”的可信度；应把版本、日期和 Release 证据纳入一致性检查。
+3. **Windows 原生依赖**：HTML 扩展已修复私有 DLL 打包，但后续新增原生扩展必须复用相同发行验收。
+4. **协议扩张压力**：继续坚持真实负载触发；没有证据时不增加 Stream credit、跨调用取消或 Handle 生命周期复杂度。
+5. **性能可比性**：本机与 CI 样本必须分别标注环境；趋势报告以同环境 CI artifact 为准。
+
+## 8. 总体结论
+
+HHY v1.2.2 的语言、Runtime、扩展协议、扩展分发和四平台发行状态为健康。当前不存在阻止 v1.2.2 使用或发布的已知门禁问题。最需要立即处理的是语言状态网页的信息时效性：页面应更新到 v1.2.2，并将 v1.1.8 性能数据保留为明确的历史基线，而不是继续作为当前发布摘要。
+
+## 9. 证据索引
+
+- [语言规范](../../docs/HHY_V1.md)
+- [Runtime 治理](../../docs/RUNTIME_GOVERNANCE.md)
+- [性能预算](../../benchmarks/performance-budget.json)
+- [v1.2.2 Release Notes](../../docs/releases/v1.2.2.md)
+- [下一阶段路线图](../2026-08-31-iteration-roadmap/HHY-NEXT-ITERATION-ROADMAP.md)
+- [本报告网页版本](./HHY-LANGUAGE-HEALTH-REPORT.html)

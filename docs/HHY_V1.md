@@ -1,6 +1,6 @@
 # HHY Language v1.0 统一规范
 
-> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.2.2`
+> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.3.0-alpha`
 > 规范状态：v1.0 已冻结
 > 官网：[hhylang.dev](https://hhylang.dev)  
 > 定位：Flow-first system scripting language  
@@ -1079,7 +1079,7 @@ v1.0 不承诺：
 ```text
 v1.0  Core contracts and namespace reservation
 v1.1  Process Extension Protocol + local package install
-v1.2  official office extension as protocol validation
+v1.2  official HTML extension as protocol validation
 later public Native ABI after Runtime stabilization
 ```
 
@@ -1094,6 +1094,7 @@ hhy repl
 hhy fmt script.hhy
 hhy fmt --check
 hhy check script.hhy
+hhy bytecode script.hhy
 hhy run --dry-run script.hhy
 hhy profile [--cpu|--heap] [--format text|json] [--output path] script.hhy [args...]
 hhy --version
@@ -1111,6 +1112,9 @@ hhy --help
   分配；报告默认写入 stderr，脚本 stdout 和退出码保持运行语义。
 - `profile` 默认同时采集 CPU 和 Heap；单独指定 `--cpu` 或 `--heap` 时只采集选中
   类别。`--format json` 提供机器可读报告，`--output` 将报告写入文件。
+- `bytecode` 是 v1.3.0-alpha 的实验性编译、验证和反汇编入口；它输出内存内部
+  Bytecode IR，不执行 Bytecode、不承诺 opcode 或磁盘格式兼容，也不改变 `run`
+  默认使用 AST evaluator 的行为。
 
 退出码：
 
