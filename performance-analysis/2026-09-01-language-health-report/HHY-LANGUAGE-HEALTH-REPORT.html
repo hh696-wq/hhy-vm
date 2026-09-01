@@ -41,18 +41,18 @@
   <header><div>
     <p class="eyebrow">HHY Language · Health Report</p>
     <h1>HHY 语言状态报告</h1>
-    <p>2026-09-01 · 当前正式版本 v1.2.2 · 依据源码、测试、四平台 Actions、正式发行资产与目标网页可见内容形成。</p>
+    <p>2026-09-01 · 当前正式版本 v1.3.2 · 依据源码、双引擎测试、四平台 Actions、正式发行资产与学习手册审计形成。</p>
   </div></header>
   <main>
     <section class="verdict">
       <span class="badge">健康 · 可发布</span>
-      <div><strong>语言、Runtime、扩展协议和四平台发行门禁均已闭环。</strong><br>首要待办是将线上语言状态页从 v1.1.8 更新至已发布的 v1.2.2。</div>
+      <div><strong>语言、AST/Bytecode 一致性、Runtime、扩展协议和四平台发行门禁均已闭环。</strong><br>Bytecode 已可选；CPU 收益门槛未通过，因此 AST 继续作为默认引擎。</div>
     </section>
 
     <section>
       <h2>数据概览</h2>
       <div class="cards">
-        <div class="card"><strong>v1.2.2</strong>当前正式版本</div>
+        <div class="card"><strong>v1.3.2</strong>当前正式版本</div>
         <div class="card"><strong>4</strong>原生发行平台</div>
         <div class="card"><strong>96</strong>核心 callable</div>
         <div class="card"><strong>HTML 0.2.0</strong>复杂扩展验收</div>
@@ -69,13 +69,13 @@
           <tr><td>扩展协议</td><td class="ok">健康</td><td>Protocol 1 兼容追加 operation、stage、cause 错误元数据。</td></tr>
           <tr><td>扩展工具链</td><td class="ok">健康</td><td>签名、依赖、Lockfile、离线重建、升级与回滚形成闭环。</td></tr>
           <tr><td>跨平台发行</td><td class="ok">健康</td><td>macOS arm64、Linux x86_64/arm64、Windows x86_64 全部通过。</td></tr>
-          <tr><td>网页时效性</td><td class="warn">待更新</td><td>目标网页仍把 v1.1.8 描述为当前语言基线。</td></tr>
+          <tr><td>网页时效性</td><td class="ok">健康</td><td>学习手册已同步 v1.3.2、执行引擎和正式发行证据。</td></tr>
         </tbody>
       </table></div>
     </section>
 
     <section>
-      <h2>v1.2.2 交付状态</h2>
+      <h2>v1.3.2 交付状态</h2>
       <ul>
         <li>官方 HTML 0.2.0 使用 Lexbor 安全解析不可信和畸形 HTML。</li>
         <li><code>html.extract_report</code> 在单次 DOM 解析中完成多字段投影，并公开匹配、返回、截断和输入字节元数据。</li>
@@ -106,10 +106,10 @@
         <thead><tr><th>项目</th><th>网页当前值</th><th>应更新为</th></tr></thead>
         <tbody>
           <tr><td>标题日期</td><td>2026-08-31</td><td>2026-09-01 或持续更新</td></tr>
-          <tr><td>当前语言基线</td><td>v1.1.8</td><td>v1.2.2</td></tr>
+          <tr><td>当前语言基线</td><td>v1.2.2</td><td>v1.3.2</td></tr>
           <tr><td>扩展能力</td><td>Protocol 1 一般状态</td><td>增加签名、锁定、离线、回滚与 HTML 0.2.0</td></tr>
-          <tr><td>发行证据</td><td>CI workflow 总入口</td><td>增加 v1.2.2 Actions run 和 Release 链接</td></tr>
-          <tr><td>性能表述</td><td>v1.1.8 当前采样点</td><td>明确标记为历史 CI 基线，并补充 v1.2.2 当前状态</td></tr>
+          <tr><td>发行证据</td><td>v1.2.2 Actions</td><td>增加 v1.3.0–v1.3.2 Releases 和最终四平台门禁</td></tr>
+          <tr><td>性能表述</td><td>Bytecode 为未来方向</td><td>Bytecode 已可选；AST 依据真实性能门禁保持默认</td></tr>
         </tbody>
       </table></div>
     </section>
@@ -122,17 +122,19 @@
         <li><a href="https://github.com/hh696-wq/hhy-vm/actions/runs/33463496691">Website 检查</a></li>
         <li><a href="https://github.com/hh696-wq/hhy-vm/actions/runs/33463496715">四平台正式 Release workflow</a></li>
         <li><a href="https://github.com/hh696-wq/hhy-vm/releases/tag/v1.2.2">HHY Language v1.2.2 Release</a></li>
+        <li><a href="https://github.com/hh696-wq/hhy-vm/actions/runs/33470597434">v1.3.2 最终四平台 Release Evidence</a></li>
+        <li><a href="https://github.com/hh696-wq/hhy-vm/releases/tag/v1.3.2">HHY Language v1.3.2 Release（latest）</a></li>
       </ul>
     </section>
 
     <section>
       <h2>结论与风险</h2>
       <ol>
-        <li>HHY v1.2.2 当前不存在发行阻断项。</li>
+        <li>HHY v1.3.2 当前不存在发行阻断项。</li>
         <li>Runtime 继续按稳定职责渐进拆分，避免大规模重写。</li>
         <li>新增原生扩展必须复用 Windows 私有依赖打包验收。</li>
         <li>协议能力继续由真实集成触发，不为版本号扩大表面。</li>
-        <li>语言状态网页应尽快更新到 v1.2.2，恢复“当前状态”的准确性。</li>
+        <li>语言状态网页与学习手册已更新到 v1.3.2，并保留历史采样的明确标注。</li>
       </ol>
     </section>
   </main>
