@@ -55,9 +55,11 @@ static void usage(FILE *stream) {
         "  hhy remove <package>      Remove an installed extension\n"
         "  hhy <file.hhy> [args]     Execute an HHY script\n"
         "  hhy run <file.hhy> [args] Execute an HHY script\n"
+        "  hhy run --engine ast|bytecode <file>  Select the execution engine\n"
         "  hhy run --dry-run <file>   Plan without external side effects\n"
         "  hhy run --limit NAME=VALUE <file>  Override a RuntimeLimit\n"
         "  hhy profile [options] <file.hhy> [args]  Analyze CPU and heap usage\n"
+        "    --engine ast|bytecode  Profile the selected execution engine\n"
         "    --cpu | --heap       Collect only the selected profile\n"
         "    --format text|json   Select report format (default: text)\n"
         "    --output <path>      Write the report to a file\n"
@@ -70,7 +72,8 @@ static void usage(FILE *stream) {
 static int process_file(const char *path, Command command, bool quiet_success,
                         int script_argc, char **script_argv, bool dry_run,
                         const HhyRuntimeLimits *limits,
-                        const HhyProfileOptions *profile);
+                        const HhyProfileOptions *profile,
+                        HhyExecutionEngine engine);
 
 static void append_captured_diagnostic(json_t *diagnostics, const char *path,
                                        const char *line) {
@@ -124,7 +127,7 @@ static int process_check_json(int count, char **paths) {
             fclose(capture); result = 4; continue;
         }
         int file_result = process_file(paths[i], COMMAND_CHECK, true, 0, NULL,
-                                       false, NULL, NULL);
+                                       false, NULL, NULL, HHY_ENGINE_AST);
         fflush(stderr);
         dup2(saved_stderr, STDERR_FILENO);
         close(saved_stderr);
@@ -201,7 +204,8 @@ static bool write_formatted(const char *path, const char *text, size_t length) {
 static int process_file(const char *path, Command command, bool quiet_success,
                         int script_argc, char **script_argv, bool dry_run,
                         const HhyRuntimeLimits *limits,
-                        const HhyProfileOptions *profile) {
+                        const HhyProfileOptions *profile,
+                        HhyExecutionEngine engine) {
     HhySource source = {0};
     HhyTokenList tokens = {0};
     HhyNode *program = NULL;
@@ -260,14 +264,16 @@ static int process_file(const char *path, Command command, bool quiet_success,
     bool ok = lex_ok && (command == COMMAND_TOKENS || parsed.ok);
     int run_exit = 0;
     if (ok && command == COMMAND_RUN) {
-        HhyRunResult run = hhy_run_program(&source, program, script_argc, script_argv,
-                                           dry_run, limits);
+        HhyRunResult run = hhy_run_program_engine(&source, program, script_argc,
+                                                  script_argv, dry_run, limits,
+                                                  engine);
         ok = run.ok;
         run_exit = run.exit_code;
     }
     if (ok && command == COMMAND_PROFILE) {
-        HhyRunResult run = hhy_profile_program(&source, program, script_argc, script_argv,
-                                               dry_run, limits, profile);
+        HhyRunResult run = hhy_profile_program_engine(&source, program, script_argc,
+                                                      script_argv, dry_run, limits,
+                                                      profile, engine);
         ok = run.ok;
         run_exit = run.exit_code;
     }
@@ -437,6 +443,7 @@ int main(int argc, char **argv) {
     Command command;
     int source_index = 2;
     bool dry_run = false;
+    HhyExecutionEngine engine = HHY_ENGINE_AST;
     bool check_json = false;
     bool profile_cpu = false, profile_heap = false, profile_selection = false;
     bool profile_json = false;
@@ -455,6 +462,15 @@ int main(int argc, char **argv) {
         usage(stderr);
         return 3;
     }
+    const char *environment_engine = getenv("HHY_ENGINE");
+    if (command == COMMAND_RUN && environment_engine != NULL) {
+        if (strcmp(environment_engine, "ast") == 0) engine = HHY_ENGINE_AST;
+        else if (strcmp(environment_engine, "bytecode") == 0) engine = HHY_ENGINE_BYTECODE;
+        else {
+            fputs("hhy: HHY_ENGINE expects ast or bytecode\n", stderr);
+            return 3;
+        }
+    }
     if ((command == COMMAND_RUN || command == COMMAND_PROFILE) && source_index == 2) {
         while (source_index < argc) {
             if (strcmp(argv[source_index], "--dry-run") == 0) {
@@ -464,6 +480,16 @@ int main(int argc, char **argv) {
                 if (source_index + 1 >= argc || !parse_limit(argv[source_index + 1], &limits)) {
                     fputs("hhy: --limit expects a valid NAME=VALUE\n", stderr); return 3;
                 }
+                source_index += 2; continue;
+            }
+            if (strcmp(argv[source_index], "--engine") == 0) {
+                if (source_index + 1 >= argc ||
+                    (strcmp(argv[source_index + 1], "ast") != 0 &&
+                     strcmp(argv[source_index + 1], "bytecode") != 0)) {
+                    fputs("hhy: --engine expects ast or bytecode\n", stderr); return 3;
+                }
+                engine = strcmp(argv[source_index + 1], "bytecode") == 0
+                    ? HHY_ENGINE_BYTECODE : HHY_ENGINE_AST;
                 source_index += 2; continue;
             }
             if (command == COMMAND_PROFILE && strcmp(argv[source_index], "--cpu") == 0) {
@@ -549,7 +575,8 @@ int main(int argc, char **argv) {
                                        dry_run,
                                        (command == COMMAND_RUN || command == COMMAND_PROFILE)
                                            ? &limits : NULL,
-                                       command == COMMAND_PROFILE ? &profile_options : NULL);
+                                       command == COMMAND_PROFILE ? &profile_options : NULL,
+                                       engine);
         if (file_result != 0) result = file_result;
     }
     if (profile_output != NULL && fclose(profile_output) != 0 && result == 0) result = 4;

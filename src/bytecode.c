@@ -172,6 +172,52 @@ HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk) {
     return result(true, cursor, NULL);
 }
 
+typedef struct {
+    size_t remaining;
+} ExecutionFrame;
+
+HhyBytecodeResult hhy_bytecode_prepare_execution(const HhyBytecodeChunk *chunk,
+                                                 size_t frame_limit,
+                                                 HhyBytecodeExecutionPlan *plan) {
+    if (plan == NULL) return result(false, 0, "execution planner received a null plan");
+    memset(plan, 0, sizeof(*plan));
+    HhyBytecodeResult verified = hhy_bytecode_verify(chunk);
+    if (!verified.ok) return verified;
+    if (frame_limit == 0) return result(false, 0, "Bytecode frame limit must be positive");
+
+    ExecutionFrame *frames = hhy_alloc(frame_limit * sizeof(*frames));
+    size_t frame_count = 0;
+    size_t operands = 0;
+    size_t cursor = 0;
+    while (cursor + 1 < chunk->count) {
+        while (frame_count > 0 && frames[frame_count - 1].remaining == 0) {
+            frame_count--;
+            if (operands > 0) operands--;
+        }
+        if (frame_count >= frame_limit) {
+            free(frames);
+            return result(false, cursor, "Bytecode frame limit %zu exceeded", frame_limit);
+        }
+        if (frame_count > 0) frames[frame_count - 1].remaining--;
+        HhyInstruction instruction = chunk->code[cursor++];
+        operands++;
+        if (operands > plan->max_operand_count) plan->max_operand_count = operands;
+        frames[frame_count++] = (ExecutionFrame){.remaining = instruction.child_count};
+        if (frame_count > plan->max_frame_count) plan->max_frame_count = frame_count;
+    }
+    while (frame_count > 0 && frames[frame_count - 1].remaining == 0) {
+        frame_count--;
+        if (operands > 0) operands--;
+    }
+    free(frames);
+    if (frame_count != 0 || operands != 0)
+        return result(false, cursor, "Bytecode execution shape did not converge");
+    plan->instruction_pointer = cursor;
+    plan->operand_count = operands;
+    plan->frame_count = frame_count;
+    return result(true, cursor, NULL);
+}
+
 static void print_constant(FILE *output, const char *text) {
     fputc('"', output);
     for (const unsigned char *cursor = (const unsigned char *)text; *cursor; cursor++) {

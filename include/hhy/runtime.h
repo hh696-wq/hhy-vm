@@ -9,6 +9,11 @@ typedef struct {
     int exit_code;
 } HhyRunResult;
 
+typedef enum {
+    HHY_ENGINE_AST,
+    HHY_ENGINE_BYTECODE
+} HhyExecutionEngine;
+
 typedef struct {
     size_t max_memory;
     size_t max_open_files;
@@ -25,10 +30,19 @@ HhyRuntimeLimits hhy_runtime_limits_default(void);
 HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
                              int argc, char **argv, bool dry_run,
                              const HhyRuntimeLimits *limits);
+HhyRunResult hhy_run_program_engine(const HhySource *source, const HhyNode *program,
+                                    int argc, char **argv, bool dry_run,
+                                    const HhyRuntimeLimits *limits,
+                                    HhyExecutionEngine engine);
 HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program,
                                  int argc, char **argv, bool dry_run,
                                  const HhyRuntimeLimits *limits,
                                  const HhyProfileOptions *profile);
+HhyRunResult hhy_profile_program_engine(const HhySource *source, const HhyNode *program,
+                                        int argc, char **argv, bool dry_run,
+                                        const HhyRuntimeLimits *limits,
+                                        const HhyProfileOptions *profile,
+                                        HhyExecutionEngine engine);
 int hhy_repl(void);
 
 #endif

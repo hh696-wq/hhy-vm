@@ -13,6 +13,7 @@ typedef struct {
     bool heap;
     bool json;
     FILE *output;
+    const char *engine;
 } HhyProfileOptions;
 
 HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,

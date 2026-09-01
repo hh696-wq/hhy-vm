@@ -151,6 +151,7 @@ case "$bytecode_output" in
     "HHY Bytecode v1 (experimental)"*"constants 21"*"instructions 40"*"0000 PROGRAM"*"0001 LET_DECL"*"0039 HALT"*) ;;
     *) fail "Bytecode compiler or disassembler output changed unexpectedly" ;;
 esac
+sh tests/check-engine-conformance.sh "$HHY_BIN"
 run_after_bytecode=$("$HHY_BIN" run examples/00-hello.hhy)
 case "$run_after_bytecode" in
     '6

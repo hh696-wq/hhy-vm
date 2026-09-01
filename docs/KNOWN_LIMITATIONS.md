@@ -1,6 +1,6 @@
 # HHY v1.1 已知限制
 
-> 当前开发版本：`1.3.0-alpha`；本文描述 v1.x 的公开限制。
+> 当前版本：`1.3.0`；本文描述 v1.x 的公开限制。
 
 本文记录 v1.1 的公开限制。限制不是未实现功能的替代说法；凡属于
 [`HHY_V1.md`](HHY_V1.md) 发布条件的能力仍必须实现和验证。
@@ -10,7 +10,7 @@
 - 正式目标仅为 macOS arm64、Linux arm64 和 Linux x86_64。
 - Windows x86_64 提供经过 CI 验证的 MSYS2 POSIX 发行归档；它包含 Runtime、必要 DLL、sample 与 html 扩展，但不等同于原生 Win32 ABI，且暂不包含 database 扩展。macOS x86_64 和其他 Unix 仍不在正式支持矩阵中。
 - MSYS2 不提供 `ITIMER_PROF`，因此该环境的 profiler 保留调用计数、总 CPU/墙钟时间和堆统计，但不提供信号式 CPU hotspot 采样。
-- v1.3.0-alpha Bytecode 仅是可验证、可反汇编的内存内部编译器 IR；尚无 Bytecode VM、持久 `.hhyc`、外部加载器或默认引擎切换，`hhy run` 继续使用 AST evaluator。
+- v1.3.0 正式提供可选 `hhy run --engine bytecode`：它执行编译、Verifier 和有界 frame/operand 计划后复用统一 Runtime。当前真实性能门槛未全部通过，因此普通 `hhy run` 仍默认使用 AST；不提供持久 `.hhyc`、外部 Bytecode 加载器或公开 Bytecode ABI。
 - File.created 依赖操作系统与文件系统；无法可靠取得时返回 Null，绝不使用 modified 伪造。
 - watch 事件在 macOS/Linux 由 kqueue 或 inotify 归一化；其他 POSIX 环境使用文件状态轮询降级，递归目录监听能力有限。操作系统可能合并短时间内重复发生的底层事件。
 - Unicode 大小写转换使用平台宽字符表；UTF-8 有效性和 code-point length 是确定的，但 v1.0 不承诺跨 Unicode 数据库版本完全一致的大小写映射，也不支持 grapheme-cluster 索引。

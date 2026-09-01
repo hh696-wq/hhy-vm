@@ -1,0 +1,13 @@
+fn inner() {
+    return attempt {
+        read_text(path("tests/fixtures/does-not-exist.txt"))
+    }
+}
+
+fn outer() {
+    return inner()
+}
+
+let result = outer()
+print(result.ok)
+print(result.error.stack)

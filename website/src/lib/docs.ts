@@ -2346,11 +2346,11 @@ export const chapters: Chapter[] = [
     slug: "language-vm-roadmap",
     order: 23,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "v1.3.0-alpha 建立可验证 Bytecode 编译器骨架，AST 继续作为默认执行与语义基准。", en: "v1.3.0-alpha establishes a verifiable Bytecode compiler skeleton while AST remains the default execution and semantic baseline." },
+    summary: { zh: "v1.3.0-beta 正在接入可选择的 Bytecode 执行路径，AST 继续作为默认执行与语义基准。", en: "v1.3.0-beta is adding an opt-in Bytecode execution path while AST remains the default execution and semantic baseline." },
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.3.0-alpha 已实现内部 Chunk、Opcode、常量池、源码位置、AST compiler、Verifier 和反汇编入口；所有现有合法示例均编译为通过验证的 Bytecode，默认 hhy run 仍使用 AST evaluator。" },
+          { type: "note", text: "v1.3.0-beta 开发分支已增加实验性 hhy run --engine bytecode、有界 frame/operand 执行计划和双引擎对照测试；默认 hhy run 仍使用 AST evaluator，专用 opcode dispatch 和远端发行验证尚未完成。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2369,6 +2369,8 @@ export const chapters: Chapter[] = [
             ["v1.2.1 · 已发布", "2026-09-01", "锁定、离线与安全回滚", "同一 lock 得到同一依赖图；离线可重建；失败升级不破坏旧环境"],
             ["v1.2.2 · 已发布", "2026-09-01", "官方 HTML 复杂扩展验证", "真实 fixture、可观察截断、结构化错误和四平台发行全部通过"],
             ["v1.3.0-alpha · 已预发布", "2026-09-01", "Bytecode 编译器骨架", "核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎"],
+            ["v1.3.0-beta · 开发中", "暂不发布", "Bytecode VM 执行核心", "执行桥与本地双引擎对照已接入；继续完成专用 opcode dispatch 和完整 fixture 验收"],
+            ["v1.3.0-rc · 评估工具已实现", "尚未晋级 RC", "性能、Profiler、Stack trace 与默认切换门禁", "本机性能门槛未全部通过，继续保持 AST 默认；三平台和完整故障证据待补"],
             ["v1.4 · 规划", "v1.3 稳定后", "旗舰场景与外部采用", "模板、CI、运维文档和 3–5 个外部真实案例"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
@@ -2384,7 +2386,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.3.0-alpha implements internal chunks, opcodes, a constant pool, source locations, an AST compiler, a verifier, and a disassembler. Every current valid example compiles to verified Bytecode, while hhy run still uses the AST evaluator." },
+          { type: "note", text: "The v1.3.0-beta development branch adds experimental hhy run --engine bytecode, bounded frame/operand planning, and dual-engine conformance tests. The default remains AST; dedicated opcode dispatch and remote release evidence are not complete." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
@@ -2403,6 +2405,8 @@ export const chapters: Chapter[] = [
             ["v1.2.1 · Released", "2026-09-01", "Locking, offline installs, and safe rollback", "The same lock produces the same graph; offline rebuilds work; failed upgrades preserve the old environment"],
             ["v1.2.2 · Released", "2026-09-01", "Official HTML complex-extension validation", "Real fixtures, observable truncation, structured errors, and four-platform distribution all pass"],
             ["v1.3.0-alpha · Prereleased", "2026-09-01", "Bytecode compiler skeleton", "Core syntax compiles, invalid Bytecode is rejected, and AST remains the default engine"],
+            ["v1.3.0-beta · In development", "Not publishing yet", "Bytecode VM execution core", "The execution bridge and local dual-engine checks are wired; dedicated opcode dispatch and full fixture acceptance remain"],
+            ["v1.3.0-rc · Evaluation tooling ready", "Not promoted to RC", "Performance, profiler, stack trace, and default-switch gates", "Local performance gates did not all pass, so AST remains the default; three-platform and full failure evidence remain"],
             ["v1.4 · Planned", "After v1.3 stabilizes", "Flagship scenarios and external adoption", "Templates, CI, operations documentation, and 3–5 real external cases"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },

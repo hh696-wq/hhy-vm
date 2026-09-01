@@ -15,7 +15,7 @@ def main() -> int:
     args = parser.parse_args()
     report = json.loads(Path(args.report).read_text(encoding="utf-8"))
     budget = json.loads(Path(args.budget).read_text(encoding="utf-8"))
-    if report.get("schema_version") != 1 or budget.get("schema_version") != 1:
+    if report.get("schema_version") not in {1, 2} or budget.get("schema_version") != 1:
         raise SystemExit("unsupported performance evidence schema")
     results = report["results"]
     failures: list[str] = []

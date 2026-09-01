@@ -67,10 +67,21 @@ typedef struct {
     char message[160];
 } HhyBytecodeResult;
 
+typedef struct {
+    size_t instruction_pointer;
+    size_t operand_count;
+    size_t max_operand_count;
+    size_t frame_count;
+    size_t max_frame_count;
+} HhyBytecodeExecutionPlan;
+
 void hhy_bytecode_chunk_init(HhyBytecodeChunk *chunk);
 void hhy_bytecode_chunk_free(HhyBytecodeChunk *chunk);
 HhyBytecodeResult hhy_bytecode_compile(const HhyNode *program, HhyBytecodeChunk *chunk);
 HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk);
+HhyBytecodeResult hhy_bytecode_prepare_execution(const HhyBytecodeChunk *chunk,
+                                                 size_t frame_limit,
+                                                 HhyBytecodeExecutionPlan *plan);
 void hhy_bytecode_disassemble(const HhyBytecodeChunk *chunk, FILE *output);
 const char *hhy_opcode_name(HhyOpcode opcode);
 

@@ -52,8 +52,8 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.3 阶段 | 阶段目标 | 关键交付 | 退出门槛 |
 | --- | --- | --- | --- |
 | v1.3.0-alpha | **已完成并预发布** · Bytecode 设计与编译器骨架 | Chunk、Opcode、常量池、源码位置表、AST compiler、Verifier、反汇编 | 核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎 |
-| v1.3.0-beta | Bytecode VM 执行核心 | Operand stack、CallFrame、Closure/Upvalue、异常、GC roots、取消和资源限制 | 核心 fixtures 通过 AST/Bytecode 双引擎语义对照 |
-| v1.3.0-rc | 性能与默认切换评估 | 真实 benchmark、Profiler、Stack trace、三平台和故障注入 | 语义零差异；CPU 负载有实质收益；I/O 负载无明显回退 |
+| v1.3.0-beta | **开发中** · Bytecode VM 执行核心 | 已接入 `--engine bytecode`、Verifier 后执行计划、frame/operand 上限和双引擎对照；继续完成专用 opcode dispatch | 核心 fixtures 通过 AST/Bytecode 双引擎语义对照；默认仍为 AST |
+| v1.3.0-rc | **评估工具已实现，尚未晋级 RC** · 性能与默认切换评估 | 双引擎 benchmark schema 2、Profiler engine/source 标记、HHY Stack trace、Verifier 故障注入和机器可读切换决策 | 本机证据判定暂不切换：CPU 收益和 I/O 回退门槛未全部通过；待完整语义、三平台和故障证据 |
 | v1.3.0 | Bytecode 正式发布 | 达标时默认启用 Bytecode，保留 `--engine ast` 回退 | 至少一个 RC 周期稳定；诊断、资源安全和跨平台证据完整 |
 | v1.3.1 | 真实负载兼容加固 | 修复现场差异、性能回退和可观测性问题 | 双引擎测试持续通过；无新增高优先级正确性问题 |
 | v1.3.2 | VM 稳定化 | 固化 compiler/VM 内部边界，持续保留 AST 语义 oracle | 多版本无语义漂移；AST 对照测试持续运行 |

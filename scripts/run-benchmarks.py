@@ -55,24 +55,53 @@ def main() -> int:
 
     binary = str(Path(args.binary).resolve())
     cases = {
-        "cli_version": ([binary, "--version"], None),
-        "basic_flow": ([binary, "run", "tests/valid/advanced-flow.hhy"], None),
-        "core_flow_100k": ([binary, "run", "benchmarks/core-flow.hhy"], "33334"),
-        "json_flow": ([binary, "run", "tests/valid/json-flow.hhy"], '["Ada", "Grace"]'),
+        "basic_flow": ("tests/valid/advanced-flow.hhy", None),
+        "core_flow_100k": ("benchmarks/core-flow.hhy", "33334"),
+        "json_flow": ("tests/valid/json-flow.hhy", '["Ada", "Grace"]'),
     }
-    results = {
-        name: run_case(command, args.iterations, expected)
-        for name, (command, expected) in cases.items()
+    cli_version = run_case([binary, "--version"], args.iterations, None)
+    engines: dict[str, dict[str, object]] = {}
+    for engine in ("ast", "bytecode"):
+        engines[engine] = {
+            name: run_case(
+                [binary, "run", "--engine", engine, source], args.iterations, expected
+            )
+            for name, (source, expected) in cases.items()
+        }
+    compile_results = {
+        name: run_case([binary, "bytecode", source], args.iterations, None)
+        for name, (source, _) in cases.items()
     }
+    comparisons = {
+        name: {
+            "bytecode_to_ast_wall_ratio": round(
+                engines["bytecode"][name]["median_ms"]
+                / engines["ast"][name]["median_ms"],
+                4,
+            ),
+            "bytecode_delta_ms": round(
+                engines["bytecode"][name]["median_ms"]
+                - engines["ast"][name]["median_ms"],
+                3,
+            ),
+        }
+        for name in cases
+    }
+    # Keep the established AST result keys for the v1.1 performance budget gate.
+    results = {"cli_version": cli_version, **engines["ast"]}
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "hhy_version": Path("VERSION").read_text(encoding="utf-8").strip(),
         "git_revision": git_revision(),
         "platform": platform.platform(),
         "machine": platform.machine(),
         "python": platform.python_version(),
         "cpu_count": os.cpu_count(),
+        "binary_size_bytes": Path(binary).stat().st_size,
         "results": results,
+        "engines": engines,
+        "bytecode_compile": compile_results,
+        "comparisons": comparisons,
     }
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

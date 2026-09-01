@@ -36,6 +36,15 @@ int main(void) {
     HhyBytecodeChunk chunk = minimal_chunk();
     if (!hhy_bytecode_verify(&chunk).ok) fail("minimal chunk was rejected");
 
+    HhyBytecodeExecutionPlan plan;
+    HhyBytecodeResult prepared = hhy_bytecode_prepare_execution(&chunk, 8, &plan);
+    if (!prepared.ok || plan.instruction_pointer != 1 ||
+        plan.max_operand_count != 1 || plan.max_frame_count != 1)
+        fail("minimal execution plan was incorrect");
+    prepared = hhy_bytecode_prepare_execution(&chunk, 0, &plan);
+    if (prepared.ok || strstr(prepared.message, "positive") == NULL)
+        fail("zero frame limit was accepted");
+
     chunk.code[0].opcode = HHY_OP_COUNT;
     expect_failure(&chunk, "invalid node opcode");
     chunk.code[0].opcode = HHY_OP_PROGRAM;
@@ -61,6 +70,6 @@ int main(void) {
     expect_failure(&chunk, "canonical HALT");
     hhy_bytecode_chunk_free(&chunk);
 
-    puts("bytecode alpha verifier tests passed");
+    puts("bytecode verifier and execution planner tests passed");
     return 0;
 }

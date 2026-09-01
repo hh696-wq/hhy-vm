@@ -32,6 +32,7 @@ function ReleaseLineage({ columns, rows, lang }: { columns: string[]; rows: stri
     { label: "v1.0.x", matches: (version: string) => version.startsWith("v1.0.") },
     { label: "v1.1.x", matches: (version: string) => version.startsWith("v1.1.") },
     { label: "v1.2.x", matches: (version: string) => version === "v1.2" || version.startsWith("v1.2.") },
+    { label: "v1.3.x", matches: (version: string) => version === "v1.3" || version.startsWith("v1.3.") },
   ];
   return <div className="release-lineage">
     {groups.map((group) => {

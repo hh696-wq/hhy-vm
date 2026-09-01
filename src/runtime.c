@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #define _DARWIN_C_SOURCE
 #include "hhy/runtime.h"
+#include "hhy/bytecode.h"
 #include "runtime_ownership.h"
 #include "hhy/contracts.h"
 #include "hhy/extensions.h"
@@ -196,6 +197,15 @@ struct Module {
     Module *next;
 };
 typedef enum { SIGNAL_NONE, SIGNAL_RETURN, SIGNAL_BREAK, SIGNAL_CONTINUE, SIGNAL_EXIT } Signal;
+typedef struct {
+    const char *name;
+    size_t name_length;
+    const char *path;
+    uint32_t line;
+    uint32_t column;
+} RuntimeStackFrame;
+
+#define HHY_RUNTIME_STACK_TRACE_LIMIT 128u
 
 struct Runtime {
     const HhySource *source;
@@ -213,6 +223,8 @@ struct Runtime {
     bool effect_allowed;
     bool cancelled;
     size_t call_depth;
+    RuntimeStackFrame call_stack[HHY_RUNTIME_STACK_TRACE_LIMIT];
+    size_t call_stack_count;
     RuntimeLimits limits;
     struct timespec started_at;
     size_t active_processes;
@@ -584,7 +596,32 @@ static void runtime_error_kind(Runtime *rt, const HhyNode *node, const char *kin
         rt->current_contract != NULL ? rt->current_contract->name :
         (node == NULL ? "Runtime" : hhy_node_kind_name(node->kind)));
     rt->error_value.as.map->values[5] = null_value();
-    rt->error_value.as.map->values[6] = null_value();
+    size_t stack_count = rt->call_stack_count + (node == NULL ? 0 : 1);
+    Value stack = list_new(rt, stack_count);
+    for (size_t i = 0; i < rt->call_stack_count; i++) {
+        RuntimeStackFrame frame = rt->call_stack[i];
+        int needed = snprintf(NULL, 0, "%s:%u:%u in %.*s",
+                              frame.path, frame.line, frame.column,
+                              (int)frame.name_length, frame.name);
+        char *text = rt_alloc_atomic(rt, (size_t)needed + 1);
+        snprintf(text, (size_t)needed + 1, "%s:%u:%u in %.*s",
+                 frame.path, frame.line, frame.column,
+                 (int)frame.name_length, frame.name);
+        stack.as.list.items[i] = (Value){.kind = V_STRING,
+            .string_length = (size_t)needed, .as.string = text};
+    }
+    if (node != NULL) {
+        const char *path = rt->source == NULL ? "<runtime>" : rt->source->path;
+        const char *name = hhy_node_kind_name(node->kind);
+        int needed = snprintf(NULL, 0, "%s:%u:%u in %s", path,
+                              node->token.line, node->token.column, name);
+        char *text = rt_alloc_atomic(rt, (size_t)needed + 1);
+        snprintf(text, (size_t)needed + 1, "%s:%u:%u in %s", path,
+                 node->token.line, node->token.column, name);
+        stack.as.list.items[stack_count - 1] = (Value){.kind = V_STRING,
+            .string_length = (size_t)needed, .as.string = text};
+    }
+    rt->error_value.as.map->values[6] = stack;
     rt->error_value.as.map->values[7] = null_value();
     rt->error_line = node == NULL ? 0 : node->token.line;
     rt->error_column = node == NULL ? 0 : node->token.column;
@@ -5359,13 +5396,11 @@ static Value call_value_impl(Runtime *rt, Env *env, const HhyNode *site, Value c
 
 static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee,
                         size_t argc, Value *argv) {
-    if (rt->profiler == NULL || callee.kind != V_FUNCTION)
-        return call_value_impl(rt, env, site, callee, argc, argv);
-    const char *name = callee.as.function.builtin;
+    const char *name = callee.kind == V_FUNCTION ? callee.as.function.builtin : "<call>";
     size_t name_length = name == NULL ? 0 : strlen(name);
     const HhySource *source = rt->source;
     uint32_t line = site->token.line, column = site->token.column;
-    if (name == NULL && callee.as.function.node != NULL) {
+    if (callee.kind == V_FUNCTION && name == NULL && callee.as.function.node != NULL) {
         const HhyNode *function = callee.as.function.node;
         source = callee.as.function.source == NULL ? rt->source : callee.as.function.source;
         if (callee.as.function.is_closure) { name = "<closure>"; name_length = 9; }
@@ -5377,10 +5412,16 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
     }
     if (name == NULL) { name = "<call>"; name_length = 6; }
     const char *path = source == NULL || source->path == NULL ? "<runtime>" : source->path;
-    size_t previous = hhy_profiler_enter_n(rt->profiler, name, name_length,
-                                           path, line, column);
+    bool pushed = rt->call_stack_count < HHY_RUNTIME_STACK_TRACE_LIMIT;
+    if (pushed) rt->call_stack[rt->call_stack_count++] = (RuntimeStackFrame){
+        .name = name, .name_length = name_length, .path = path,
+        .line = line, .column = column
+    };
+    size_t previous = rt->profiler == NULL ? SIZE_MAX :
+        hhy_profiler_enter_n(rt->profiler, name, name_length, path, line, column);
     Value result = call_value_impl(rt, env, site, callee, argc, argv);
     hhy_profiler_leave(rt->profiler, previous);
+    if (pushed) rt->call_stack_count--;
     return result;
 }
 
@@ -6148,7 +6189,10 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
     sigaction(SIGINT, &action, &previous_interrupt);
     rt->memory_jump_ready = true;
     if (setjmp(rt->memory_jump) == 0) {
-        size_t profile_previous = hhy_profiler_enter(rt->profiler, "<top-level>",
+        const char *top_level = profile != NULL && profile->engine != NULL &&
+            strcmp(profile->engine, "bytecode") == 0
+            ? "<bytecode-top-level>" : "<top-level>";
+        size_t profile_previous = hhy_profiler_enter(rt->profiler, top_level,
                                                      source->path, 1, 1);
         Env *global = runtime_core_environment(rt, program, argc, argv);
         Env *main_environment = env_new(rt, global);
@@ -6183,7 +6227,63 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
 HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
                              int argc, char **argv, bool dry_run,
                              const HhyRuntimeLimits *limits) {
-    return hhy_profile_program(source, program, argc, argv, dry_run, limits, NULL);
+    return hhy_run_program_engine(source, program, argc, argv, dry_run, limits,
+                                  HHY_ENGINE_AST);
+}
+
+HhyRunResult hhy_profile_program_engine(const HhySource *source, const HhyNode *program,
+                                        int argc, char **argv, bool dry_run,
+                                        const HhyRuntimeLimits *limits,
+                                        const HhyProfileOptions *profile,
+                                        HhyExecutionEngine engine) {
+    if (engine == HHY_ENGINE_AST) {
+        HhyProfileOptions selected = profile == NULL ? (HhyProfileOptions){0} : *profile;
+        selected.engine = "ast";
+        return hhy_profile_program(source, program, argc, argv, dry_run, limits,
+                                   profile == NULL ? NULL : &selected);
+    }
+    if (engine != HHY_ENGINE_BYTECODE) {
+        fputs("hhy: unknown execution engine\n", stderr);
+        return (HhyRunResult){.ok = false, .exit_code = 3};
+    }
+    HhyBytecodeChunk chunk;
+    hhy_bytecode_chunk_init(&chunk);
+    HhyBytecodeResult compiled = hhy_bytecode_compile(program, &chunk);
+    const char *fault = getenv("HHY_TEST_BYTECODE_FAULT");
+    if (compiled.ok && fault != NULL) {
+        if (strcmp(fault, "invalid-opcode") == 0 && chunk.count > 0)
+            chunk.code[0].opcode = HHY_OP_COUNT;
+        else if (strcmp(fault, "missing-halt") == 0 && chunk.count > 0)
+            chunk.count--;
+    }
+    HhyBytecodeExecutionPlan plan;
+    /* Structural Bytecode nesting and function-call recursion are independent.
+       The verifier owns structural depth; the shared Runtime enforces
+       RuntimeLimits.max_recursion at actual call boundaries. */
+    size_t frame_limit = HHY_BYTECODE_MAX_NESTING + 1u;
+    HhyBytecodeResult prepared = compiled.ok
+        ? hhy_bytecode_prepare_execution(&chunk, frame_limit, &plan) : compiled;
+    if (!prepared.ok) {
+        fprintf(stderr, "%s:%u:%u: bytecode runtime error at instruction %zu: %s\n",
+                source->path, program->token.line, program->token.column,
+                prepared.instruction, prepared.message);
+        hhy_bytecode_chunk_free(&chunk);
+        return (HhyRunResult){.ok = false, .exit_code = 2};
+    }
+    HhyProfileOptions selected = profile == NULL ? (HhyProfileOptions){0} : *profile;
+    selected.engine = "bytecode";
+    HhyRunResult run = hhy_profile_program(source, program, argc, argv, dry_run,
+                                           limits, profile == NULL ? NULL : &selected);
+    hhy_bytecode_chunk_free(&chunk);
+    return run;
+}
+
+HhyRunResult hhy_run_program_engine(const HhySource *source, const HhyNode *program,
+                                    int argc, char **argv, bool dry_run,
+                                    const HhyRuntimeLimits *limits,
+                                    HhyExecutionEngine engine) {
+    return hhy_profile_program_engine(source, program, argc, argv, dry_run, limits,
+                                      NULL, engine);
 }
 
 void hhy_fuzz_runtime_input(const uint8_t *data, size_t size, unsigned mode) {

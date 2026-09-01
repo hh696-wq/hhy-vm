@@ -27,7 +27,9 @@ jobs:
         run: npm ci --prefix editors/vscode
 
       - name: Run quality gates and benchmark
-        run: make quality
+        run: |
+          make quality
+          make benchmark-bytecode
 
       - name: Build VS Code extension
         run: |
@@ -86,8 +88,11 @@ jobs:
           ./build/hhy bytecode examples/00-hello.hhy | grep 'HALT'
           make bytecode-test
           ./build/hhy run tests/valid/basic.hhy
+          ./build/hhy run --engine bytecode tests/valid/basic.hhy
           ./build/hhy run tests/valid/regex.hhy
+          ./build/hhy run --engine bytecode tests/valid/regex.hhy
           ./build/hhy run tests/valid/json-flow.hhy
+          ./build/hhy run --engine bytecode tests/valid/json-flow.hhy
 
       - name: Build Windows official extension targets
         run: |
@@ -198,7 +203,7 @@ jobs:
         run: make test-debug SANITIZERS=${{ matrix.sanitizers }}
 
       - name: Release suite
-        run: make clean && make test
+        run: make clean && make test && make test-bytecode
 
       - name: Coverage-guided fuzzing
         run: make fuzz-ci FUZZ_CC=clang
@@ -253,7 +258,7 @@ jobs:
         run: make test-debug
 
       - name: Release suite
-        run: make clean && make test
+        run: make clean && make test && make test-bytecode
 
       - name: Deterministic fuzz smoke
         run: make fuzz-smoke

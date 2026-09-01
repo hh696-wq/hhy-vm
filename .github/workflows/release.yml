@@ -78,6 +78,8 @@ jobs:
         run: |
           python3 tests/check_contracts.py
           make test
+          make test-bytecode
+          make benchmark-bytecode
           sh tests/check-docs.sh build/hhy docs/HHY_V1.md
           sh tests/check-docs.sh build/hhy README.md
 
@@ -163,8 +165,11 @@ jobs:
           ./build/hhy bytecode examples/00-hello.hhy | grep 'HALT'
           make bytecode-test
           ./build/hhy run tests/valid/basic.hhy
+          ./build/hhy run --engine bytecode tests/valid/basic.hhy
           ./build/hhy run tests/valid/regex.hhy
+          ./build/hhy run --engine bytecode tests/valid/regex.hhy
           ./build/hhy run tests/valid/json-flow.hhy
+          ./build/hhy run --engine bytecode tests/valid/json-flow.hhy
 
       - name: Build Windows official extension targets
         run: |

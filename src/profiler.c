@@ -24,6 +24,7 @@ typedef struct {
 struct HhyProfiler {
     HhyProfileOptions options;
     char *source_path;
+    char *engine;
     ProfileEntry *entries;
     size_t entry_count;
     size_t entry_capacity;
@@ -121,6 +122,10 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
     if (profiler == NULL) return NULL;
     profiler->options = *options;
     profiler->source_path = copy_text(source_path);
+    profiler->engine = copy_text(options->engine == NULL ? "ast" : options->engine);
+    if (profiler->source_path == NULL || profiler->engine == NULL) {
+        free(profiler->source_path); free(profiler->engine); free(profiler); return NULL;
+    }
     profiler->heap_baseline = heap_baseline;
     profiler->current_entry = -1;
     clock_gettime(CLOCK_MONOTONIC, &profiler->wall_started);
@@ -224,6 +229,7 @@ static void json_string(FILE *out, const char *text) {
 
 static void print_json(HhyProfiler *p, FILE *out) {
     fputs("{\n  \"source\": ", out); json_string(out, p->source_path);
+    fputs(",\n  \"engine\": ", out); json_string(out, p->engine);
     fprintf(out, ",\n  \"wall_seconds\": %.9f,\n  \"cpu_seconds\": %.9f,"
             "\n  \"cpu_samples\": %d,\n  \"cpu_sample_period_us\": 1000,"
             "\n  \"cpu_data_quality\": \"%s\",\n  \"warnings\": %s,"
@@ -259,6 +265,7 @@ static void print_bytes(FILE *out, uint64_t bytes) {
 
 static void print_text(HhyProfiler *p, FILE *out) {
     fprintf(out, "HHY profile: %s\n\nSummary\n", p->source_path);
+    fprintf(out, "  Engine           %s\n", p->engine);
     fprintf(out, "  Wall time        %.3f s\n  CPU time         %.3f s\n", p->wall_seconds, p->cpu_seconds);
     fprintf(out, "  CPU utilization  %.1f%%\n", p->wall_seconds > 0 ? p->cpu_seconds / p->wall_seconds * 100.0 : 0.0);
     if (p->options.cpu) fprintf(out, "  CPU samples      %d\n", (int)p->total_samples);
@@ -331,5 +338,5 @@ void hhy_profiler_free(HhyProfiler *profiler) {
     for (size_t i = 0; i < profiler->entry_count; i++) {
         free(profiler->entries[i].name); free(profiler->entries[i].path);
     }
-    free(profiler->entries); free(profiler->source_path); free(profiler);
+    free(profiler->entries); free(profiler->source_path); free(profiler->engine); free(profiler);
 }
