@@ -6,20 +6,22 @@ import { ui } from "@/lib/i18n";
 import { hhyCoreCallableCount, hhyCurrentRelease, hhyVersionLabel, hhyVersionTag } from "@/lib/release";
 import { QuickInstall } from "@/components/quick-install";
 
-const siteGraphSnippet = `1  try {
-2      let config = read_text(path(args[0])) |> parse_json
-3      let crawl_result = crawl(config)
-4      let inventory = records(crawl_result)
-5      let graph = build_graph(crawl_result.pages, config)
-6      let report = build_report(
-7          config.project, crawl_result,
-8          inventory, graph, failures(crawl_result)
-9      )
-10     # ... 原子写入 inventory、graph 与 failures ...
-11     report |> encode_json({ pretty: true })
-12         |> save_text(path(args[3]), { atomic: true })
-13     if not report.ok { exit(1) }
-14 } catch err { print_error(err); exit(1) }`;
+const siteGraphLines = [
+  <><span className="hhy-keyword">try</span> <span className="hhy-punctuation">{"{"}</span></>,
+  <>    <span className="hhy-keyword">let</span> config <span className="hhy-operator">=</span> <span className="hhy-function">read_text</span><span className="hhy-punctuation">(</span><span className="hhy-function">path</span><span className="hhy-punctuation">(</span>args<span className="hhy-punctuation">[</span><span className="hhy-number">0</span><span className="hhy-punctuation">]))</span> <span className="hhy-operator">|&gt;</span> <span className="hhy-function">parse_json</span></>,
+  <>    <span className="hhy-keyword">let</span> crawl_result <span className="hhy-operator">=</span> <span className="hhy-function">crawl</span><span className="hhy-punctuation">(</span>config<span className="hhy-punctuation">)</span></>,
+  <>    <span className="hhy-keyword">let</span> inventory <span className="hhy-operator">=</span> <span className="hhy-function">records</span><span className="hhy-punctuation">(</span>crawl_result<span className="hhy-punctuation">)</span></>,
+  <>    <span className="hhy-keyword">let</span> graph <span className="hhy-operator">=</span> <span className="hhy-function">build_graph</span><span className="hhy-punctuation">(</span>crawl_result<span className="hhy-operator">.</span>pages<span className="hhy-punctuation">,</span> config<span className="hhy-punctuation">)</span></>,
+  <>    <span className="hhy-keyword">let</span> report <span className="hhy-operator">=</span> <span className="hhy-function">build_report</span><span className="hhy-punctuation">(</span></>,
+  <>        config<span className="hhy-operator">.</span>project<span className="hhy-punctuation">,</span> crawl_result<span className="hhy-punctuation">,</span></>,
+  <>        inventory<span className="hhy-punctuation">,</span> graph<span className="hhy-punctuation">,</span> <span className="hhy-function">failures</span><span className="hhy-punctuation">(</span>crawl_result<span className="hhy-punctuation">)</span></>,
+  <>    <span className="hhy-punctuation">)</span></>,
+  <>    <span className="hhy-comment"># ... 原子写入 inventory、graph 与 failures ...</span></>,
+  <>    report <span className="hhy-operator">|&gt;</span> <span className="hhy-function">encode_json</span><span className="hhy-punctuation">({"{"}</span> pretty<span className="hhy-punctuation">:</span> <span className="hhy-boolean">true</span> <span className="hhy-punctuation">{"})"}</span></>,
+  <>        <span className="hhy-operator">|&gt;</span> <span className="hhy-function">save_text</span><span className="hhy-punctuation">(</span><span className="hhy-function">path</span><span className="hhy-punctuation">(</span>args<span className="hhy-punctuation">[</span><span className="hhy-number">3</span><span className="hhy-punctuation">]))</span><span className="hhy-punctuation">,</span> <span className="hhy-punctuation">{"{"}</span> atomic<span className="hhy-punctuation">:</span> <span className="hhy-boolean">true</span> <span className="hhy-punctuation">{"})"}</span></>,
+  <>    <span className="hhy-keyword">if not</span> report<span className="hhy-operator">.</span>ok <span className="hhy-punctuation">{"{"}</span> <span className="hhy-function">exit</span><span className="hhy-punctuation">(</span><span className="hhy-number">1</span><span className="hhy-punctuation">) {"}"}</span></>,
+  <><span className="hhy-punctuation">{"}"}</span> <span className="hhy-keyword">catch</span> err <span className="hhy-punctuation">{"{"}</span> <span className="hhy-function">print_error</span><span className="hhy-punctuation">(</span>err<span className="hhy-punctuation">);</span> <span className="hhy-function">exit</span><span className="hhy-punctuation">(</span><span className="hhy-number">1</span><span className="hhy-punctuation">) {"}"}</span></>
+];
 
 export function HomePage({ language }: { language: Language }) {
   const copy = ui[language];
@@ -69,7 +71,7 @@ export function HomePage({ language }: { language: Language }) {
           <div className="project-flow" aria-label={zh ? "SiteGraph Auditor 执行流程" : "SiteGraph Auditor flow"}>
             {flow.map(({ label, icon: Icon }, index) => <div className="project-flow-item" key={label}><span><Icon size={21} weight="duotone" />{label}</span>{index < flow.length - 1 ? <ArrowRight size={20} aria-hidden /> : null}</div>)}
           </div>
-          <pre className="project-output" aria-label={zh ? "SiteGraph Auditor HHY 源码示例" : "SiteGraph Auditor HHY source example"}><code>{siteGraphSnippet}</code></pre>
+          <pre className="project-output hhy-source" aria-label={zh ? "SiteGraph Auditor HHY 源码示例" : "SiteGraph Auditor HHY source example"}><code>{siteGraphLines.map((line, index) => <span className="hhy-line" key={index}><span className="hhy-line-number" aria-hidden>{index + 1}</span><span className="hhy-line-code">{line}</span></span>)}</code></pre>
           <div className="project-verification">
             <span className="verification-label"><ShieldCheck size={19} weight="duotone" />{zh ? "验证通过" : "Verified"}</span>
             <span className="verified-platform"><AppleLogo size={19} weight="fill" /><span>macOS</span><CheckCircle size={15} weight="fill" /></span>

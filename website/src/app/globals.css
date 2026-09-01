@@ -539,6 +539,14 @@ button, input { font: inherit; }
 .project-flow-item span svg { color: var(--blue); }
 .project-flow-item svg { margin: 0 8px; color: #102457; }
 .project-output { height: 216px; margin: 0 0 24px; padding: 15px 19px; overflow: hidden; color: #173675; border: 1px solid #a8c8fa; border-radius: 7px; background: rgba(255,255,255,.68); font: 10px/1.3 "SFMono-Regular", Consolas, monospace; white-space: pre; }
+.hhy-source .hhy-line { display: block; }
+.hhy-source .hhy-line-number { display: inline-block; width: 2.5ch; margin-right: 1.25ch; color: #7f91b4; text-align: right; user-select: none; }
+.hhy-source .hhy-keyword { color: #8b3fd1; font-weight: 700; }
+.hhy-source .hhy-function { color: #0869c8; }
+.hhy-source .hhy-number, .hhy-source .hhy-boolean { color: #c2410c; }
+.hhy-source .hhy-comment { color: #65806c; font-style: italic; }
+.hhy-source .hhy-operator { color: #b42363; font-weight: 600; }
+.hhy-source .hhy-punctuation { color: #52678f; }
 .project-verification { position: absolute; right: 0; bottom: 0; left: 0; height: 86px; display: flex; align-items: center; justify-content: center; gap: 0; margin: 0; padding: 0 28px; color: #496181; border-top: 1px solid #d5e2f6; font-size: 12px; }
 .project-verification svg { flex: 0 0 auto; color: var(--blue); }
 .verification-label, .verified-platform { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
