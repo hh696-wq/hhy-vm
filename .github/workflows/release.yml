@@ -9,7 +9,7 @@ on:
       tag:
         description: "Semantic release tag (must match VERSION)"
         required: true
-        default: "v1.1.8"
+        default: "v1.2.1"
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -121,9 +121,90 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-windows:
+    name: Build windows-x86_64
+    runs-on: windows-2025
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+
+      - name: Install MSYS2 build environment
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          install: >-
+            base-devel
+            gcc
+            libcurl-devel
+            libgc-devel
+            pcre2-devel
+            jansson-devel
+            openssl-devel
+            cmake
+
+      - name: Verify tag
+        run: test "${RELEASE_TAG}" = "v$(cat VERSION)"
+
+      - name: Build and test release source
+        run: |
+          make clean && make
+          python3 tests/check_contracts.py
+          make test
+          sh tests/check-docs.sh build/hhy docs/HHY_V1.md
+          sh tests/check-docs.sh build/hhy README.md
+
+      - name: Build Windows official extension targets
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/lexbor/lexbor/archive/refs/tags/v3.0.0.tar.gz \
+            --output /tmp/lexbor-v3.0.0.tar.gz
+          tar -xzf /tmp/lexbor-v3.0.0.tar.gz -C /tmp
+          cmake -S /tmp/lexbor-3.0.0 -B /tmp/lexbor-build \
+            -DCMAKE_BUILD_TYPE=Release -DLEXBOR_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake --build /tmp/lexbor-build --parallel 2
+          cmake --install /tmp/lexbor-build
+          make -C extensions/sample
+          make -C extensions/html LEXBOR_PREFIX=/usr/local
+
+      - name: Build and verify Windows archive
+        run: |
+          sh scripts/build-windows-release.sh
+          (cd dist && sha256sum --check *.sha256)
+          tar -tzf dist/*.tar.gz | grep -E 'bin/hhy.exe$'
+          tar -tzf dist/*.tar.gz | grep -E 'extensions/sample/bin/hhy-sample.exe$'
+          tar -tzf dist/*.tar.gz | grep -E 'extensions/html/bin/hhy-html.exe$'
+          tar -tzf dist/*.tar.gz | grep -E 'BUILD_INFO.txt$'
+          tar -tzf dist/*.tar.gz | grep -E 'LICENSE$'
+          tar -tzf dist/*.tar.gz | grep -E 'NOTICE$'
+
+      - name: Attest Windows release archive
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/*.tar.gz
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-windows-x86_64
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 7
+
   publish:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, build-windows]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -143,7 +224,7 @@ jobs:
         working-directory: release-assets
         run: sha256sum *.tar.gz > SHA256SUMS
 
-      - name: Create draft, attach every asset, then publish
+      - name: Create or update release with every asset
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -153,9 +234,16 @@ jobs:
           else
             tag_option="--target $GITHUB_SHA"
           fi
-          gh release create "$RELEASE_TAG" release-assets/* \
-            $tag_option \
-            --draft \
-            --title "HHY Language $version" \
-            --notes-file "docs/releases/v$version.md"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+            gh release edit "$RELEASE_TAG" \
+              --title "HHY Language $version" \
+              --notes-file "docs/releases/v$version.md"
+          else
+            gh release create "$RELEASE_TAG" release-assets/* \
+              $tag_option \
+              --draft \
+              --title "HHY Language $version" \
+              --notes-file "docs/releases/v$version.md"
+          fi
           gh release edit "$RELEASE_TAG" --draft=false --latest
