@@ -2350,7 +2350,7 @@ export const chapters: Chapter[] = [
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.3.0–v1.3.2 已完成本地实现：正式可选 Bytecode 执行、Profiler/HHY Stack trace、真实 workload 双引擎矩阵、版本化内部边界与持续 AST oracle。当前等待 Linux、macOS、Windows Actions 和统一 Releases；真实性能门槛未支持默认切换。" },
+          { type: "note", text: "v1.3.0–v1.3.2 已于 2026-09-01 正式发布：可选 Bytecode 执行、Profiler/HHY Stack trace、真实 workload 双引擎矩阵、版本化内部边界与持续 AST oracle 均已通过 Linux、macOS、Windows Actions；真实性能门槛未支持默认切换。" },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2371,9 +2371,9 @@ export const chapters: Chapter[] = [
             ["v1.3.0-alpha · 已预发布", "2026-09-01", "Bytecode 编译器骨架", "核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎"],
             ["v1.3.0-beta · 开发中", "暂不发布", "Bytecode VM 执行核心", "执行桥与本地双引擎对照已接入；继续完成专用 opcode dispatch 和完整 fixture 验收"],
             ["v1.3.0-rc · 评估工具已实现", "尚未晋级 RC", "性能、Profiler、Stack trace 与默认切换门禁", "本机性能门槛未全部通过，继续保持 AST 默认；三平台和完整故障证据待补"],
-            ["v1.3.0 · 实现完成", "待统一发布", "可选 Bytecode 正式执行路径", "完整套件双引擎通过；性能决策保持 AST 默认并保留显式回退"],
-            ["v1.3.1 · 实现完成", "待统一发布", "真实负载兼容加固", "官方 workload 双引擎矩阵和能力探测证据接入三平台 CI"],
-            ["v1.3.2 · 实现完成", "待统一发布", "VM 内部边界稳定化", "版本化 Bytecode Runtime 边界、静态治理与持续 AST oracle"],
+            ["v1.3.0 · 已发布", "2026-09-01", "可选 Bytecode 正式执行路径", "完整套件双引擎通过；性能决策保持 AST 默认并保留显式回退"],
+            ["v1.3.1 · 已发布", "2026-09-01", "真实负载兼容加固", "官方 workload 双引擎矩阵和能力探测证据已通过三平台 CI"],
+            ["v1.3.2 · 已发布", "2026-09-01", "VM 内部边界稳定化", "版本化 Bytecode Runtime 边界、静态治理与持续 AST oracle"],
             ["v1.4 · 规划", "v1.3 稳定后", "旗舰场景与外部采用", "模板、CI、运维文档和 3–5 个外部真实案例"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
@@ -2389,7 +2389,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.3.0–v1.3.2 are locally complete: formal opt-in Bytecode execution, profiling and HHY stack traces, a real-workload dual-engine matrix, a versioned internal boundary, and a continuous AST oracle. Linux, macOS, Windows Actions and coordinated Releases remain; measured performance does not justify a default switch." },
+          { type: "note", text: "v1.3.0–v1.3.2 were released on 2026-09-01: opt-in Bytecode execution, profiling and HHY stack traces, a real-workload dual-engine matrix, a versioned internal boundary, and a continuous AST oracle all passed Linux, macOS, and Windows Actions. Measured performance does not justify a default switch." },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [
@@ -2410,9 +2410,9 @@ export const chapters: Chapter[] = [
             ["v1.3.0-alpha · Prereleased", "2026-09-01", "Bytecode compiler skeleton", "Core syntax compiles, invalid Bytecode is rejected, and AST remains the default engine"],
             ["v1.3.0-beta · In development", "Not publishing yet", "Bytecode VM execution core", "The execution bridge and local dual-engine checks are wired; dedicated opcode dispatch and full fixture acceptance remain"],
             ["v1.3.0-rc · Evaluation tooling ready", "Not promoted to RC", "Performance, profiler, stack trace, and default-switch gates", "Local performance gates did not all pass, so AST remains the default; three-platform and full failure evidence remain"],
-            ["v1.3.0 · Implementation complete", "Coordinated release pending", "Opt-in production Bytecode path", "The full suite passes both engines; the performance decision retains AST as default with explicit fallback"],
-            ["v1.3.1 · Implementation complete", "Coordinated release pending", "Real-workload compatibility hardening", "The official workload dual-engine matrix and capability evidence are wired into three-platform CI"],
-            ["v1.3.2 · Implementation complete", "Coordinated release pending", "VM internal-boundary stabilization", "Versioned Bytecode Runtime boundary, static governance, and continuous AST oracle"],
+            ["v1.3.0 · Released", "2026-09-01", "Opt-in production Bytecode path", "The full suite passes both engines; the performance decision retains AST as default with explicit fallback"],
+            ["v1.3.1 · Released", "2026-09-01", "Real-workload compatibility hardening", "The official workload dual-engine matrix and capability evidence passed three-platform CI"],
+            ["v1.3.2 · Released", "2026-09-01", "VM internal-boundary stabilization", "Versioned Bytecode Runtime boundary, static governance, and continuous AST oracle"],
             ["v1.4 · Planned", "After v1.3 stabilizes", "Flagship scenarios and external adoption", "Templates, CI, operations documentation, and 3–5 real external cases"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },
