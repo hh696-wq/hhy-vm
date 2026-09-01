@@ -142,23 +142,23 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
               if (block.type === "image") return <figure className={`doc-image ${block.size}`} key={index}><a href={block.src} target="_blank" rel="noreferrer" aria-label={lang === "zh" ? "查看原图" : "View full-size image"}><Image src={block.src} alt={block.alt} width={block.width} height={block.height} sizes={block.size === "medium" ? "(max-width: 560px) calc(100vw - 32px), 480px" : "(max-width: 720px) calc(100vw - 32px), 680px"} /></a><figcaption>{block.caption}</figcaption></figure>;
               if (block.type === "runtime-performance-roadmap") {
                 const copy = lang === "zh" ? {
-                  eyebrow: `${hhyVersionTag} · 当前执行路径`, title: "AST 解释器性能演进", current: "当前 AST Interpreter",
+                  eyebrow: `${hhyVersionTag} · 双引擎执行路径`, title: "AST 与 Bytecode VM 性能演进", current: "默认引擎 · AST Interpreter",
                   resolver: "AST 预解析 / Resolve Pass", resolverItems: ["参数绑定到 slot", "局部变量绑定到 slot", "标记 global / builtin / closure"],
                   frame: "Lightweight CallFrame", call: "function call", frameCode: "slots[]  ·  parent/env  ·  function",
                   fast: "Local / Param", fastDetail: "slots[index] · 快路径", slow: "Closure / Global / Builtin", slowDetail: "Env lookup · 兼容慢路径",
                   cache: "Identifier Cache", cacheDetail: "无法 slot 化的变量缓存 env depth + binding slot/index",
                   pool: "Frame Pool", reuse: "未逃逸 Frame", reuseDetail: "reset → reuse", escaped: "Closure / Stream 捕获", escapedDetail: "mark escaped · 不复用 · GC managed",
-                  profile: "Profiling + GC / Allocation 优化", decision: "Profile 仍显示 AST dispatch 为主要热点？", future: "未来方向", bytecode: "Bytecode VM",
-                  caption: "Resolver → Slot → Lightweight Frame → Escape-safe Reuse；保持现有语言语义，不依赖字节码。"
+                  profile: "Profiling + GC / Allocation 优化", decision: "机器可读门禁决定默认引擎；当前 CPU 收益不足，AST 保持默认", future: "当前可选引擎", bytecode: "Bytecode VM · --engine bytecode",
+                  caption: "AST 保持默认与语义 oracle；v1.3.2 Bytecode VM 已正式可选，完整双引擎对照持续运行。"
                 } : {
-                  eyebrow: `${hhyVersionTag} · Current execution path`, title: "AST interpreter performance evolution", current: "Current AST Interpreter",
+                  eyebrow: `${hhyVersionTag} · Dual-engine execution`, title: "AST and Bytecode VM performance evolution", current: "Default engine · AST Interpreter",
                   resolver: "AST pre-resolution / Resolve Pass", resolverItems: ["Bind parameters to slots", "Bind locals to slots", "Mark globals / builtins / closures"],
                   frame: "Lightweight CallFrame", call: "function call", frameCode: "slots[]  ·  parent/env  ·  function",
                   fast: "Local / Param", fastDetail: "slots[index] · fast path", slow: "Closure / Global / Builtin", slowDetail: "Env lookup · compatibility path",
                   cache: "Identifier Cache", cacheDetail: "Cache env depth + binding slot/index for values that cannot use static slots",
                   pool: "Frame Pool", reuse: "Non-escaped frame", reuseDetail: "reset → reuse", escaped: "Captured by Closure / Stream", escapedDetail: "mark escaped · no reuse · GC managed",
-                  profile: "Profiling + GC / Allocation optimization", decision: "Does profiling show AST dispatch as the dominant hotspot?", future: "Future direction", bytecode: "Bytecode VM",
-                  caption: "Resolver → Slot → Lightweight Frame → escape-safe reuse, preserving language semantics without requiring bytecode."
+                  profile: "Profiling + GC / Allocation optimization", decision: "A machine-readable gate selects the default; current CPU gains are insufficient, so AST remains default", future: "Current opt-in engine", bytecode: "Bytecode VM · --engine bytecode",
+                  caption: "AST remains the default and semantic oracle; the v1.3.2 Bytecode VM is formally available with continuous dual-engine comparison."
                 };
                 return <figure className="runtime-performance-roadmap" key={index}>
                   <header><span>{copy.eyebrow}</span><strong>{copy.title}</strong></header>
@@ -169,7 +169,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     <article className="runtime-roadmap-stage"><b>03</b><div><strong>{copy.cache}</strong><p>{copy.cacheDetail}</p></div></article><i aria-hidden>↓</i>
                     <article className="runtime-roadmap-stage pool"><b>04</b><div><strong>{copy.pool}</strong><div className="runtime-frame-paths"><span><em>{copy.reuse}</em>{copy.reuseDetail}</span><span><em>{copy.escaped}</em>{copy.escapedDetail}</span></div></div></article><i aria-hidden>↓</i>
                     <article className="runtime-roadmap-stage"><b>05</b><div><strong>{copy.profile}</strong><p>{copy.decision}</p></div></article><i className="future" aria-hidden>↓</i>
-                    <div className="runtime-roadmap-future"><span>{copy.future}</span><strong>06 · {copy.bytecode}</strong></div>
+                    <div className="runtime-roadmap-bytecode"><span>{copy.future}</span><strong>06 · {copy.bytecode}</strong></div>
                   </div>
                   <figcaption>{copy.caption}</figcaption>
                 </figure>;

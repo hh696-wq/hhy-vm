@@ -478,6 +478,10 @@ button, input { font: inherit; }
 .runtime-roadmap-future span, .runtime-roadmap-future strong { display: block; }
 .runtime-roadmap-future span { color: #766d9e; font-size: 10px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
 .runtime-roadmap-future strong { margin-top: 4px; color: #4e438e; font-size: 14px; }
+.runtime-roadmap-bytecode { align-self: center; min-width: 280px; padding: 15px 26px; text-align: center; border: 1px solid #3974db; border-radius: 10px; background: linear-gradient(135deg, #edf4ff, #f5f2ff); box-shadow: 0 8px 20px rgba(57, 116, 219, .12); }
+.runtime-roadmap-bytecode span, .runtime-roadmap-bytecode strong { display: block; }
+.runtime-roadmap-bytecode span { color: #3768c5; font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.runtime-roadmap-bytecode strong { margin-top: 5px; color: #173f85; font-size: 14px; }
 .runtime-performance-roadmap figcaption { margin-top: 19px; padding-top: 14px; color: #66799d; border-top: 1px solid #dfe7f3; font-size: 11px; line-height: 1.55; text-align: center; }
 .api-reference { margin-top: 22px; }
 .api-index { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8faff; }
