@@ -43,7 +43,7 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.1.7 | **已完成 · 2026-08-31** | 诊断与编辑器基线 | JSON diagnostics、最小 LSP、Contract 感知补全 | CLI/LSP 诊断一致；中型项目具备编辑闭环 |
 | v1.1.8 | **已完成 · 2026-08-31** | Runtime 渐进治理 | 首个模块边界、内部所有权 API、性能回归门禁 | 行为零变化；sanitizer/GC stress 全绿；性能不回退 |
 | v1.2.0 | **已完成 · 2026-08-31** | 官方扩展分发与签名 | 包身份、Ed25519 签名、依赖解析、静态官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
-| v1.2.1 | **实现完成 · 2026-09-01；待三平台 Release 门禁** | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
+| v1.2.1 | **已完成并发布 · 2026-09-01** | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
 | v1.2.2 | 规划 | 官方复杂扩展验证 | Office 或等价复杂扩展、端到端发行与兼容验证 | 至少一个复杂扩展通过三平台、权限、错误和资源验收 |
 | v1.2.3 | 条件规划 | 证据驱动的协议补强 | 按需加入取消、Stream credit、Opaque Handle | 每项新增能力均由真实集成和兼容测试证明 |
 | v1.3 | 规划 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
@@ -306,8 +306,11 @@ hhy remove <package>
 
 ### 4.2 v1.2.1：锁定、离线、可复现安装与回滚
 
-> **状态：实现完成（2026-09-01），待 GitHub Actions 三平台验证与最终 Release**<br>
+> **状态：已完成并发布（2026-09-01）**<br>
 > 固定发布约束：先完成代码和本地验收；随后 Linux、macOS、Windows GitHub Actions 必须全部通过并生成对应发行产物；GitHub Release 永远是最后一步，禁止在任一平台失败或产物不齐时提前发布。
+> 实施提交：`0883ffc`（核心能力）、`4e498f3` / `ed8cd00`（GCC 诊断兼容）、`8730845` / `9993074`（四平台 Release 产物与 Windows 可移植验收）<br>
+> GitHub Actions：[三平台与架构 Release Evidence #33460776309](https://github.com/hh696-wq/hhy-vm/actions/runs/33460776309) · [四平台正式 Release #33461029986](https://github.com/hh696-wq/hhy-vm/actions/runs/33461029986)<br>
+> 正式发布：[HHY Language 1.2.1](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.2.1)；包含 macOS arm64、Linux x86_64、Linux arm64、Windows x86_64 归档、逐包 SHA-256、合并 `SHA256SUMS` 与构建来源证明。
 
 #### 版本目标
 
@@ -368,8 +371,8 @@ hhy doctor extensions
 - [x] upgrade/rollback 通过事务恢复与审计断言；
 - [x] cache、lock、active installation 可由 `doctor` 核对；
 - [x] 官网承诺的签名、依赖、索引、离线锁定、可复现安装和回滚形成代码闭环；
-- [ ] GitHub Actions 上 Linux、macOS、Windows 全部通过并产出相应归档；
-- [ ] 在上述门禁全绿后执行最后一步 GitHub Release。
+- [x] GitHub Actions 上 Linux、macOS、Windows 全部通过并产出相应归档；
+- [x] 在上述门禁全绿后执行最后一步 GitHub Release。
 
 ### 4.3 v1.2.2：官方复杂扩展验证
 
