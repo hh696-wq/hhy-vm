@@ -195,6 +195,7 @@ button, input { font: inherit; }
 .footer-group strong { margin-bottom: 5px; }
 .footer-group a { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .footer-group a:hover { color: var(--blue); }
+.footer-contact-mark { flex: 0 0 auto; object-fit: contain; }
 
 .about-page { padding-bottom: 52px; }
 .about-hero { min-height: 430px; display: grid; grid-template-columns: 1.08fr .92fr; align-items: center; gap: 40px; padding-block: 30px 42px; }

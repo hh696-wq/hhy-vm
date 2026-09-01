@@ -37,6 +37,10 @@ export function SiteFooter({ language }: { language: Language }) {
           <strong>{language === "zh" ? "联系" : "Contact"}</strong>
           <Link href="https://hhylang.dev" target="_blank"><GlobeSimple size={18} /> hhylang.dev</Link>
           <Link href="mailto:huiyang.hou@qq.com"><EnvelopeSimple size={18} /> huiyang.hou@qq.com</Link>
+          <Link href="https://houhuiyang.com" target="_blank">
+            <Image className="footer-contact-mark" src="/houhuiyang-mark.svg" alt="" width={18} height={20} />
+            houhuiyang.com
+          </Link>
         </div>
       </div>
     </footer>
