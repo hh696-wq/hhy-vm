@@ -106,6 +106,9 @@ typedef struct {
     size_t instruction;
     size_t fast_expression;
     uint32_t parameter_constant;
+    int64_t fast_immediate_a;
+    int64_t fast_immediate_b;
+    uint8_t fast_int_kind;
     bool has_fast_argument_expression;
 } BytecodeFunctionTarget;
 
@@ -1614,6 +1617,9 @@ static Value call_stream_value(Runtime *rt, Env *env, const HhyNode *site, Value
     }
     return call_value(rt, env, site, callee, argc, argv);
 }
+static bool bytecode_eval_argument_expression(Runtime *rt, BytecodeCursor node,
+                                              uint32_t parameter_constant, Value argument,
+                                              Value *result);
 static bool require_bool(Runtime *rt, const HhyNode *node, Value value, bool *out);
 static Value list_new(Runtime *rt, size_t count);
 static Value file_value(Runtime *rt, const HhyNode *site, const char *path,
@@ -2635,9 +2641,160 @@ static bool require_bounded_stream(Runtime *rt, const HhyNode *site, Value value
 static Value stream_collect(Runtime *rt, const HhyNode *site, Value value) {
     if (!require_bounded_stream(rt, site, value, "collect")) return null_value();
     if (!stream_claim(rt, site, value)) return null_value();
+    /* A bytecode pipeline whose closures are self-contained argument expressions can
+       be pulled in one loop.  This retains the ordinary Stream objects (and thus
+       claim/close/error semantics), but removes recursive stream_next/call dispatch
+       from the per-item hot path.  Unknown/effectful closures and every non-local
+       Stream kind fall through to the general implementation below. */
+    Stream *stages[16];
+    size_t stage_count = 0;
+    Stream *base = value.kind == V_STREAM ? value.as.stream : NULL;
+    bool fused = rt->engine == HHY_ENGINE_BYTECODE && rt->profiler == NULL;
+    while (fused && base != NULL &&
+           (base->kind == STREAM_MAP || base->kind == STREAM_WHERE ||
+            base->kind == STREAM_DISTINCT)) {
+        if (stage_count == sizeof(stages) / sizeof(stages[0])) { fused = false; break; }
+        if (base->kind != STREAM_DISTINCT) {
+            if (base->function.kind != V_FUNCTION || !base->function.as.function.is_bytecode ||
+                !base->function.as.function.is_closure ||
+                base->function.as.function.builtin != NULL) { fused = false; break; }
+            const BytecodeFunctionTarget *target =
+                (const BytecodeFunctionTarget *)base->function.as.function.node;
+            if (target == NULL || !target->has_fast_argument_expression ||
+                target->fast_int_kind == 0) { fused = false; break; }
+        }
+        stages[stage_count++] = base;
+        if (base->source.kind != V_STREAM) { fused = false; break; }
+        base = base->source.as.stream;
+    }
+    if (base == NULL || (base->kind != STREAM_RANGE && base->kind != STREAM_LIST)) fused = false;
+
     size_t count = 0, capacity = 8;
     Value *temporary = rt_value_array_grow(rt, NULL, 0, capacity);
     Value item;
+    if (fused) {
+        size_t maximum_output = HHY_MAX_COLLECTION_ITEMS;
+        if (base->kind == STREAM_LIST && base->source.as.list.count < maximum_output)
+            maximum_output = base->source.as.list.count;
+        else if (base->kind == STREAM_RANGE &&
+                 base->source.as.range.end > base->source.as.range.start) {
+            uint64_t range_count = (uint64_t)base->source.as.range.end -
+                                   (uint64_t)base->source.as.range.start;
+            if (range_count < maximum_output) maximum_output = (size_t)range_count;
+        }
+        /* The source cardinality is an exact upper bound for map/where/distinct.
+           Start with a bounded chunk so highly selective pipelines do not reserve
+           a million Values, then grow the final list directly without a second
+           materialization buffer. */
+        size_t result_capacity = maximum_output < 4096 ? maximum_output : 4096;
+        Value result = list_new(rt, result_capacity);
+        result.as.list.count = 0;
+        for (;;) {
+            /* Match loop execution's bounded safepoint cadence.  Calling
+               clock_gettime for every scalar would dominate a fused pipeline. */
+            if (runtime_safepoint(rt, site)) break;
+            if (base->kind == STREAM_RANGE) {
+                int64_t current = base->source.as.range.start + (int64_t)base->index;
+                if (current >= base->source.as.range.end) break;
+                base->index++;
+                item = int_value(current);
+            } else {
+                if (base->index >= base->source.as.list.count) break;
+                item = base->source.as.list.items[base->index++];
+            }
+            bool keep = true;
+            for (size_t reverse = stage_count; reverse > 0 && keep && !rt->failed; reverse--) {
+                Stream *stage = stages[reverse - 1];
+                if (stage->kind == STREAM_MAP || stage->kind == STREAM_WHERE) {
+                    const BytecodeFunctionTarget *target =
+                        (const BytecodeFunctionTarget *)stage->function.as.function.node;
+                    Value evaluated;
+                    bool used_int_opcode = false;
+                    if (item.kind == V_INT && target->fast_int_kind == 1) {
+                        int64_t product;
+                        if (!__builtin_mul_overflow(item.as.integer, target->fast_immediate_a,
+                                                    &product)) {
+                            evaluated = int_value(product);
+                            used_int_opcode = true;
+                        }
+                    } else if (item.kind == V_INT && target->fast_int_kind == 2 &&
+                               target->fast_immediate_a != 0 &&
+                               !(item.as.integer == INT64_MIN &&
+                                 target->fast_immediate_a == -1)) {
+                        evaluated = bool_value(item.as.integer % target->fast_immediate_a ==
+                                               target->fast_immediate_b);
+                        used_int_opcode = true;
+                    }
+                    if (!used_int_opcode && !bytecode_eval_argument_expression(rt,
+                            (BytecodeCursor){.chunk = target->chunk,
+                                             .instruction = target->fast_expression},
+                            target->parameter_constant, item, &evaluated)) {
+                        fused = false;
+                        break;
+                    }
+                    if (stage->kind == STREAM_MAP) item = evaluated;
+                    else {
+                        bool accepted = false;
+                        if (!require_bool(rt, site, evaluated, &accepted)) break;
+                        keep = accepted;
+                    }
+                    continue;
+                }
+                if (!hashable_scalar(item)) {
+                    runtime_type_error(rt, site, "distinct accepts hashable scalar values only");
+                    break;
+                }
+                if (stage->seen_slot_count == 0 ||
+                    (stage->seen_count + 1) * 10 >= stage->seen_slot_count * 7) {
+                    size_t next = stage->seen_slot_count == 0 ? 16 : stage->seen_slot_count * 2;
+                    size_t *slots = hhy_alloc(next * sizeof(size_t));
+                    memset(slots, 0, next * sizeof(size_t));
+                    for (size_t i = 0; i < stage->seen_count; i++) {
+                        size_t slot = (size_t)(hash_scalar(stage->seen[i]) & (uint64_t)(next - 1));
+                        while (slots[slot] != 0) slot = (slot + 1) & (next - 1);
+                        slots[slot] = i + 1;
+                    }
+                    free(stage->seen_slots);
+                    stage->seen_slots = slots;
+                    stage->seen_slot_count = next;
+                }
+                size_t slot = (size_t)(hash_scalar(item) &
+                                       (uint64_t)(stage->seen_slot_count - 1));
+                while (stage->seen_slots[slot] != 0) {
+                    size_t index = stage->seen_slots[slot] - 1;
+                    if (equal_values(stage->seen[index], item)) { keep = false; break; }
+                    slot = (slot + 1) & (stage->seen_slot_count - 1);
+                }
+                if (!keep) continue;
+                if (stage->seen_count == stage->seen_capacity) {
+                    size_t old_capacity = stage->seen_capacity;
+                    stage->seen_capacity = old_capacity < 8 ? 8 : old_capacity * 2;
+                    stage->seen = rt_value_array_grow(rt, stage->seen, old_capacity,
+                                                      stage->seen_capacity);
+                }
+                stage->seen[stage->seen_count] = item;
+                stage->seen_slots[slot] = ++stage->seen_count;
+            }
+            if (!fused || rt->failed) break;
+            if (!keep) continue;
+            if (count >= HHY_MAX_COLLECTION_ITEMS) {
+                runtime_error_kind(rt, site, "ResourceLimitError", "HHY_COLLECTION_LIMIT",
+                                   "collection exceeds 1000000 item limit");
+                break;
+            }
+            if (count == result_capacity) {
+                size_t next = result_capacity < 8 ? 8 : result_capacity * 2;
+                if (next > maximum_output) next = maximum_output;
+                Value *grown = rt_value_array_grow(rt, result.as.list.items, count, next);
+                result.as.list.items = grown;
+                result_capacity = next;
+            }
+            result.as.list.items[count++] = item;
+        }
+        stream_close(value.as.stream);
+        result.as.list.count = count;
+        return result;
+    }
     while (stream_next(rt, site, value.as.stream, &item)) {
         if (count >= HHY_MAX_COLLECTION_ITEMS) {
             runtime_error_kind(rt, site, "ResourceLimitError", "HHY_COLLECTION_LIMIT",
@@ -5570,6 +5727,21 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
     return result;
 }
 
+static bool bytecode_int_constant(BytecodeCursor cursor, int64_t *out) {
+    HhyInstruction instruction = cursor.chunk->code[cursor.instruction];
+    if (instruction.opcode != HHY_OP_LITERAL || instruction.token_kind != HHY_T_INT ||
+        instruction.constant == HHY_BYTECODE_NO_CONSTANT || instruction.token_length == 0 ||
+        instruction.token_length > 18) return false;
+    const char *text = cursor.chunk->constants[instruction.constant];
+    int64_t value = 0;
+    for (uint32_t i = 0; i < instruction.token_length; i++) {
+        if (text[i] < '0' || text[i] > '9') return false;
+        value = value * 10 + (text[i] - '0');
+    }
+    *out = value;
+    return true;
+}
+
 static BytecodeFunctionTarget *bytecode_function_target(Runtime *rt, BytecodeCursor cursor) {
     BytecodeFunctionTarget *target = rt_alloc(rt, sizeof(*target));
     target->chunk = cursor.chunk;
@@ -5583,6 +5755,33 @@ static BytecodeFunctionTarget *bytecode_function_target(Runtime *rt, BytecodeCur
             target->fast_expression = bytecode_child_cursor(body, 0).instruction;
             target->parameter_constant = parameter.chunk->code[parameter.instruction].constant;
             target->has_fast_argument_expression = true;
+            BytecodeCursor expression = bytecode_child_cursor(body, 0);
+            HhyInstruction root = expression.chunk->code[expression.instruction];
+            if (root.opcode == HHY_OP_BINARY && root.token_kind == HHY_T_STAR) {
+                BytecodeCursor left = bytecode_child_cursor(expression, 0);
+                BytecodeCursor right = bytecode_child_cursor(expression, 1);
+                HhyInstruction left_instruction = left.chunk->code[left.instruction];
+                if (left_instruction.opcode == HHY_OP_IDENTIFIER &&
+                    left_instruction.constant == target->parameter_constant &&
+                    bytecode_int_constant(right, &target->fast_immediate_a))
+                    target->fast_int_kind = 1; /* LOAD_LOCAL, LOAD_CONST, MUL_INT */
+            } else if (root.opcode == HHY_OP_BINARY &&
+                       root.token_kind == HHY_T_EQUAL_EQUAL) {
+                BytecodeCursor modulo = bytecode_child_cursor(expression, 0);
+                BytecodeCursor expected = bytecode_child_cursor(expression, 1);
+                HhyInstruction modulo_instruction = modulo.chunk->code[modulo.instruction];
+                if (modulo_instruction.opcode == HHY_OP_BINARY &&
+                    modulo_instruction.token_kind == HHY_T_MOD) {
+                    BytecodeCursor left = bytecode_child_cursor(modulo, 0);
+                    BytecodeCursor divisor = bytecode_child_cursor(modulo, 1);
+                    HhyInstruction left_instruction = left.chunk->code[left.instruction];
+                    if (left_instruction.opcode == HHY_OP_IDENTIFIER &&
+                        left_instruction.constant == target->parameter_constant &&
+                        bytecode_int_constant(divisor, &target->fast_immediate_a) &&
+                        bytecode_int_constant(expected, &target->fast_immediate_b))
+                        target->fast_int_kind = 2; /* LOAD_LOCAL, MOD_INT, EQ_INT */
+                }
+            }
         }
     }
     return target;

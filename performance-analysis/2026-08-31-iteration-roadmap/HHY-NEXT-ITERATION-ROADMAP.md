@@ -721,6 +721,47 @@ hhy bytecode script.hhy
 - 不加载未经 verifier 验证的外部 Bytecode；
 - Bytecode 版本与语言版本、扩展协议版本、包版本分别管理。
 
+### 5.9 v1.3.6：扁平 VM 与 PHP 性能收敛
+
+#### 目标
+
+以 `benchmarks/core-flow-1m.hhy` 的同语义跨语言任务为第一条真实性能主线，把 HHY Bytecode 从 v1.3.5 的 `86.921 ms`（PHP 8.5.10 `40.210 ms`，约 `2.16×`）推进到可解释、可复现的 PHP 逼近区间。该阶段以同机、同提交、fresh process、至少 7 次交错采样的中位数为判定依据，不用单次最好成绩代替结果，不以改变语言语义或删除安全检查换取数字。
+
+#### 实现优先级
+
+1. 将当前 AST 形状的结构化指令降为真正的扁平 Opcode，并使用紧凑、可边界检查的 instruction-pointer dispatch loop；
+2. 引入 `LOAD_LOCAL`、`LOAD_CONST`、`MUL_INT`、`MOD_INT`、`JUMP_IF_FALSE` 等细粒度指令，compiler 明确每条指令的 stack effect 与控制流后继；
+3. 使用连续 Operand Stack 或寄存器槽传值，消除热路径中的递归 `bytecode_eval()`、`bytecode_site()` 和子树游标查找；
+4. 局部变量和参数使用 resolver 已生成的固定 frame slot，Closure 捕获使用稳定 Upvalue，动态环境查找只保留为有明确语义需要的慢路径；
+5. 对 `map → where → distinct → collect/count` 等可证明等价的 Stream 链执行 pipeline fusion，在一个 pull loop 中完成变换、过滤、去重和收集，同时保留取消、错误、资源上限与惰性消费语义；
+6. 为 Int 算术、比较、取模和条件跳转提供带溢出与除零检查的专用 Opcode，类型不匹配时退回通用动态 `Value` 路径；
+7. 将 fresh-process 总墙钟拆分为读取、Lexer/Parser、Resolver/Checker、Bytecode compile、Verifier、VM execute 和退出阶段，保存机器可读样本并用 profiler 对照 Opcode、分配、Env lookup、Stream dispatch 与 cache miss。
+
+其中 **Stream fusion** 和 **扁平 Opcode dispatch** 是本阶段的首要收益来源；固定 slot、Int 专用 Opcode和连续栈用于进一步降低每元素常数开销。
+
+#### 性能门禁
+
+- 第一门槛：同一 1M workload 的 Bytecode 中位数稳定达到 PHP 中位数的 `≤ 1.50×`，且至少两轮独立 7 次采样通过；
+- 逼近门槛：候选发布在主开发机达到 PHP 中位数的 `≤ 1.25×`，并报告置信区间、原始样本、异常值与环境元数据；
+- 不要求 Go/静态编译语言等速，但必须继续报告 Go、Java、Python、PHP 与 HHY AST/Bytecode 的相同可观察输出；
+- 短 CLI、JSON/I/O、错误路径和真实项目不得出现超过既有预算的明显回退；
+- 若 PHP 版本、编译选项、CPU 调度或运行命令不同，结果必须分组，不能拼接为同一趋势。
+
+#### 正确性与安全门禁
+
+- AST/Bytecode fixtures、退出码、副作用计划、Stack trace 和 JSON diagnostics 持续逐项一致；
+- Verifier 拒绝 stack underflow/overflow、非法跳转、错误常量类型、越界 slot 和不一致控制流栈形状；
+- ASan/UBSan、GC stress、至少 1,000 次 fuzz、OOM、取消、递归/集合/Frame/Operand 限制与扩展崩溃测试全部通过；
+- fusion 只应用于 compiler/VM 能证明安全的链；遇到动态调用、错误处理、并行、时间/文件/网络 Stream 或未知扩展时自动使用通用 Stream 路径；
+- AST 保留为语义 oracle 和 `--engine ast` 安全回退，性能收敛阶段不删除兼容入口。
+
+#### 完成定义
+
+- profile 中 AST bridge 为零，结构化子树游标与逐元素 Env 字符串查找不再是热点；
+- 分段计时能够解释总时间，优化前后数据和跨语言结果写入本地测试报告；
+- 至少达到第一性能门槛后才进入 RC；逼近门槛、三平台/四归档验证和完整安全门禁全部通过后，才执行最后一次 Actions 与 Release；
+- 未达到门槛时如实保留版本为开发状态，继续根据 profile 优化，不降低验收标准。
+
 ### v1.3 明确不做
 
 - 不在同一版本开放 Native ABI；
