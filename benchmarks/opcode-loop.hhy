@@ -1,0 +1,5 @@
+let mut total = 0
+for value in range(0, 100000) {
+    total = total + value
+}
+print(total)

@@ -48,6 +48,7 @@ typedef struct {
     HhyOpcode opcode;
     HhyTokenKind token_kind;
     uint32_t constant;
+    uint32_t token_length;
     uint32_t child_count;
     uint32_t subtree_size;
     uint32_t frame_slot_count;

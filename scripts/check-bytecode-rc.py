@@ -21,7 +21,7 @@ def main() -> int:
     comparisons = report["comparisons"]
     gates = {
         "cpu_bound_substantial_gain": {
-            "actual": comparisons["core_flow_100k"]["bytecode_to_ast_wall_ratio"],
+            "actual": comparisons["core_flow_1m"]["bytecode_to_ast_wall_ratio"],
             "maximum": 0.90,
         },
         "short_script_no_material_regression": {

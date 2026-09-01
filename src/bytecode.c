@@ -112,13 +112,14 @@ static HhyBytecodeResult compile_node(const HhyNode *node, HhyBytecodeChunk *chu
     if (!reserve_code(chunk))
         return result(false, chunk->count, "instruction count exceeds %u", HHY_BYTECODE_MAX_INSTRUCTIONS);
     if (node->frame_slot_count > UINT32_MAX || node->local_env_depth > UINT32_MAX ||
-        node->local_binding_slot > UINT32_MAX)
+        node->local_binding_slot > UINT32_MAX || node->token.length > UINT32_MAX)
         return result(false, chunk->count, "resolved slot metadata exceeds Bytecode limits");
     size_t instruction_index = chunk->count;
     chunk->code[chunk->count++] = (HhyInstruction){
         .opcode = opcode,
         .token_kind = node->token.kind,
         .constant = constant,
+        .token_length = (uint32_t)node->token.length,
         .child_count = (uint32_t)node->child_count,
         .subtree_size = 0,
         .frame_slot_count = (uint32_t)node->frame_slot_count,

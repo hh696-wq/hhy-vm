@@ -23,6 +23,7 @@
 #include <math.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <assert.h>
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
 #include <gc/gc.h>
@@ -97,7 +98,16 @@ typedef struct {
     Env *closure;
     const HhySource *source;
     bool is_closure;
+    bool is_bytecode;
 } Function;
+
+typedef struct {
+    const HhyBytecodeChunk *chunk;
+    size_t instruction;
+    size_t fast_expression;
+    uint32_t parameter_constant;
+    bool has_fast_argument_expression;
+} BytecodeFunctionTarget;
 
 struct Value {
     ValueKind kind;
@@ -191,6 +201,7 @@ struct Module {
     HhySource source;
     HhyTokenList tokens;
     HhyNode *program;
+    HhyPreparedBytecode *bytecode;
     Env *environment;
     Value exports;
     bool loading;
@@ -209,6 +220,7 @@ typedef struct {
 
 struct Runtime {
     const HhySource *source;
+    HhyExecutionEngine engine;
     bool failed;
     int exit_code;
     Signal signal;
@@ -247,6 +259,7 @@ struct Runtime {
 };
 
 static volatile sig_atomic_t hhy_interrupt_requested = 0;
+static _Thread_local const HhyBytecodeChunk *hhy_active_bytecode_chunk = NULL;
 
 static void hhy_signal_handler(int signal_number) {
     (void)signal_number;
@@ -1041,6 +1054,45 @@ static Value exec_node(Runtime *rt, Env *env, const HhyNode *node);
 static Value exec_block_contents(Runtime *rt, Env *env, const HhyNode *node);
 static Value import_module(Runtime *rt, Env *target, const HhyNode *node);
 
+typedef struct {
+    const HhyBytecodeChunk *chunk;
+    size_t instruction;
+} BytecodeCursor;
+
+static Value bytecode_eval(Runtime *rt, Env *env, BytecodeCursor node);
+static Value bytecode_exec(Runtime *rt, Env *env, BytecodeCursor node);
+static Value bytecode_exec_contents(Runtime *rt, Env *env, BytecodeCursor node);
+static bool bytecode_eval_argument_expression(Runtime *rt, BytecodeCursor node,
+                                              uint32_t parameter_constant, Value argument,
+                                              Value *result);
+static Value bytecode_import_module(Runtime *rt, Env *target, BytecodeCursor node);
+static Module *module_load(Runtime *rt, const HhyNode *site, const char *requested);
+
+static HhyNode bytecode_site(BytecodeCursor cursor) {
+    HhyInstruction instruction = cursor.chunk->code[cursor.instruction];
+    const char *text = instruction.constant == HHY_BYTECODE_NO_CONSTANT
+        ? "" : cursor.chunk->constants[instruction.constant];
+    return (HhyNode){
+        .kind = (HhyNodeKind)instruction.opcode,
+        .token = {.kind = instruction.token_kind, .start = text,
+                  .length = instruction.token_length, .line = instruction.line,
+                  .column = instruction.column},
+        .child_count = instruction.child_count,
+        .local_env_depth = instruction.local_env_depth,
+        .local_binding_slot = instruction.local_binding_slot,
+        .local_slot_resolved = instruction.local_slot_resolved,
+        .frame_slot_count = instruction.frame_slot_count
+    };
+}
+
+static BytecodeCursor bytecode_child_cursor(BytecodeCursor parent, uint32_t index) {
+    assert(index < parent.chunk->code[parent.instruction].child_count);
+    size_t child = parent.instruction + 1;
+    for (uint32_t current = 0; current < index; current++)
+        child += parent.chunk->code[child].subtree_size;
+    return (BytecodeCursor){.chunk = parent.chunk, .instruction = child};
+}
+
 static Value decode_string(Runtime *rt, HhyToken token) {
     if (token.length < 2) return string_value(rt, "");
     char *result = rt_alloc(rt, token.length);
@@ -1543,6 +1595,25 @@ static Value map_get(Value map, const char *key) { return map_get_n(map, key, st
 
 static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee,
                         size_t argc, Value *argv);
+static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
+                          size_t argc, Value *argv);
+static Value call_stream_value(Runtime *rt, Env *env, const HhyNode *site, Value callee,
+                               size_t argc, Value *argv) {
+    if (rt->profiler == NULL && callee.kind == V_FUNCTION &&
+        callee.as.function.builtin == NULL && callee.as.function.is_closure &&
+        callee.as.function.is_bytecode) {
+        if (rt->call_depth >= rt->limits.max_recursion) {
+            runtime_error_kind(rt, site, "ResourceLimitError", "HHY_RECURSION_LIMIT",
+                               "maximum call depth exceeded");
+            return null_value();
+        }
+        rt->call_depth++;
+        Value result = call_closure(rt, site, callee, argc, argv);
+        rt->call_depth--;
+        return result;
+    }
+    return call_value(rt, env, site, callee, argc, argv);
+}
 static bool require_bool(Runtime *rt, const HhyNode *node, Value value, bool *out);
 static Value list_new(Runtime *rt, size_t count);
 static Value file_value(Runtime *rt, const HhyNode *site, const char *path,
@@ -2007,7 +2078,7 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
         Value error = rt->error_value;
         rt->failed = false;
         rt->exit_code = 0;
-        Value replacement = call_value(rt, stream->env, site, stream->function, 1, &error);
+        Value replacement = call_stream_value(rt, stream->env, site, stream->function, 1, &error);
         if (rt->failed) { stream_close(stream); return false; }
         if (replacement.kind != V_STREAM || replacement.as.stream->claimed) {
             runtime_type_error(rt, site, "Stream on_error handler must return a fresh Stream");
@@ -2201,7 +2272,7 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                     keys = grown_keys;
                 }
                 items[count] = item;
-                keys[count] = call_value(rt, stream->env, site, stream->function, 1, &item);
+                keys[count] = call_stream_value(rt, stream->env, site, stream->function, 1, &item);
                 if (rt->failed) break;
                 if (stream->kind == STREAM_SORT && !sortable_scalar(keys[count])) {
                     runtime_type_error(rt, site, "sort_by keys must be comparable scalars");
@@ -2299,7 +2370,7 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
                 stream_close(stream);
                 return false;
             }
-            Value inner = call_value(rt, stream->env, site, stream->function, 1, &outer);
+            Value inner = call_stream_value(rt, stream->env, site, stream->function, 1, &outer);
             if (inner.kind != V_STREAM || inner.as.stream->claimed) {
                 runtime_type_error(rt, site, "flat_map closure must return a fresh Stream");
                 stream_close(stream);
@@ -2312,17 +2383,17 @@ static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value 
     Value item;
     while (stream_next(rt, site, stream->source.as.stream, &item)) {
         if (stream->kind == STREAM_MAP) {
-            *out = call_value(rt, stream->env, site, stream->function, 1, &item);
+            *out = call_stream_value(rt, stream->env, site, stream->function, 1, &item);
             return !rt->failed;
         }
         if (stream->kind == STREAM_INSPECT) {
-            (void)call_value(rt, stream->env, site, stream->function, 1, &item);
+            (void)call_stream_value(rt, stream->env, site, stream->function, 1, &item);
             if (rt->failed) return false;
             *out = item;
             return true;
         }
         if (stream->kind == STREAM_WHERE) {
-            Value accepted = call_value(rt, stream->env, site, stream->function, 1, &item);
+            Value accepted = call_stream_value(rt, stream->env, site, stream->function, 1, &item);
             bool keep = false;
             if (!require_bool(rt, site, accepted, &keep)) return false;
             if (keep) { *out = item; return true; }
@@ -2451,7 +2522,7 @@ static bool parallel_launch(Runtime *rt, const HhyNode *site, Stream *stream) {
         rt->failed = false;
         rt->exit_code = 0;
         rt->signal = SIGNAL_NONE;
-        Value result = call_value(rt, stream->env, site, stream->function, 1, &input);
+        Value result = call_stream_value(rt, stream->env, site, stream->function, 1, &input);
         uint8_t status = rt->failed ? 1 : 0;
         rewind(file);
         bool written = binary_write(file, &status, sizeof(status));
@@ -4103,6 +4174,27 @@ static Value datetime_parse(Runtime *rt, const HhyNode *site, size_t argc, Value
 
 static Value call_function(Runtime *rt, const HhyNode *site, Value callee,
                            size_t argc, Value *argv) {
+    if (callee.as.function.is_bytecode) {
+        const BytecodeFunctionTarget *target = (const BytecodeFunctionTarget *)callee.as.function.node;
+        BytecodeCursor function = {.chunk = target->chunk, .instruction = target->instruction};
+        HhyNode function_site = bytecode_site(function);
+        size_t param_count = function_site.child_count - 2;
+        if (argc != param_count) { runtime_type_error(rt, site, "wrong number of function arguments"); return null_value(); }
+        Env *call_env = call_frame_acquire(rt, callee.as.function.closure,
+                                           function_site.frame_slot_count > param_count
+                                               ? function_site.frame_slot_count : param_count);
+        for (size_t i = 0; i < param_count; i++) {
+            HhyNode parameter = bytecode_site(bytecode_child_cursor(function, (uint32_t)i + 1));
+            env_define_token(rt, call_env, site, parameter.token, argv[i], false);
+        }
+        BytecodeCursor body = bytecode_child_cursor(function, function_site.child_count - 1);
+        Value result = body.chunk->code[body.instruction].opcode == HHY_OP_BLOCK
+            ? bytecode_exec_contents(rt, call_env, body)
+            : bytecode_exec(rt, call_env, body);
+        if (rt->signal == SIGNAL_RETURN) { result = rt->signal_value; rt->signal = SIGNAL_NONE; }
+        call_frame_release(rt, call_env);
+        return result;
+    }
     const HhyNode *function = callee.as.function.node;
     size_t param_count = function->child_count - 2;
     if (argc != param_count) { runtime_type_error(rt, site, "wrong number of function arguments"); return null_value(); }
@@ -4122,6 +4214,48 @@ static Value call_function(Runtime *rt, const HhyNode *site, Value callee,
 
 static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
                           size_t argc, Value *argv) {
+    if (callee.as.function.is_bytecode) {
+        const BytecodeFunctionTarget *target = (const BytecodeFunctionTarget *)callee.as.function.node;
+        if (target->has_fast_argument_expression) {
+            if (argc != 1) { runtime_type_error(rt, site, "closure requires one argument"); return null_value(); }
+            Value result;
+            bool evaluated = bytecode_eval_argument_expression(
+                rt, (BytecodeCursor){.chunk = target->chunk, .instruction = target->fast_expression},
+                target->parameter_constant, argv[0], &result);
+            if (evaluated) return result;
+        }
+        BytecodeCursor closure = {.chunk = target->chunk, .instruction = target->instruction};
+        HhyNode closure_site = bytecode_site(closure);
+        bool explicit_param = closure_site.child_count > 0 &&
+            closure.chunk->code[bytecode_child_cursor(closure, 0).instruction].opcode == HHY_OP_IDENTIFIER;
+        if (argc != 1) { runtime_type_error(rt, site, "closure requires one argument"); return null_value(); }
+        if (explicit_param && closure_site.child_count == 2) {
+            BytecodeCursor parameter_cursor = bytecode_child_cursor(closure, 0);
+            BytecodeCursor body = bytecode_child_cursor(closure, 1);
+            if (body.chunk->code[body.instruction].opcode == HHY_OP_EXPR_STMT) {
+                Value result;
+                if (bytecode_eval_argument_expression(rt, bytecode_child_cursor(body, 0),
+                                                      parameter_cursor.chunk->code[parameter_cursor.instruction].constant,
+                                                      argv[0], &result))
+                    return result;
+            }
+        }
+        Env *call_env = call_frame_acquire(rt, callee.as.function.closure,
+                                           closure_site.frame_slot_count > 1
+                                               ? closure_site.frame_slot_count : 1);
+        size_t body_start = 0;
+        if (explicit_param) {
+            HhyNode parameter = bytecode_site(bytecode_child_cursor(closure, 0));
+            env_define_token(rt, call_env, site, parameter.token, argv[0], false);
+            body_start = 1;
+        } else env_define(rt, call_env, site, "it", argv[0], false);
+        Value result = null_value();
+        for (size_t i = body_start; i < closure_site.child_count && !rt->failed && rt->signal == SIGNAL_NONE; i++)
+            result = bytecode_exec(rt, call_env, bytecode_child_cursor(closure, (uint32_t)i));
+        if (rt->signal == SIGNAL_RETURN) { result = rt->signal_value; rt->signal = SIGNAL_NONE; }
+        call_frame_release(rt, call_env);
+        return result;
+    }
     const HhyNode *closure = callee.as.function.node;
     bool explicit_param = closure->child_count > 0 && closure->children[0]->kind == HHY_N_IDENTIFIER;
     if (argc != 1) { runtime_type_error(rt, site, "closure requires one argument"); return null_value(); }
@@ -5400,7 +5534,18 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
     size_t name_length = name == NULL ? 0 : strlen(name);
     const HhySource *source = rt->source;
     uint32_t line = site->token.line, column = site->token.column;
-    if (callee.kind == V_FUNCTION && name == NULL && callee.as.function.node != NULL) {
+    if (callee.kind == V_FUNCTION && name == NULL && callee.as.function.is_bytecode) {
+        const BytecodeFunctionTarget *target = (const BytecodeFunctionTarget *)callee.as.function.node;
+        BytecodeCursor cursor = {.chunk = target->chunk, .instruction = target->instruction};
+        HhyNode function = bytecode_site(cursor);
+        source = callee.as.function.source == NULL ? rt->source : callee.as.function.source;
+        if (callee.as.function.is_closure) { name = "<closure>"; name_length = 9; }
+        else if (function.child_count > 0) {
+            HhyNode identifier = bytecode_site(bytecode_child_cursor(cursor, 0));
+            name = identifier.token.start; name_length = identifier.token.length;
+            line = function.token.line; column = function.token.column;
+        }
+    } else if (callee.kind == V_FUNCTION && name == NULL && callee.as.function.node != NULL) {
         const HhyNode *function = callee.as.function.node;
         source = callee.as.function.source == NULL ? rt->source : callee.as.function.source;
         if (callee.as.function.is_closure) { name = "<closure>"; name_length = 9; }
@@ -5423,6 +5568,475 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
     hhy_profiler_leave(rt->profiler, previous);
     if (pushed) rt->call_stack_count--;
     return result;
+}
+
+static BytecodeFunctionTarget *bytecode_function_target(Runtime *rt, BytecodeCursor cursor) {
+    BytecodeFunctionTarget *target = rt_alloc(rt, sizeof(*target));
+    target->chunk = cursor.chunk;
+    target->instruction = cursor.instruction;
+    HhyInstruction instruction = cursor.chunk->code[cursor.instruction];
+    if (instruction.opcode == HHY_OP_CLOSURE && instruction.child_count == 2) {
+        BytecodeCursor parameter = bytecode_child_cursor(cursor, 0);
+        BytecodeCursor body = bytecode_child_cursor(cursor, 1);
+        if (parameter.chunk->code[parameter.instruction].opcode == HHY_OP_IDENTIFIER &&
+            body.chunk->code[body.instruction].opcode == HHY_OP_EXPR_STMT) {
+            target->fast_expression = bytecode_child_cursor(body, 0).instruction;
+            target->parameter_constant = parameter.chunk->code[parameter.instruction].constant;
+            target->has_fast_argument_expression = true;
+        }
+    }
+    return target;
+}
+
+static bool bytecode_eval_argument_expression(Runtime *rt, BytecodeCursor node,
+                                              uint32_t parameter_constant, Value argument,
+                                              Value *result) {
+    HhyInstruction instruction = node.chunk->code[node.instruction];
+    switch (instruction.opcode) {
+        case HHY_OP_IDENTIFIER:
+            if (instruction.constant != parameter_constant) return false;
+            *result = argument; return true;
+        case HHY_OP_LITERAL: {
+            if (instruction.token_kind == HHY_T_INT && instruction.token_length > 0 &&
+                instruction.token_length <= 18) {
+                const char *text = node.chunk->constants[instruction.constant];
+                int64_t integer = 0; bool digits = true;
+                for (uint32_t i = 0; i < instruction.token_length; i++) {
+                    if (text[i] < '0' || text[i] > '9') { digits = false; break; }
+                    integer = integer * 10 + (text[i] - '0');
+                }
+                if (digits) { *result = int_value(integer); return true; }
+            }
+            HhyNode site = bytecode_site(node);
+            *result = literal(rt, &site); return true;
+        }
+        case HHY_OP_UNARY: {
+            HhyNode site = bytecode_site(node);
+            Value value;
+            if (!bytecode_eval_argument_expression(rt, bytecode_child_cursor(node, 0),
+                                                   parameter_constant, argument, &value)) return false;
+            if (site.token.kind == HHY_T_NOT) {
+                bool boolean; if (!require_bool(rt, &site, value, &boolean)) { *result = null_value(); return true; }
+                *result = bool_value(!boolean); return true;
+            }
+            if (!numeric(value)) { runtime_type_error(rt, &site, "unary numeric operator requires number"); *result = null_value(); return true; }
+            if (site.token.kind == HHY_T_MINUS) {
+                if (value.kind == V_INT) {
+                    if (value.as.integer == INT64_MIN) { runtime_error_kind(rt, &site, "ValueError", "HHY_INT_OVERFLOW", "Int negation overflow"); *result = null_value(); return true; }
+                    *result = int_value(-value.as.integer); return true;
+                }
+                *result = float_value(-value.as.number); return true;
+            }
+            *result = value; return true;
+        }
+        case HHY_OP_BINARY: {
+            Value left, right;
+            if (!bytecode_eval_argument_expression(rt, bytecode_child_cursor(node, 0),
+                                                   parameter_constant, argument, &left)) return false;
+            if (instruction.token_kind == HHY_T_AND && left.kind == V_BOOL && !left.as.boolean) { *result = left; return true; }
+            if (instruction.token_kind == HHY_T_OR && left.kind == V_BOOL && left.as.boolean) { *result = left; return true; }
+            if (!bytecode_eval_argument_expression(rt, bytecode_child_cursor(node, 1),
+                                                   parameter_constant, argument, &right)) return false;
+            if (left.kind == V_INT && right.kind == V_INT) {
+                int64_t integer;
+                if (instruction.token_kind == HHY_T_STAR &&
+                    !__builtin_mul_overflow(left.as.integer, right.as.integer, &integer)) {
+                    *result = int_value(integer); return true;
+                }
+                if (instruction.token_kind == HHY_T_PLUS &&
+                    !__builtin_add_overflow(left.as.integer, right.as.integer, &integer)) {
+                    *result = int_value(integer); return true;
+                }
+                if (instruction.token_kind == HHY_T_MINUS &&
+                    !__builtin_sub_overflow(left.as.integer, right.as.integer, &integer)) {
+                    *result = int_value(integer); return true;
+                }
+                if (instruction.token_kind == HHY_T_MOD && right.as.integer != 0 &&
+                    !(left.as.integer == INT64_MIN && right.as.integer == -1)) {
+                    *result = int_value(left.as.integer % right.as.integer); return true;
+                }
+                if (instruction.token_kind == HHY_T_EQUAL_EQUAL) {
+                    *result = bool_value(left.as.integer == right.as.integer); return true;
+                }
+                if (instruction.token_kind == HHY_T_BANG_EQUAL) {
+                    *result = bool_value(left.as.integer != right.as.integer); return true;
+                }
+            }
+            HhyNode site = bytecode_site(node);
+            *result = binary_value(rt, &site, left, right); return true;
+        }
+        default: return false;
+    }
+}
+
+static Value bytecode_eval_call(Runtime *rt, Env *env, BytecodeCursor node, Value *injected) {
+    HhyNode site = bytecode_site(node);
+    Value callee = bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
+    size_t explicit_count = site.child_count - 1;
+    size_t argc = explicit_count + (injected != NULL ? 1 : 0);
+    Value *args = argc == 0 ? NULL : rt_alloc(rt, argc * sizeof(Value));
+    size_t offset = 0;
+    if (injected != NULL) args[offset++] = *injected;
+    for (size_t i = 0; i < explicit_count && !rt->failed; i++)
+        args[offset + i] = bytecode_eval(rt, env, bytecode_child_cursor(node, (uint32_t)i + 1));
+    return rt->failed ? null_value() : call_value(rt, env, &site, callee, argc, args);
+}
+
+static Value bytecode_eval(Runtime *rt, Env *env, BytecodeCursor node) {
+    if (rt->failed) return null_value();
+    HhyNode site = bytecode_site(node);
+    switch (node.chunk->code[node.instruction].opcode) {
+        case HHY_OP_LITERAL: return literal(rt, &site);
+        case HHY_OP_IDENTIFIER: {
+            Binding *binding = env_find_node(env, &site);
+            if (binding != NULL) return binding->value;
+            char *name = token_text(rt, site.token);
+            if (strcmp(name, "processes") == 0) return builtin(rt, env, &site, "processes", 0, NULL);
+            if (hhy_contract_lookup(name) == NULL) {
+                runtime_check_error(rt, &site, "use of undeclared name"); return null_value();
+            }
+            Value value = {.kind = V_FUNCTION}; value.as.function.builtin = name; return value;
+        }
+        case HHY_OP_LIST: {
+            Value value = list_new(rt, site.child_count);
+            for (size_t i = 0; i < site.child_count; i++)
+                value.as.list.items[i] = bytecode_eval(rt, env, bytecode_child_cursor(node, (uint32_t)i));
+            return value;
+        }
+        case HHY_OP_MAP: {
+            Value value = {.kind = V_MAP}; value.as.map = map_storage_new(rt, site.child_count);
+            value.as.map->keys = site.child_count ? rt_alloc(rt, site.child_count * sizeof(char *)) : NULL;
+            value.as.map->key_lengths = site.child_count ? rt_alloc(rt, site.child_count * sizeof(size_t)) : NULL;
+            value.as.map->values = site.child_count ? rt_alloc(rt, site.child_count * sizeof(Value)) : NULL;
+            for (size_t i = 0; i < site.child_count; i++) {
+                BytecodeCursor entry_cursor = bytecode_child_cursor(node, (uint32_t)i);
+                HhyNode entry = bytecode_site(entry_cursor); HhyToken key = entry.token;
+                if (key.kind == HHY_T_STRING) {
+                    Value decoded = decode_string(rt, key); value.as.map->keys[i] = decoded.as.string;
+                    value.as.map->key_lengths[i] = decoded.string_length;
+                } else {
+                    value.as.map->keys[i] = token_text(rt, key); value.as.map->key_lengths[i] = key.length;
+                }
+                for (size_t previous = 0; previous < i; previous++) {
+                    if (value.as.map->key_lengths[previous] == value.as.map->key_lengths[i] &&
+                        memcmp(value.as.map->keys[previous], value.as.map->keys[i], value.as.map->key_lengths[i]) == 0) {
+                        runtime_value_error(rt, &entry, "duplicate Map key"); return null_value();
+                    }
+                }
+                value.as.map->values[i] = bytecode_eval(rt, env, bytecode_child_cursor(entry_cursor, 0));
+            }
+            map_build_index(rt, value.as.map); return value;
+        }
+        case HHY_OP_MEMBER: {
+            Value object = bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
+            char *key = token_text(rt, site.token);
+            if (object.kind == V_PATH) {
+                const char *path_text = object.as.string; const char *name = strrchr(path_text, '/');
+                name = name == NULL ? path_text : name + 1;
+                if (strcmp(key, "name") == 0) return string_value(rt, name);
+                if (strcmp(key, "extension") == 0) {
+                    const char *extension = strrchr(name, '.');
+                    if (extension == NULL || extension == name) extension = "";
+                    return string_value(rt, extension);
+                }
+                if (strcmp(key, "parent") == 0) {
+                    const char *slash = strrchr(path_text, '/');
+                    if (slash == NULL) return path_value_normalized(rt, ".");
+                    if (slash == path_text) return path_value_normalized(rt, "/");
+                    char *parent = hhy_strndup(path_text, (size_t)(slash - path_text));
+                    Value result = path_value_normalized(rt, parent); free(parent); return result;
+                }
+                runtime_error_kind(rt, &site, "KeyError", "HHY_PATH_MEMBER", "unknown Path member");
+                return null_value();
+            }
+            if (!record_kind(object.kind)) {
+                runtime_type_error(rt, &site, "member access expects Map or system object"); return null_value();
+            }
+            return map_get(object, key);
+        }
+        case HHY_OP_INDEX: {
+            Value object = bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
+            Value index = bytecode_eval(rt, env, bytecode_child_cursor(node, 1));
+            if (object.kind == V_LIST && index.kind == V_INT) {
+                if (index.as.integer < 0 || (size_t)index.as.integer >= object.as.list.count) {
+                    runtime_index_error(rt, &site, "list index out of bounds"); return null_value();
+                }
+                return object.as.list.items[index.as.integer];
+            }
+            if (object.kind == V_STRING && index.kind == V_INT) {
+                if (index.as.integer < 0) { runtime_index_error(rt, &site, "String index out of bounds"); return null_value(); }
+                size_t byte = 0, codepoint = 0;
+                while (byte < object.string_length && codepoint < (size_t)index.as.integer) {
+                    unsigned char lead = (unsigned char)object.as.string[byte];
+                    byte += lead < 0x80 ? 1 : lead < 0xe0 ? 2 : lead < 0xf0 ? 3 : 4; codepoint++;
+                }
+                if (byte >= object.string_length) { runtime_index_error(rt, &site, "String index out of bounds"); return null_value(); }
+                unsigned char lead = (unsigned char)object.as.string[byte];
+                size_t width = lead < 0x80 ? 1 : lead < 0xe0 ? 2 : lead < 0xf0 ? 3 : 4;
+                return string_n(rt, object.as.string + byte, width);
+            }
+            if (record_kind(object.kind) && index.kind == V_STRING)
+                return map_get_n(object, index.as.string, index.string_length);
+            runtime_type_error(rt, &site, "invalid index operation"); return null_value();
+        }
+        case HHY_OP_UNARY: {
+            Value value = bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
+            if (site.token.kind == HHY_T_NOT) { bool b; if (!require_bool(rt,&site,value,&b)) return null_value(); return bool_value(!b); }
+            if (!numeric(value)) { runtime_type_error(rt, &site, "unary numeric operator requires number"); return null_value(); }
+            if (site.token.kind == HHY_T_MINUS) {
+                if (value.kind == V_INT) {
+                    if (value.as.integer == INT64_MIN) { runtime_error_kind(rt, &site, "ValueError", "HHY_INT_OVERFLOW", "Int negation overflow"); return null_value(); }
+                    return int_value(-value.as.integer);
+                }
+                return float_value(-value.as.number);
+            }
+            return value;
+        }
+        case HHY_OP_BINARY: {
+            Value left = bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
+            if (site.token.kind == HHY_T_AND && left.kind == V_BOOL && !left.as.boolean) return left;
+            if (site.token.kind == HHY_T_OR && left.kind == V_BOOL && left.as.boolean) return left;
+            Value right = bytecode_eval(rt, env, bytecode_child_cursor(node, 1));
+            return binary_value(rt, &site, left, right);
+        }
+        case HHY_OP_RANGE: {
+            Value start = bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
+            Value end = bytecode_eval(rt, env, bytecode_child_cursor(node, 1));
+            if (start.kind != V_INT || end.kind != V_INT) { runtime_type_error(rt, &site, "Range bounds must be Int"); return null_value(); }
+            if (end.as.integer < start.as.integer) { runtime_value_error(rt, &site, "descending Range is not supported in v1.0"); return null_value(); }
+            Value value = {.kind = V_RANGE}; value.as.range.start = start.as.integer; value.as.range.end = end.as.integer; return value;
+        }
+        case HHY_OP_CALL: return bytecode_eval_call(rt, env, node, NULL);
+        case HHY_OP_CLOSURE: {
+            Value value = {.kind = V_FUNCTION};
+            value.as.function.node = (const HhyNode *)bytecode_function_target(rt, node);
+            value.as.function.is_bytecode = true; value.as.function.is_closure = true;
+            env_mark_escaped(env); value.as.function.closure = env; value.as.function.source = rt->source;
+            return value;
+        }
+        case HHY_OP_PIPE: {
+            BytecodeCursor stage = bytecode_child_cursor(node, 1);
+            HhyNode stage_site = bytecode_site(stage);
+            bool catches_error = stage.chunk->code[stage.instruction].opcode == HHY_OP_CALL && stage_site.child_count >= 2;
+            if (catches_error) {
+                BytecodeCursor callee = bytecode_child_cursor(stage, 0); HhyNode callee_site = bytecode_site(callee);
+                catches_error = callee.chunk->code[callee.instruction].opcode == HHY_OP_IDENTIFIER &&
+                    callee_site.token.length == 8 && memcmp(callee_site.token.start, "on_error", 8) == 0;
+            }
+            Value left = bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
+            if (catches_error && rt->failed && !rt->cancelled) {
+                Value error = rt->error_value; rt->failed = false; rt->exit_code = 0;
+                Value handler = bytecode_eval(rt, env, bytecode_child_cursor(stage, stage_site.child_count - 1));
+                return rt->failed ? null_value() : call_value(rt, env, &stage_site, handler, 1, &error);
+            }
+            if (catches_error && !rt->failed && left.kind != V_STREAM) return left;
+            if (stage.chunk->code[stage.instruction].opcode == HHY_OP_CALL)
+                return bytecode_eval_call(rt, env, stage, &left);
+            Value callee = bytecode_eval(rt, env, stage); return call_value(rt, env, &stage_site, callee, 1, &left);
+        }
+        case HHY_OP_ASSIGN: {
+            BytecodeCursor target_cursor = bytecode_child_cursor(node, 0); HhyNode target = bytecode_site(target_cursor);
+            if (target_cursor.chunk->code[target_cursor.instruction].opcode != HHY_OP_IDENTIFIER) {
+                runtime_check_error(rt, &site, "assignment target must be a variable"); return null_value();
+            }
+            Binding *binding = env_find_node(env, &target);
+            if (binding == NULL) { runtime_check_error(rt, &site, "assignment to undeclared variable"); return null_value(); }
+            if (!binding->mutable) { runtime_check_error(rt, &site, "cannot assign to immutable binding"); return null_value(); }
+            binding->value = bytecode_eval(rt, env, bytecode_child_cursor(node, 1)); return binding->value;
+        }
+        case HHY_OP_ATTEMPT: {
+            bool outer_failed = rt->failed; Value outer_error = rt->error_value; int outer_exit = rt->exit_code;
+            rt->failed = false; rt->exit_code = 0;
+            Value result = bytecode_exec(rt, env, bytecode_child_cursor(node, 0));
+            bool failed = rt->failed; Value error = rt->error_value;
+            rt->failed = outer_failed; rt->error_value = outer_error; rt->exit_code = outer_exit;
+            Value map = {.kind = V_RESULT}; map.as.map = map_storage_new(rt, 3);
+            map.as.map->keys = rt_alloc(rt, 3 * sizeof(char *)); map.as.map->values = rt_alloc(rt, 3 * sizeof(Value));
+            map.as.map->key_lengths = rt_alloc(rt, 3 * sizeof(size_t));
+            map.as.map->keys[0] = rt_strndup(rt,"ok",2); map.as.map->values[0] = bool_value(!failed);
+            map.as.map->keys[1] = rt_strndup(rt,"value",5); map.as.map->values[1] = failed ? null_value() : result;
+            map.as.map->keys[2] = rt_strndup(rt,"error",5); map.as.map->values[2] = failed ? error : null_value();
+            map.as.map->key_lengths[0] = 2; map.as.map->key_lengths[1] = 5; map.as.map->key_lengths[2] = 5;
+            return map;
+        }
+        default: return bytecode_exec(rt, env, node);
+    }
+}
+
+static Value bytecode_exec_contents(Runtime *rt, Env *env, BytecodeCursor node) {
+    HhyNode site = bytecode_site(node); Value result = null_value();
+    for (size_t i = 0; i < site.child_count && !rt->failed && rt->signal == SIGNAL_NONE; i++)
+        result = bytecode_exec(rt, env, bytecode_child_cursor(node, (uint32_t)i));
+    return result;
+}
+
+static Value bytecode_import_module(Runtime *rt, Env *target, BytecodeCursor node) {
+    HhyNode site = bytecode_site(node);
+    if (site.child_count == 0) { runtime_check_error(rt, &site, "import requires a module"); return null_value(); }
+    BytecodeCursor first_cursor = bytecode_child_cursor(node, 0);
+    HhyNode first = bytecode_site(first_cursor);
+    bool has_path = false; BytecodeCursor path_cursor = first_cursor;
+    for (size_t i = 0; i < site.child_count; i++) {
+        BytecodeCursor child_cursor = bytecode_child_cursor(node, (uint32_t)i);
+        HhyNode child = bytecode_site(child_cursor);
+        if (child.token.kind == HHY_T_STRING) { has_path = true; path_cursor = child_cursor; break; }
+    }
+    if (!has_path) {
+        char *standard_name = token_text(rt, first.token);
+        if (site.child_count == 1 && env_find(target, standard_name) == NULL) {
+            const char *extension_error = NULL;
+            if (hhy_extension_prepare_namespace(standard_name, strlen(standard_name), &extension_error)) {
+                size_t count = 0, prefix_length = strlen(standard_name);
+                for (size_t i = 0; i < hhy_contract_count(); i++) {
+                    const HhyCallableContract *contract = hhy_contract_at(i);
+                    if (strncmp(contract->name, standard_name, prefix_length) == 0 &&
+                        contract->name[prefix_length] == '.') count++;
+                }
+                const char **keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
+                Value *functions = count ? rt_alloc(rt, count * sizeof(Value)) : NULL;
+                size_t index = 0;
+                for (size_t i = 0; i < hhy_contract_count(); i++) {
+                    const HhyCallableContract *contract = hhy_contract_at(i);
+                    if (strncmp(contract->name, standard_name, prefix_length) != 0 ||
+                        contract->name[prefix_length] != '.') continue;
+                    keys[index] = contract->name + prefix_length + 1;
+                    functions[index] = (Value){.kind = V_FUNCTION};
+                    functions[index].as.function.builtin = contract->name; index++;
+                }
+                env_define(rt, target, &site, standard_name,
+                           map_with_entries(rt, V_MAP, count, keys, functions), false);
+            }
+        }
+        if (site.child_count != 1 || env_find(target, standard_name) == NULL)
+            runtime_error_kind(rt, &site, "ModuleNotFoundError", "HHY_MODULE_NOT_FOUND", "unknown standard module");
+        return null_value();
+    }
+    HhyNode path_node = bytecode_site(path_cursor);
+    Value decoded_path = decode_string(rt, path_node.token);
+    if (rt->failed) return null_value();
+    if (string_has_nul(decoded_path)) { runtime_value_error(rt, &site, "module path cannot contain U+0000"); return null_value(); }
+    Module *module = module_load(rt, &site, decoded_path.as.string);
+    if (module == NULL) return null_value();
+    if (first.token.kind == HHY_T_STRING) {
+        if (site.child_count >= 3) {
+            HhyNode marker = bytecode_site(bytecode_child_cursor(node, 1));
+            if (marker.token.kind == HHY_T_AS) {
+                HhyNode alias_node = bytecode_site(bytecode_child_cursor(node, 2));
+                char *alias = token_text(rt, alias_node.token);
+                env_define(rt, target, &site, alias, module->exports, false);
+            }
+        }
+        return module->exports;
+    }
+    size_t close_brace = 0;
+    for (size_t i = 0; i < site.child_count; i++) {
+        HhyNode child = bytecode_site(bytecode_child_cursor(node, (uint32_t)i));
+        if (child.token.kind == HHY_T_RBRACE) { close_brace = i; break; }
+    }
+    for (size_t i = 1; i < close_brace; i++) {
+        HhyNode imported_node = bytecode_site(bytecode_child_cursor(node, (uint32_t)i));
+        if (imported_node.token.kind != HHY_T_IDENTIFIER) continue;
+        char *source_name = token_text(rt, imported_node.token); char *local_name = source_name;
+        if (i + 2 < close_brace) {
+            HhyNode marker = bytecode_site(bytecode_child_cursor(node, (uint32_t)i + 1));
+            if (marker.token.kind == HHY_T_AS) {
+                HhyNode alias_node = bytecode_site(bytecode_child_cursor(node, (uint32_t)i + 2));
+                local_name = token_text(rt, alias_node.token); i += 2;
+            }
+        }
+        Value imported;
+        if (!map_lookup_n(module->exports, source_name, strlen(source_name), &imported)) {
+            runtime_error_kind(rt, &site, "KeyError", "HHY_MODULE_EXPORT", "module does not export requested name");
+            return null_value();
+        }
+        env_define(rt, target, &site, local_name, imported, false);
+    }
+    return module->exports;
+}
+
+static Value bytecode_exec(Runtime *rt, Env *env, BytecodeCursor node) {
+    if (rt->failed) return null_value();
+    HhyNode site = bytecode_site(node);
+    switch (node.chunk->code[node.instruction].opcode) {
+        case HHY_OP_PROGRAM: return bytecode_exec_contents(rt, env, node);
+        case HHY_OP_BLOCK:
+            return bytecode_exec_contents(rt, env_new_with_capacity(rt, env, site.frame_slot_count), node);
+        case HHY_OP_EXPR_STMT: return bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
+        case HHY_OP_LET_DECL: {
+            bool mutable = site.child_count == 3; size_t name_index = mutable ? 1 : 0;
+            HhyNode name = bytecode_site(bytecode_child_cursor(node, (uint32_t)name_index));
+            Value value = bytecode_eval(rt, env, bytecode_child_cursor(node, (uint32_t)name_index + 1));
+            env_define_token(rt, env, &site, name.token, value, mutable); return value;
+        }
+        case HHY_OP_FN_DECL: {
+            Value value = {.kind = V_FUNCTION};
+            value.as.function.node = (const HhyNode *)bytecode_function_target(rt, node);
+            value.as.function.is_bytecode = true; env_mark_escaped(env);
+            value.as.function.closure = env; value.as.function.source = rt->source;
+            HhyNode name = bytecode_site(bytecode_child_cursor(node, 0));
+            env_define_token(rt, env, &site, name.token, value, false); return value;
+        }
+        case HHY_OP_IF: {
+            Value condition = bytecode_eval(rt, env, bytecode_child_cursor(node, 0)); bool yes;
+            if (!require_bool(rt, &site, condition, &yes)) return null_value();
+            if (yes) return bytecode_exec(rt, env, bytecode_child_cursor(node, 1));
+            if (site.child_count > 2) return bytecode_exec(rt, env, bytecode_child_cursor(node, 2));
+            return null_value();
+        }
+        case HHY_OP_WHILE: {
+            Value result = null_value();
+            for (;;) {
+                if (runtime_safepoint(rt, &site)) break;
+                Value condition = bytecode_eval(rt, env, bytecode_child_cursor(node, 0)); bool yes;
+                if (!require_bool(rt,&site,condition,&yes) || !yes || rt->failed) break;
+                result = bytecode_exec(rt, env, bytecode_child_cursor(node, 1));
+                if (rt->signal == SIGNAL_BREAK) { rt->signal = SIGNAL_NONE; break; }
+                if (rt->signal == SIGNAL_CONTINUE) rt->signal = SIGNAL_NONE;
+                if (rt->signal == SIGNAL_RETURN) break;
+            }
+            return result;
+        }
+        case HHY_OP_FOR: {
+            Value iterable = bytecode_eval(rt, env, bytecode_child_cursor(node, 1));
+            if (iterable.kind == V_RANGE) iterable = stream_value(rt, STREAM_RANGE, iterable, null_value(), env);
+            Value result = null_value(); HhyNode name = bytecode_site(bytecode_child_cursor(node, 0));
+            size_t index = 0; Value item;
+            if (iterable.kind == V_STREAM && !stream_claim(rt, &site, iterable)) return null_value();
+            if (iterable.kind != V_LIST && iterable.kind != V_STREAM) { runtime_type_error(rt,&site,"for expects List or Stream"); return null_value(); }
+            for (;;) {
+                if (runtime_safepoint(rt, &site)) break;
+                if (iterable.kind == V_LIST) { if (index >= iterable.as.list.count) break; item = iterable.as.list.items[index++]; }
+                else if (!stream_next(rt, &site, iterable.as.stream, &item)) break;
+                Env *iteration = env_new_with_capacity(rt, env, 1);
+                env_define_token(rt, iteration, &site, name.token, item, false);
+                result = bytecode_exec(rt, iteration, bytecode_child_cursor(node, 2));
+                if (rt->signal == SIGNAL_BREAK) { rt->signal = SIGNAL_NONE; break; }
+                if (rt->signal == SIGNAL_CONTINUE) rt->signal = SIGNAL_NONE;
+                if (rt->signal == SIGNAL_RETURN || rt->failed) break;
+            }
+            return result;
+        }
+        case HHY_OP_RETURN:
+            rt->signal_value = site.child_count ? bytecode_eval(rt, env, bytecode_child_cursor(node, 0)) : null_value();
+            rt->signal = SIGNAL_RETURN; return rt->signal_value;
+        case HHY_OP_BREAK: rt->signal = SIGNAL_BREAK; return null_value();
+        case HHY_OP_CONTINUE: rt->signal = SIGNAL_CONTINUE; return null_value();
+        case HHY_OP_TRY: {
+            Value result = bytecode_exec(rt, env, bytecode_child_cursor(node, 0));
+            if (!rt->failed) return result;
+            Value error = rt->error_value; rt->failed = false; rt->exit_code = 0;
+            Env *catch_env = env_new_with_capacity(rt, env, 1);
+            HhyNode name = bytecode_site(bytecode_child_cursor(node, 1));
+            env_define_token(rt, catch_env, &site, name.token, error, false);
+            return bytecode_exec(rt, catch_env, bytecode_child_cursor(node, 2));
+        }
+        case HHY_OP_IMPORT_DECL:
+            return bytecode_import_module(rt, env, node);
+        case HHY_OP_EXPORT_DECL:
+            if (site.child_count != 1) { runtime_check_error(rt, &site, "invalid export declaration"); return null_value(); }
+            return bytecode_exec(rt, env, bytecode_child_cursor(node, 0));
+        default: return bytecode_eval(rt, env, node);
+    }
 }
 
 static Value eval_call(Runtime *rt, Env *env, const HhyNode *node, Value *injected) {
@@ -5799,7 +6413,20 @@ static Module *module_load(Runtime *rt, const HhyNode *site, const char *request
     module->environment = env_new(rt, rt->core);
     const HhySource *previous_source = rt->source;
     rt->source = &module->source;
-    exec_node(rt, module->environment, module->program);
+    if (rt->engine == HHY_ENGINE_BYTECODE) {
+        HhyBytecodeResult prepared = hhy_bytecode_runtime_prepare(module->program, NULL,
+                                                                   &module->bytecode);
+        if (!prepared.ok) {
+            runtime_error_kind(rt, site, "BytecodeError", "HHY_BYTECODE_MODULE",
+                               prepared.message);
+        } else {
+            const HhyBytecodeChunk *chunk = hhy_bytecode_runtime_chunk(module->bytecode);
+            bytecode_exec(rt, module->environment,
+                          (BytecodeCursor){.chunk = chunk, .instruction = 0});
+        }
+    } else {
+        exec_node(rt, module->environment, module->program);
+    }
     rt->source = previous_source;
     if (rt->failed) return NULL;
     size_t export_count = 0;
@@ -6017,6 +6644,7 @@ static void runtime_release(HHY_BORROWED Runtime *rt) {
     for (Stream *stream = rt->streams; stream != NULL; stream = stream->runtime_next)
         stream_close(stream);
     for (Module *module = rt->modules; module != NULL; module = module->next) {
+        hhy_bytecode_runtime_free(module->bytecode);
         hhy_node_free(module->program);
         hhy_tokens_free(&module->tokens);
         hhy_source_free(&module->source);
@@ -6159,6 +6787,7 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
     }
     memset(rt, 0, sizeof(*rt));
     rt->source = source;
+    rt->engine = hhy_active_bytecode_chunk == NULL ? HHY_ENGINE_AST : HHY_ENGINE_BYTECODE;
     rt->dry_run = dry_run;
     rt->effect_allowed = true;
     rt->limits = limits == NULL ? hhy_runtime_limits_default() : *limits;
@@ -6196,7 +6825,11 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
                                                      source->path, 1, 1);
         Env *global = runtime_core_environment(rt, program, argc, argv);
         Env *main_environment = env_new(rt, global);
-        exec_node(rt, main_environment, program);
+        if (rt->engine == HHY_ENGINE_BYTECODE)
+            bytecode_exec(rt, main_environment,
+                          (BytecodeCursor){.chunk = hhy_active_bytecode_chunk, .instruction = 0});
+        else
+            exec_node(rt, main_environment, program);
         if (rt->signal == SIGNAL_BREAK || rt->signal == SIGNAL_CONTINUE)
             runtime_check_error(rt, program, "loop control used outside a loop");
         if (rt->signal == SIGNAL_RETURN) rt->signal = SIGNAL_NONE;
@@ -6228,7 +6861,7 @@ HhyRunResult hhy_run_program(const HhySource *source, const HhyNode *program,
                              int argc, char **argv, bool dry_run,
                              const HhyRuntimeLimits *limits) {
     return hhy_run_program_engine(source, program, argc, argv, dry_run, limits,
-                                  HHY_ENGINE_AST);
+                                  HHY_ENGINE_BYTECODE);
 }
 
 HhyRunResult hhy_profile_program_engine(const HhySource *source, const HhyNode *program,
@@ -6246,6 +6879,7 @@ HhyRunResult hhy_profile_program_engine(const HhySource *source, const HhyNode *
         fputs("hhy: unknown execution engine\n", stderr);
         return (HhyRunResult){.ok = false, .exit_code = 3};
     }
+    hhy_resolve_slots((HhyNode *)program);
     HhyPreparedBytecode *bytecode = NULL;
     HhyBytecodeResult prepared = hhy_bytecode_runtime_prepare(
         program, getenv("HHY_TEST_BYTECODE_FAULT"), &bytecode);
@@ -6258,8 +6892,10 @@ HhyRunResult hhy_profile_program_engine(const HhySource *source, const HhyNode *
     }
     HhyProfileOptions selected = profile == NULL ? (HhyProfileOptions){0} : *profile;
     selected.engine = "bytecode";
+    hhy_active_bytecode_chunk = hhy_bytecode_runtime_chunk(bytecode);
     HhyRunResult run = hhy_profile_program(source, program, argc, argv, dry_run,
                                            limits, profile == NULL ? NULL : &selected);
+    hhy_active_bytecode_chunk = NULL;
     hhy_bytecode_runtime_free(bytecode);
     return run;
 }
