@@ -2368,7 +2368,7 @@ export const chapters: Chapter[] = [
             ["v1.2.0 · 已发布", "2026-08-31", "官方扩展分发与签名", "命名空间身份、Ed25519 签名索引与包描述、确定性依赖解析、dry-run 和事务式安装"],
             ["v1.2.1 · 已发布", "2026-09-01", "锁定、离线与安全回滚", "同一 lock 得到同一依赖图；离线可重建；失败升级不破坏旧环境"],
             ["v1.2.2 · 已发布", "2026-09-01", "官方 HTML 复杂扩展验证", "真实 fixture、可观察截断、结构化错误和四平台发行全部通过"],
-            ["v1.3.0-alpha · 实现中", "2026-09-01", "Bytecode 编译器骨架", "核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎"],
+            ["v1.3.0-alpha · 已预发布", "2026-09-01", "Bytecode 编译器骨架", "核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎"],
             ["v1.4 · 规划", "v1.3 稳定后", "旗舰场景与外部采用", "模板、CI、运维文档和 3–5 个外部真实案例"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
@@ -2402,7 +2402,7 @@ export const chapters: Chapter[] = [
             ["v1.2.0 · Released", "2026-08-31", "Official extension distribution and signing", "Namespaced identities, Ed25519-signed index and package descriptors, deterministic resolution, dry runs, and transaction-safe installs"],
             ["v1.2.1 · Released", "2026-09-01", "Locking, offline installs, and safe rollback", "The same lock produces the same graph; offline rebuilds work; failed upgrades preserve the old environment"],
             ["v1.2.2 · Released", "2026-09-01", "Official HTML complex-extension validation", "Real fixtures, observable truncation, structured errors, and four-platform distribution all pass"],
-            ["v1.3.0-alpha · In progress", "2026-09-01", "Bytecode compiler skeleton", "Core syntax compiles, invalid Bytecode is rejected, and AST remains the default engine"],
+            ["v1.3.0-alpha · Prereleased", "2026-09-01", "Bytecode compiler skeleton", "Core syntax compiles, invalid Bytecode is rejected, and AST remains the default engine"],
             ["v1.4 · Planned", "After v1.3 stabilizes", "Flagship scenarios and external adoption", "Templates, CI, operations documentation, and 3–5 real external cases"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },

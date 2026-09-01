@@ -43,7 +43,7 @@ v2.0    有条件的生态开放与 ABI 决策
 | v1.2.0 | **已完成 · 2026-08-31** | 官方扩展分发与签名 | 包身份、Ed25519 签名、依赖解析、静态官方索引、事务式安装 | 来源和依赖可验证；篡改包拒绝；失败安装不破坏现有环境 |
 | v1.2.1 | **已完成并发布 · 2026-09-01** | 锁定、离线与安全回滚 | Lockfile、离线缓存、可复现安装、事务式升级/回滚 | 同一 lock 得到同一依赖图；失败升级不破坏旧环境 |
 | v1.2.2 | **已完成并发布 · 2026-09-01** | 官方 HTML 复杂扩展验证与协议补强 | Lexbor HTML 解析、CSS 选择器、可观察批量结构化抽取、端到端发行与兼容验证；扩展错误元数据兼容增强 | HTML 扩展通过三平台、最小权限、错误和资源验收；无证据需要的 Stream、取消与 Handle 不进入实现 |
-| v1.3 | **v1.3.0-alpha 实现完成 · 2026-09-01；待四平台预发布门禁** | AST → Bytecode VM | 保留语言语义，把 AST lowering 为可验证 Bytecode，并建立新执行引擎 | 现有 profiler 与 CPU-bound 基准证明 AST dispatch 值得优化；双引擎语义一致 |
+| v1.3 | **v1.3.0-alpha 已完成并预发布 · 2026-09-01** | AST → Bytecode VM | 保留语言语义，把 AST lowering 为可验证 Bytecode，并建立新执行引擎 | 现有 profiler 与 CPU-bound 基准证明 AST dispatch 值得优化；双引擎语义一致 |
 | v1.4 | 规划 | 旗舰场景与外部采用 | 模板、CI 集成、运维文档、3–5 个外部案例 | 外部用户可独立完成真实任务并形成可归类反馈 |
 | v2.0 | 条件规划 | 生态开放与 ABI 决策 | 进程协议边界报告、Embedding/FFI/Native ABI 决策 | 至少两个真实集成证明进程协议不足，否则不开放 ABI |
 
@@ -51,7 +51,7 @@ v2.0    有条件的生态开放与 ABI 决策
 
 | v1.3 阶段 | 阶段目标 | 关键交付 | 退出门槛 |
 | --- | --- | --- | --- |
-| v1.3.0-alpha | **实现完成；待四平台预发布门禁** · Bytecode 设计与编译器骨架 | Chunk、Opcode、常量池、源码位置表、AST compiler、Verifier、反汇编 | 核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎 |
+| v1.3.0-alpha | **已完成并预发布** · Bytecode 设计与编译器骨架 | Chunk、Opcode、常量池、源码位置表、AST compiler、Verifier、反汇编 | 核心语法可编译；非法 Bytecode 可拒绝；AST 仍为默认引擎 |
 | v1.3.0-beta | Bytecode VM 执行核心 | Operand stack、CallFrame、Closure/Upvalue、异常、GC roots、取消和资源限制 | 核心 fixtures 通过 AST/Bytecode 双引擎语义对照 |
 | v1.3.0-rc | 性能与默认切换评估 | 真实 benchmark、Profiler、Stack trace、三平台和故障注入 | 语义零差异；CPU 负载有实质收益；I/O 负载无明显回退 |
 | v1.3.0 | Bytecode 正式发布 | 达标时默认启用 Bytecode，保留 `--engine ast` 回退 | 至少一个 RC 周期稳定；诊断、资源安全和跨平台证据完整 |
@@ -495,9 +495,12 @@ AST evaluator 在迁移期继续作为语义基准和回退引擎。Bytecode VM 
 
 ### 5.1 v1.3.0-alpha：Bytecode 设计与编译器骨架
 
-> **状态：实现完成（2026-09-01），待 Linux、macOS、Windows Actions 与最终 prerelease**<br>
+> **状态：已完成并预发布（2026-09-01）**<br>
 > 实现边界：本阶段交付可验证的结构化 Bytecode IR 和编译工具链，不交付执行 VM。控制流、函数和 Pipe 均以明确 Opcode 与子节点 stack shape 编译；可执行跳转、CallFrame 和 operand stack 属于 beta。<br>
-> 固定发布约束：四个平台 Actions 与对应归档全部通过后，GitHub prerelease 才作为最后一步执行；稳定版 v1.2.2 继续保持 latest。
+> 固定发布约束：四个平台 Actions 与对应归档全部通过后，GitHub prerelease 才作为最后一步执行；稳定版 v1.2.2 继续保持 latest。<br>
+> 实施提交：`d586517`<br>
+> GitHub Actions：[开发门禁 Release Evidence #33466815764](https://github.com/hh696-wq/hhy-vm/actions/runs/33466815764) · [开发门禁 Website #33466815768](https://github.com/hh696-wq/hhy-vm/actions/runs/33466815768) · [标签后 Release Evidence #33467069153](https://github.com/hh696-wq/hhy-vm/actions/runs/33467069153) · [Website #33467069151](https://github.com/hh696-wq/hhy-vm/actions/runs/33467069151) · [四平台 prerelease #33467069125](https://github.com/hh696-wq/hhy-vm/actions/runs/33467069125)<br>
+> 预发布：[HHY Language 1.3.0-alpha](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.3.0-alpha)；包含 macOS arm64、Linux x86_64、Linux arm64、Windows x86_64 归档、逐包 SHA-256 与合并 `SHA256SUMS`，并正确标记为 prerelease；v1.2.2 保持 latest。
 
 #### 目标
 
@@ -532,8 +535,8 @@ AST evaluator 在迁移期继续作为语义基准和回退引擎。Bytecode VM 
 - [x] compiler 对源码错误继续使用现有 diagnostics；
 - [x] fuzz 同时覆盖 Parser → Compiler → Verifier 和随机损坏指令流；
 - [x] 默认 `hhy run` 仍使用 AST evaluator；
-- [ ] Linux x86_64、Linux arm64、macOS arm64、Windows x86_64 Actions 全部通过并产出对应 alpha 归档；
-- [ ] 上述门禁全绿后执行最后一步 GitHub prerelease，并保持 v1.2.2 为 latest。
+- [x] Linux x86_64、Linux arm64、macOS arm64、Windows x86_64 Actions 全部通过并产出对应 alpha 归档；
+- [x] 上述门禁全绿后执行最后一步 GitHub prerelease，并保持 v1.2.2 为 latest。
 
 ### 5.2 v1.3.0-beta：Bytecode VM 执行核心
 
