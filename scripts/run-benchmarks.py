@@ -12,6 +12,8 @@ import subprocess
 import time
 from pathlib import Path
 
+BENCHMARK_MAX_MEMORY = "1gib"
+
 
 def git_revision() -> str:
     result = subprocess.run(
@@ -55,7 +57,15 @@ def run_case(command: list[str], iterations: int, expected: str | None) -> dict[
 def run_engine_pair(binary: str, source: str, iterations: int,
                     expected: str | None) -> dict[str, dict[str, object]]:
     commands = {
-        engine: [binary, "run", "--engine", engine, source]
+        # The 1M materialization case intentionally measures both engines well
+        # beyond the default workload envelope. Give the benchmark a fixed,
+        # explicit budget so runner-specific GC heap sizing cannot turn a
+        # performance sample into a flaky default-limit test. Resource-limit
+        # behavior is covered separately by tests/run.sh.
+        engine: [
+            binary, "run", "--engine", engine,
+            "--limit", f"max_memory={BENCHMARK_MAX_MEMORY}", source,
+        ]
         for engine in ("ast", "bytecode")
     }
     for engine in ("ast", "bytecode"):
