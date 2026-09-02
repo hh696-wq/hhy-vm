@@ -1,4 +1,4 @@
-export const hhyVersion = "1.3.10" as const;
+export const hhyVersion = "1.3.11" as const;
 export const hhyVersionLabel = `V${hhyVersion}` as const;
 export const hhyVersionTag = `v${hhyVersion}` as const;
 export const hhyReleaseUrl = `https://github.com/hh696-wq/hhy-vm/releases/tag/${hhyVersionTag}` as const;
@@ -27,13 +27,13 @@ export const hhyAboutMilestones = {
 // the homepage title and description pointing at an older release theme.
 export const hhyCurrentRelease = {
   zh: {
-    title: "Bytecode 缓存证据治理",
-    summary: "真实冷进程测量未达到缓存准入门槛，因此不引入进程或磁盘缓存，也不接受外部预编译 Bytecode。",
-    verification: "机器可读决策、完整未来指纹要求、Verifier 门禁与未验证产物拒绝测试持续约束缓存攻击面。"
+    title: "Runtime 错误路径加固",
+    summary: "结构化错误改为完整构造后一次性发布，非法正则 fuzz 输入稳定返回错误，不再触发运行时崩溃。",
+    verification: "原始触发输入已进入永久回归语料；双架构 coverage-guided fuzzing、sanitizer 与四平台发行门禁全部通过。"
   },
   en: {
-    title: "Evidence-gated Bytecode caching",
-    summary: "Measured cold-process costs did not meet cache admission thresholds, so no process or disk cache is introduced and external precompiled Bytecode remains rejected.",
-    verification: "A machine-readable decision, complete future fingerprint requirements, Verifier gates, and unverified-artifact rejection tests constrain the cache attack surface."
+    title: "Runtime error-path hardening",
+    summary: "Structured errors are now fully constructed before publication, so invalid-regex fuzz inputs return an error instead of crashing the runtime.",
+    verification: "The original reproducer is retained in the permanent corpus; dual-architecture coverage-guided fuzzing, sanitizers, and four-platform release gates all pass."
   }
 } as const;

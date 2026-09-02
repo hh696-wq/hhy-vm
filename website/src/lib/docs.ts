@@ -2331,8 +2331,8 @@ export const chapters: Chapter[] = [
           { type: "note", text: "这是一个特定 CPU/物化 workload，不是通用语言排名。各实现使用惯用循环与去重容器；Java 使用 HashSet/ArrayList 并包含 fresh JVM 启动。全部 84 个计时样本、版本、顺序和源程序保存在本地 performance-analysis/2026-09-01-v1.3.10-language-comparison/，该目录按项目规则不提交 GitHub。" }
         ] },
         { title: "治理结论与后续观察", blocks: [
-          { type: "list", items: ["总体状态：v1.3.10 已正式发布；v1.3.7–v1.3.10 的语义、三路径、Profiler、资源与缓存治理门禁完整。", "执行引擎策略：Bytecode 默认；AST 永久保留为语义 oracle、差分测试和 --engine ast 紧急回退。", "性能结论：最终 CI 的 1M CPU ratio 0.3695，短任务 1.0088、持续 JSON 1.0207，Profiler 开销 1.0269×，全部通过。", "缓存结论：compile+verify 不构成冷运行主要成本；当前不引入缓存，未来必须由新数据和完整威胁模型重新触发。", "跨语言结论：本次仅说明同机固定任务；Go/Lua/PHP/Java 更快，HHY 快于 Python，不能外推到所有场景。", "更新规则：发布基线、测量方法、引擎/缓存决策或总体风险结论变化时同步更新本报告。"] },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/actions/runs/33497617218", label: "查看 v1.3.10 最终持续验证证据", description: "四平台构建、sanitizer、fuzz、Profiler、缓存决策、性能门禁与真实项目验收。" }
+          { type: "list", items: ["总体状态：v1.3.11 已正式发布；核心语义保持冻结，Runtime 错误路径和 fuzz 回归门禁已加固。", "执行引擎策略：Bytecode 默认；AST 永久保留为语义 oracle、差分测试和 --engine ast 紧急回退。", "性能结论：最终 CI 的 1M CPU ratio 0.3695，短任务 1.0088、持续 JSON 1.0207，Profiler 开销 1.0269×，全部通过。", "缓存结论：compile+verify 不构成冷运行主要成本；当前不引入缓存，未来必须由新数据重新触发评审。", "稳健性结论：非法正则原始触发输入已进入永久 corpus，Linux x86_64/arm64 coverage-guided fuzzing 全部通过。", "更新规则：发布基线、测量方法、引擎/缓存决策或总体风险结论变化时同步更新本报告。"] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/actions/runs/33581452558", label: "查看 v1.3.11 持续验证证据", description: "四平台构建、sanitizer、fuzz、性能门禁与真实项目验收。" }
         ] }
       ],
       en: [
@@ -2370,8 +2370,8 @@ export const chapters: Chapter[] = [
           { type: "note", text: "This is one CPU/materialization workload, not a general language ranking. Each implementation uses an idiomatic loop and distinct container; Java uses HashSet/ArrayList and includes fresh-JVM startup. All 84 timed samples, versions, orders, and sources are retained locally under performance-analysis/2026-09-01-v1.3.10-language-comparison/, which project policy excludes from GitHub." }
         ] },
         { title: "Governance conclusion and watch list", blocks: [
-          { type: "list", items: ["Overall status: v1.3.10 is formally released; v1.3.7–v1.3.10 semantic, three-path, Profiler, resource, and cache-governance gates are complete.", "Engine policy: Bytecode is default; AST remains permanently available as the semantic oracle, differential-test engine, and --engine ast emergency fallback.", "Performance conclusion: final CI reports 0.3695 for the 1M CPU ratio, 1.0088 for short tasks, 1.0207 for sustained JSON, and 1.0269× Profiler overhead; all gates pass.", "Cache conclusion: compile+verify is not a major cold-run cost; no cache is introduced until new data and a complete threat model trigger review.", "Cross-language conclusion: this same-machine fixed task has Go/Lua/PHP/Java ahead of HHY and HHY ahead of Python; it cannot be generalized to all workloads.", "Update rule: synchronize this report whenever the release baseline, measurement method, engine/cache decision, or overall risk conclusion changes."] },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/actions/runs/33497617218", label: "Open final v1.3.10 continuous-verification evidence", description: "Four-platform builds, sanitizers, fuzzing, Profiler, cache decision, performance gates, and practical-project acceptance." }
+          { type: "list", items: ["Overall status: v1.3.11 is formally released; core semantics remain frozen and Runtime error-path and fuzz regression gates are hardened.", "Engine policy: Bytecode is default; AST remains permanently available as the semantic oracle, differential-test engine, and --engine ast emergency fallback.", "Performance conclusion: final CI reports 0.3695 for the 1M CPU ratio, 1.0088 for short tasks, 1.0207 for sustained JSON, and 1.0269× Profiler overhead; all gates pass.", "Cache conclusion: compile+verify is not a major cold-run cost; no cache is introduced until new data triggers review.", "Robustness conclusion: the original invalid-regex reproducer is permanently retained and Linux x86_64/arm64 coverage-guided fuzzing passes.", "Update rule: synchronize this report whenever the release baseline, measurement method, engine/cache decision, or overall risk conclusion changes."] },
+          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/actions/runs/33581452558", label: "Open v1.3.11 continuous-verification evidence", description: "Four-platform builds, sanitizers, fuzzing, performance gates, and practical-project acceptance." }
         ] }
       ]
     }
@@ -2416,6 +2416,7 @@ export const chapters: Chapter[] = [
             ["v1.3.8 · 已发布", "2026-09-01", "Compiler/Verifier 优化 IR", "Runtime 不读取 AST 形状；Stream Kernel 独立验证并可靠回退"],
             ["v1.3.9 · 已发布", "2026-09-01", "Profiler 与资源一致性", "普通执行与观测共用优化决策；开销、取消和 Heap 归因门禁通过"],
             ["v1.3.10 · 已发布", "2026-09-01", "Bytecode 缓存治理", "五负载实测未达准入门槛；不实现缓存，不接受未验证外部 Bytecode"],
+            ["v1.3.11 · 已发布", "2026-09-02", "Runtime 错误路径加固", "结构化错误完整构造后发布；原始 fuzz 输入纳入永久回归"],
             ["v1.4 · 规划", "v1.3 稳定后", "旗舰场景与外部采用", "模板、CI、运维文档和 3–5 个外部真实案例"],
             ["v2.0 · 条件规划", "生态证据充分后", "生态开放与 ABI 决策", "至少两个真实集成证明进程协议不足；否则继续使用进程协议并不开放 Native ABI"]
           ] },
@@ -2463,6 +2464,7 @@ export const chapters: Chapter[] = [
             ["v1.3.8 · Released", "2026-09-01", "Compiler/Verifier optimization IR", "Runtime does not inspect AST shapes; Stream Kernels verify independently and fall back safely"],
             ["v1.3.9 · Released", "2026-09-01", "Profiler and resource consistency", "Normal and observed execution share decisions; overhead, cancellation, and Heap-attribution gates pass"],
             ["v1.3.10 · Released", "2026-09-01", "Bytecode cache governance", "Five-workload evidence misses admission thresholds; no cache and no unverified external Bytecode"],
+            ["v1.3.11 · Released", "2026-09-02", "Runtime error-path hardening", "Structured errors publish only after full construction; the original fuzz input is retained as a permanent regression"],
             ["v1.4 · Planned", "After v1.3 stabilizes", "Flagship scenarios and external adoption", "Templates, CI, operations documentation, and 3–5 real external cases"],
             ["v2.0 · Conditional", "After sufficient ecosystem evidence", "Ecosystem opening and ABI decision", "At least two real integrations prove the process protocol insufficient; otherwise retain the process protocol and do not publish a Native ABI"]
           ] },
