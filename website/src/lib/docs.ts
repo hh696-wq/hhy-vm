@@ -1,5 +1,5 @@
 import type { Language } from "./i18n";
-import { hhyCoreCallableCount, hhyVersion, hhyVersionLabel, hhyVersionTag } from "./release";
+import { hhyCoreCallableCount, hhyEditorVersions, hhyReleaseUrl, hhyVersion, hhyVersionLabel, hhyVersionTag } from "./release";
 
 export type ChapterSlug =
   | "quick-start"
@@ -897,40 +897,40 @@ export const chapters: Chapter[] = [
     summary: { zh: "为 VS Code 与 Sublime Text 安装由统一语法源生成的 HHY 语言包。", en: "Install HHY language packages for VS Code and Sublime Text, generated from one syntax source." },
     sections: {
       zh: [
-        { title: "HHY Language Support 0.1.0", blocks: [
-          { type: "p", text: "编辑器语言包识别 .hhy 文件，提供 HHY 语法高亮、# 注释、shebang、字符串与转义、Regex、数字与单位、关键字和运算符，并配置括号自动闭合、缩进与常用代码片段。VS Code 使用 TextMate Grammar，Sublime Text 使用 .sublime-syntax。" },
-          { type: "note", text: "0.1.0 是不启动 HHY 进程的轻量语言支持：当前不提供保存时格式化、诊断、跳转定义或 LSP。语法规则以仓库中的 editors/syntax/hhy-syntax.json 为唯一事实源。" },
+        { title: `HHY Language Support ${hhyEditorVersions.vscode}`, blocks: [
+          { type: "p", text: "编辑器语言包识别 .hhy 文件，提供语法高亮、括号自动闭合、缩进与常用代码片段。VS Code 版还内置 HHY Language Server，通过 hhy CLI 提供诊断、格式化、定义跳转、Hover 与补全；Sublime Text 版继续提供轻量、无进程的语法支持。" },
+          { type: "note", text: `VS Code 当前版本为 ${hhyEditorVersions.vscode}，Sublime Text 包版本为 ${hhyEditorVersions.sublime}。两者的语法规则均以仓库中的 editors/syntax/hhy-syntax.json 为唯一事实源。` },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/editors", label: "查看编辑器语言包源码 ↗", description: "包含统一语法源、生成脚本、VS Code 与 Sublime Text 包以及真实 .hhy 回归样例。" }
         ] },
         { title: "生成并验证语言包", blocks: [
           { type: "code", language: "sh", code: "git clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm/editors\nnpm install\nnpm run generate\nnpm run check\nnpm run package" },
-          { type: "p", text: "package 生成 dist/hhy-language-support-0.1.0.vsix 与 dist/HHY-0.1.0.sublime-package。check 会核对 Lexer 关键字和字面量后缀、插件元数据、生成文件新鲜度，并用真实 HHY 二进制检查 fixtures。" }
+          { type: "p", text: `package 生成 dist/hhy-language-support-${hhyEditorVersions.vscode}.vsix 与 dist/HHY-${hhyEditorVersions.sublime}.sublime-package。check 会核对 Lexer 关键字和字面量后缀、插件元数据、生成文件新鲜度，并用真实 HHY 二进制检查 fixtures。` }
         ] },
         { title: "安装到 VS Code", blocks: [
-          { type: "code", language: "sh", code: "code --install-extension editors/dist/hhy-language-support-0.1.0.vsix" },
+          { type: "code", language: "sh", code: `code --install-extension editors/dist/hhy-language-support-${hhyEditorVersions.vscode}.vsix` },
           { type: "p", text: "也可以在 VS Code 中打开“扩展”，从右上角菜单选择“从 VSIX 安装”。安装后打开任意 .hhy 文件，语言模式会自动识别为 HHY。" }
         ] },
         { title: "安装到 Sublime Text", blocks: [
-          { type: "p", text: "把 editors/dist/HHY-0.1.0.sublime-package 复制到 Sublime Text 的 Installed Packages 目录。开发时也可以把 editors/sublime 复制到 Packages/HHY。之后打开 .hhy 文件即可自动启用 HHY 语法。" },
+          { type: "p", text: `把 editors/dist/HHY-${hhyEditorVersions.sublime}.sublime-package 复制到 Sublime Text 的 Installed Packages 目录。开发时也可以把 editors/sublime 复制到 Packages/HHY。之后打开 .hhy 文件即可自动启用 HHY 语法。` },
           { type: "note", text: "HHY Lexer 会根据前一个 token 区分 Regex 与除法。编辑器语法采用保守的表达式起始上下文识别 Regex，宁可少高亮一个 Regex，也避免把除法表达式的后续内容误判为 Regex。" }
         ] }
       ],
       en: [
-        { title: "HHY Language Support 0.1.0", blocks: [
-          { type: "p", text: "The editor packages recognize .hhy files and provide HHY syntax highlighting for # comments, shebangs, strings and escapes, Regex, numbers and units, keywords, and operators, plus bracket auto-closing, indentation, and common snippets. VS Code uses a TextMate grammar; Sublime Text uses .sublime-syntax." },
-          { type: "note", text: "Version 0.1.0 is lightweight, process-free language support. It does not yet provide format-on-save, diagnostics, go-to-definition, or an LSP. The repository-owned editors/syntax/hhy-syntax.json file is the single source of truth." },
+        { title: `HHY Language Support ${hhyEditorVersions.vscode}`, blocks: [
+          { type: "p", text: "The editor packages recognize .hhy files and provide syntax highlighting, bracket auto-closing, indentation, and common snippets. The VS Code package also bundles the HHY Language Server and uses the hhy CLI for diagnostics, formatting, go-to-definition, hover, and completion; the Sublime Text package remains lightweight and process-free." },
+          { type: "note", text: `The current VS Code version is ${hhyEditorVersions.vscode}; the Sublime Text package version is ${hhyEditorVersions.sublime}. Both derive syntax rules from the repository-owned editors/syntax/hhy-syntax.json source.` },
           { type: "link", href: "https://github.com/hh696-wq/hhy-vm/tree/main/editors", label: "Open the editor language-support source ↗", description: "Includes the shared syntax source, generator, VS Code and Sublime Text packages, and real .hhy regression fixtures." }
         ] },
         { title: "Generate and verify the packages", blocks: [
           { type: "code", language: "sh", code: "git clone https://github.com/hh696-wq/hhy-vm.git\ncd hhy-vm/editors\nnpm install\nnpm run generate\nnpm run check\nnpm run package" },
-          { type: "p", text: "The package command creates dist/hhy-language-support-0.1.0.vsix and dist/HHY-0.1.0.sublime-package. The check command compares Lexer keywords and literal suffixes, validates plugin metadata and generated-file freshness, and checks every fixture with the real HHY binary." }
+          { type: "p", text: `The package command creates dist/hhy-language-support-${hhyEditorVersions.vscode}.vsix and dist/HHY-${hhyEditorVersions.sublime}.sublime-package. The check command compares Lexer keywords and literal suffixes, validates plugin metadata and generated-file freshness, and checks every fixture with the real HHY binary.` }
         ] },
         { title: "Install in VS Code", blocks: [
-          { type: "code", language: "sh", code: "code --install-extension editors/dist/hhy-language-support-0.1.0.vsix" },
+          { type: "code", language: "sh", code: `code --install-extension editors/dist/hhy-language-support-${hhyEditorVersions.vscode}.vsix` },
           { type: "p", text: "You can also open Extensions in VS Code and choose Install from VSIX from the top-right menu. After installation, any .hhy file is automatically recognized as HHY." }
         ] },
         { title: "Install in Sublime Text", blocks: [
-          { type: "p", text: "Copy editors/dist/HHY-0.1.0.sublime-package into Sublime Text's Installed Packages directory. For development, copy editors/sublime into Packages/HHY. Opening a .hhy file then enables HHY syntax automatically." },
+          { type: "p", text: `Copy editors/dist/HHY-${hhyEditorVersions.sublime}.sublime-package into Sublime Text's Installed Packages directory. For development, copy editors/sublime into Packages/HHY. Opening a .hhy file then enables HHY syntax automatically.` },
           { type: "note", text: "The HHY Lexer distinguishes Regex from division using the previous token. Editor grammars conservatively recognize Regex only in expression-start contexts, preferring a missed Regex highlight over mis-highlighting the remainder of a division expression." }
         ] }
       ]
@@ -2298,15 +2298,15 @@ export const chapters: Chapter[] = [
     sections: {
       zh: [
         { title: "发布摘要", blocks: [
-          { type: "note", text: "HHY v1.3.10 已正式发布：v1.3.7–v1.3.10 依次完成特化 metadata 加固、Compiler/Verifier Stream Kernel IR、Profiler/资源一致性和数据驱动缓存治理。Bytecode 保持默认执行引擎，AST 永久保留为语义 oracle 与紧急回退；四平台 Actions、Release 资产与 SHA256SUMS 均已验收。" },
+          { type: "note", text: `HHY ${hhyVersionTag} 已正式发布：v1.3.7–${hhyVersionTag} 依次完成特化 metadata 加固、Compiler/Verifier Stream Kernel IR、Profiler/资源一致性和数据驱动缓存治理。Bytecode 保持默认执行引擎，AST 永久保留为语义 oracle 与紧急回退；四平台 Actions、Release 资产与 SHA256SUMS 均已验收。` },
           { type: "table", columns: ["报告维度", "回答的问题", "当前结论"], rows: [["语言基线", "核心语义是否稳定", "Pipe、Value、Stream、Error 与核心 callable contract 保持稳定，AST/Bytecode 持续对照"], ["Runtime 健康度", "资源、内存与取消边界是否可靠", "资源上限、GC stress、sanitizer、fuzz、故障注入与显式所有权治理通过"], ["执行引擎", "Bytecode 是否适合默认启用", "原生 Opcode 路径语义门禁与性能门禁通过，Bytecode 默认，AST 可显式回退"], ["工程治理", "变化是否可审计", "四平台 CI、真实 workload、分层门禁、版本一致性和发行证据形成闭环"]] }
         ] },
         { title: "本期数据概览", blocks: [
-          { type: "table", columns: ["数据项", "结果", "证据口径"], rows: [["当前正式版本", "v1.3.10", "四平台 Release、逐包 SHA-256 与 SHA256SUMS"], ["执行引擎", "Bytecode 默认 / AST 回退", "完整双引擎套件与机器可读决策"], ["核心 callable", "96", "Runtime Callable Contract Registry"], ["持续验证平台", "4 个", "macOS arm64、Linux arm64、Linux x86_64、Windows x86_64"], ["最终 CI 引擎门禁", "全部通过", "1M CPU 0.3695；短任务 1.0088；持续 JSON 1.0207"], ["Profiler 开销", "1.0269× / +2.786 ms", "9 次样本；门槛 1.35× 且 12 ms"], ["Bytecode 缓存", "不准入", "5 个负载 × 21 次；compile+verify 不构成主要成本"], ["完整实战项目", "6 个", "AST/Bytecode 端到端 acceptance 与稳定退出码"]] }
+          { type: "table", columns: ["数据项", "结果", "证据口径"], rows: [["当前正式版本", hhyVersionTag, "四平台 Release、逐包 SHA-256 与 SHA256SUMS"], ["执行引擎", "Bytecode 默认 / AST 回退", "完整双引擎套件与机器可读决策"], ["核心 callable", String(hhyCoreCallableCount), "Runtime Callable Contract Registry"], ["持续验证平台", "4 个", "macOS arm64、Linux arm64、Linux x86_64、Windows x86_64"], ["最终 CI 引擎门禁", "全部通过", "1M CPU 0.3695；短任务 1.0088；持续 JSON 1.0207"], ["Profiler 开销", "1.0269× / +2.786 ms", "9 次样本；门槛 1.35× 且 12 ms"], ["Bytecode 缓存", "不准入", "5 个负载 × 21 次；compile+verify 不构成主要成本"], ["完整实战项目", "6 个", "AST/Bytecode 端到端 acceptance 与稳定退出码"]] }
         ] },
         { title: "总体基线与兼容性", blocks: [
           { type: "table", columns: ["基线", "稳定承诺", "验证方式"], rows: [["语言语义", "不引入第二套 Pipe、Stream 或 Error 模型", "规范示例、Parser/Checker fixtures 与合法程序回归"], ["Callable contract", "名称、arity、effect、lazy、cancellable 和 threading 可机器读取", "Contract Registry JSON 与 96 项 contract 一致性检查"], ["诊断", "CLI 文本与 JSON/LSP 使用同一 Core 检查路径", "诊断 schema 与 LSP 协议测试"], ["扩展边界", "第三方能力优先走 Process Extension Protocol", "清单完整性、Protocol 1 与官方扩展验收"], ["C ABI", "当前不公开 Runtime 内部 ABI", "只有真实集成证据证明进程协议不足时才重新决策"]] },
-          { type: "p", text: "当前正式基线为 v1.3.10。Bytecode 是默认引擎，AST evaluator 继续作为语义 oracle，可通过 --engine ast 或 HHY_ENGINE=ast 显式使用。Compiler 产生的 Stream Kernel 必须独立通过 Verifier；动态或未知形状无损回退通用 Bytecode。" }
+          { type: "p", text: `当前正式基线为 ${hhyVersionTag}。Bytecode 是默认引擎，AST evaluator 继续作为语义 oracle，可通过 --engine ast 或 HHY_ENGINE=ast 显式使用。Compiler 产生的 Stream Kernel 必须独立通过 Verifier；动态或未知形状无损回退通用 Bytecode。` }
         ] },
         { title: "v1.2.2 发行与扩展状态", blocks: [
           { type: "table", columns: ["能力", "当前状态", "验收结果"], rows: [["扩展分发", "Ed25519 签名 Registry、确定性依赖解析", "篡改、来源不明和依赖冲突稳定拒绝"], ["可复现环境", "Lockfile、content-addressed 离线缓存", "同一 lock 得到同一依赖图，干净环境可离线重建"], ["安全变更", "事务式安装、升级和显式回滚", "失败升级不破坏旧环境"], ["HTML 0.2.0", "Lexbor、CSS selector、单次解析多字段投影", "畸形 HTML、硬上限、截断和结构化错误通过四平台验收"], ["协议决策", "保留同步有界批量 API", "没有真实证据需要 Stream credit、跨调用取消或 Opaque Handle"]] },
@@ -2316,7 +2316,7 @@ export const chapters: Chapter[] = [
         { title: "v1.3.7–v1.3.10 Bytecode 加固状态", blocks: [
           { type: "table", columns: ["版本", "核心交付", "已验证结论"], rows: [["v1.3.7", "具名 specialization metadata、统一 stack/error、fallback reason", "无 magic kind；三路径差分与变形测试通过"], ["v1.3.8", "Compiler 生成版本化 Stream Kernel IR", "Runtime 不读取 AST 形状；Kernel 独立 verify；动态形状安全回退"], ["v1.3.9", "普通执行与 Profiler 共用优化决策", "kernel/opcode、取消、CPU/Heap 归因与机器报告一致；开销门禁通过"], ["v1.3.10", "真实性能触发的缓存治理", "数据未触发准入；无进程/磁盘缓存；不接受未验证外部 Bytecode"]] },
           { type: "note", text: "四个版本均按顺序完成实现、Release/Debug 测试、sanitizer、fuzz、真实性能、四平台 Actions、正式 Release 和 Homebrew Formula 校验后才进入下一版本。" },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.3.10", label: "查看 HHY Language v1.3.10 正式发行", description: "包含四平台归档、逐包 SHA-256、SHA256SUMS 与缓存治理发行说明。" }
+          { type: "link", href: hhyReleaseUrl, label: `查看 HHY Language ${hhyVersionTag} 正式发行`, description: "包含四平台归档、逐包 SHA-256、SHA256SUMS 与缓存治理发行说明。" }
         ] },
         { title: "性能实测", blocks: [
           { type: "p", text: "最终 v1.3.10 CI 数据来自提交 4ddc8c3、GitHub Actions Ubuntu 24.04 的 schema-2 paired/interleaved benchmark 和独立 Profiler/缓存决策 artifact。数值是 Bytecode/AST 墙钟比；小于 1 表示 Bytecode 更快。" },
@@ -2337,15 +2337,15 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Release summary", blocks: [
-          { type: "note", text: "HHY v1.3.10 is formally released. v1.3.7–v1.3.10 sequentially delivered specialization-metadata hardening, Compiler/Verifier Stream Kernel IR, Profiler/resource consistency, and evidence-gated cache governance. Bytecode remains default; AST remains the permanent semantic oracle and emergency fallback. Four-platform Actions, release assets, and SHA256SUMS are verified." },
+          { type: "note", text: `HHY ${hhyVersionTag} is formally released. v1.3.7–${hhyVersionTag} sequentially delivered specialization-metadata hardening, Compiler/Verifier Stream Kernel IR, Profiler/resource consistency, and evidence-gated cache governance. Bytecode remains default; AST remains the permanent semantic oracle and emergency fallback. Four-platform Actions, release assets, and SHA256SUMS are verified.` },
           { type: "table", columns: ["Dimension", "Question", "Current conclusion"], rows: [["Language baseline", "Are core semantics stable?", "Pipe, Value, Stream, Error, and core callable contracts are frozen"], ["Runtime health", "Are resource, memory, and cancellation boundaries reliable?", "Resource limits, GC stress, sanitizers, fuzzing, and explicit ownership governance are present"], ["Performance", "Is performance measurable and controlled?", "Fixed workloads, five-sample medians, machine-readable evidence, and blocking budgets are established"], ["Engineering governance", "Are changes auditable?", "Four-platform CI, layered gates, version consistency, and release evidence form a closed loop"]] }
         ] },
         { title: "Data at a glance", blocks: [
-          { type: "table", columns: ["Signal", "Result", "Evidence basis"], rows: [["Current formal release", "v1.3.10", "Four platform archives, per-asset SHA-256, and SHA256SUMS"], ["Execution engines", "Bytecode default / AST fallback", "Full dual-engine suite and machine-readable decision"], ["Core callables", "96", "Runtime Callable Contract Registry"], ["Continuous-verification platforms", "4", "macOS arm64, Linux arm64, Linux x86_64, Windows x86_64"], ["Final CI engine gates", "All pass", "1M CPU 0.3695; short task 1.0088; sustained JSON 1.0207"], ["Profiler overhead", "1.0269× / +2.786 ms", "Nine samples; limits 1.35× and 12 ms"], ["Bytecode cache", "Not admitted", "Five workloads × 21 samples; compile+verify is not a major cost"], ["Complete practical projects", "6", "AST/Bytecode end-to-end acceptance with stable exit status"]] }
+          { type: "table", columns: ["Signal", "Result", "Evidence basis"], rows: [["Current formal release", hhyVersionTag, "Four platform archives, per-asset SHA-256, and SHA256SUMS"], ["Execution engines", "Bytecode default / AST fallback", "Full dual-engine suite and machine-readable decision"], ["Core callables", String(hhyCoreCallableCount), "Runtime Callable Contract Registry"], ["Continuous-verification platforms", "4", "macOS arm64, Linux arm64, Linux x86_64, Windows x86_64"], ["Final CI engine gates", "All pass", "1M CPU 0.3695; short task 1.0088; sustained JSON 1.0207"], ["Profiler overhead", "1.0269× / +2.786 ms", "Nine samples; limits 1.35× and 12 ms"], ["Bytecode cache", "Not admitted", "Five workloads × 21 samples; compile+verify is not a major cost"], ["Complete practical projects", "6", "AST/Bytecode end-to-end acceptance with stable exit status"]] }
         ] },
         { title: "Overall baseline and compatibility", blocks: [
           { type: "table", columns: ["Baseline", "Stable commitment", "Verification"], rows: [["Language semantics", "No second Pipe, Stream, or Error model", "Specification examples, Parser/Checker fixtures, and valid-program regression"], ["Callable contracts", "Names, arity, effect, lazy, cancellable, and threading metadata are machine-readable", "Contract Registry JSON and 96-contract consistency checks"], ["Diagnostics", "CLI text and JSON/LSP share the Core checking path", "Diagnostic schema and LSP protocol tests"], ["Extension boundary", "Third-party capabilities prefer the Process Extension Protocol", "Manifest integrity, Protocol 1, and official-extension acceptance"], ["C ABI", "Runtime internals are not currently a public ABI", "Reconsider only when real integrations prove the process protocol insufficient"]] },
-          { type: "p", text: "The current formal baseline is v1.3.10. Bytecode is default; the AST evaluator remains the semantic oracle and is selectable through --engine ast or HHY_ENGINE=ast. Compiler-produced Stream Kernels must pass their independent Verifier; dynamic and unknown shapes fall back losslessly to general Bytecode." }
+          { type: "p", text: `The current formal baseline is ${hhyVersionTag}. Bytecode is default; the AST evaluator remains the semantic oracle and is selectable through --engine ast or HHY_ENGINE=ast. Compiler-produced Stream Kernels must pass their independent Verifier; dynamic and unknown shapes fall back losslessly to general Bytecode.` }
         ] },
         { title: "v1.2.2 release and extension status", blocks: [
           { type: "table", columns: ["Capability", "Current state", "Acceptance result"], rows: [["Extension distribution", "Ed25519-signed Registry and deterministic resolution", "Tampering, unknown sources, and dependency conflicts fail closed"], ["Reproducible environment", "Lockfile and content-addressed offline cache", "The same lock yields the same graph and rebuilds offline"], ["Safe change", "Transactional install, upgrade, and explicit rollback", "Failed upgrades preserve the old environment"], ["HTML 0.2.0", "Lexbor, CSS selectors, and single-parse multi-field projection", "Malformed HTML, hard limits, truncation, and structured errors pass on four platforms"], ["Protocol decision", "Retain the bounded synchronous batch API", "No real evidence requires stream credit, cross-call cancellation, or opaque handles"]] },
@@ -2355,7 +2355,7 @@ export const chapters: Chapter[] = [
         { title: "v1.3.7–v1.3.10 Bytecode hardening", blocks: [
           { type: "table", columns: ["Version", "Core delivery", "Verified conclusion"], rows: [["v1.3.7", "Named specialization metadata, unified stack/error rules, fallback reasons", "No magic kinds; three-path differential and metamorphic gates pass"], ["v1.3.8", "Compiler-produced versioned Stream Kernel IR", "Runtime does not inspect AST shapes; independent verification; safe dynamic fallback"], ["v1.3.9", "Shared optimization decisions for normal and profiled execution", "Kernel/opcode, cancellation, CPU/Heap attribution, and machine reports remain consistent"], ["v1.3.10", "Performance-triggered cache governance", "Evidence did not admit a cache; no process/disk cache; unverified external Bytecode rejected"]] },
           { type: "note", text: "Each version completed implementation, Release/Debug tests, sanitizers, fuzzing, measured performance, four-platform Actions, formal Release, and Homebrew Formula verification before the next version began." },
-          { type: "link", href: "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.3.10", label: "Open the HHY Language v1.3.10 release", description: "Four platform archives, per-asset SHA-256, SHA256SUMS, and cache-governance release notes." }
+          { type: "link", href: hhyReleaseUrl, label: `Open the HHY Language ${hhyVersionTag} release`, description: "Four platform archives, per-asset SHA-256, SHA256SUMS, and cache-governance release notes." }
         ] },
         { title: "Measured performance", blocks: [
           { type: "p", text: "Final v1.3.10 CI evidence comes from commit 4ddc8c3 on GitHub Actions Ubuntu 24.04: schema-2 paired/interleaved engine benchmarks plus independent Profiler and cache-decision artifacts. Ratios are Bytecode/AST wall time; lower than one means Bytecode is faster." },
@@ -2380,11 +2380,11 @@ export const chapters: Chapter[] = [
     slug: "language-vm-roadmap",
     order: 23,
     title: { zh: "语言与 VM 演进路线图", en: "Language and VM Evolution Roadmap" },
-    summary: { zh: "v1.3.10 已完成 Bytecode 默认切换后的特化、IR、Profiler 与缓存治理，AST 永久保留为语义 oracle 和回退引擎。", en: "v1.3.10 completes post-default Bytecode hardening across specialization, IR, profiling, and cache governance while permanently retaining AST as the semantic oracle and fallback." },
+    summary: { zh: `${hhyVersionTag} 已完成 Bytecode 默认切换后的特化、IR、Profiler 与缓存治理，AST 永久保留为语义 oracle 和回退引擎。`, en: `${hhyVersionTag} completes post-default Bytecode hardening across specialization, IR, profiling, and cache governance while permanently retaining AST as the semantic oracle and fallback.` },
     sections: {
       zh: [
         { title: "当前版本与后续两阶段", blocks: [
-          { type: "note", text: "v1.3.3–v1.3.10 已完成原生 Opcode、Bytecode 默认切换、Stream Int fusion、具名特化 metadata、Compiler/Verifier Stream Kernel IR、Profiler/资源一致性与缓存治理。最终 CI 的 1M CPU、短任务、JSON/I/O 和 Profiler 门禁均通过；真实数据未触发缓存准入。AST 继续作为语义 oracle 与 --engine ast 回退。" },
+          { type: "note", text: `v1.3.3–${hhyVersionTag} 已完成原生 Opcode、Bytecode 默认切换、Stream Int fusion、具名特化 metadata、Compiler/Verifier Stream Kernel IR、Profiler/资源一致性与缓存治理。最终 CI 的 1M CPU、短任务、JSON/I/O 和 Profiler 门禁均通过；真实数据未触发缓存准入。AST 继续作为语义 oracle 与 --engine ast 回退。` },
           { type: "evolution-roadmap" }
         ] },
         { title: "版本谱系、时间与验收门槛", blocks: [
@@ -2431,7 +2431,7 @@ export const chapters: Chapter[] = [
       ],
       en: [
         { title: "Current release and two future stages", blocks: [
-          { type: "note", text: "v1.3.3–v1.3.10 complete native Opcode execution, the Bytecode default switch, Stream Int fusion, named specialization metadata, Compiler/Verifier Stream Kernel IR, Profiler/resource consistency, and cache governance. Final 1M CPU, short-script, JSON/I/O, and Profiler CI gates pass; measured data did not admit a cache. AST remains the semantic oracle and --engine ast fallback." },
+          { type: "note", text: `v1.3.3–${hhyVersionTag} complete native Opcode execution, the Bytecode default switch, Stream Int fusion, named specialization metadata, Compiler/Verifier Stream Kernel IR, Profiler/resource consistency, and cache governance. Final 1M CPU, short-script, JSON/I/O, and Profiler CI gates pass; measured data did not admit a cache. AST remains the semantic oracle and --engine ast fallback.` },
           { type: "evolution-roadmap" }
         ] },
         { title: "Release lineage, timing, and acceptance gates", blocks: [

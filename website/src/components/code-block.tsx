@@ -2,6 +2,7 @@
 
 import { Check, Copy, FileCode } from "@phosphor-icons/react";
 import { useState } from "react";
+import { HhyCode } from "@/components/hhy-code";
 import type { Language } from "@/lib/i18n";
 
 type CodeBlockProps = {
@@ -33,7 +34,9 @@ export function CodeBlock({ code, language = "hhy", filename, locale, compact }:
           {copied ? (locale === "zh" ? "已复制" : "Copied") : locale === "zh" ? "复制" : "Copy"}
         </button>
       </div>
-      <pre data-language={language}><code>{code}</code></pre>
+      <pre className={language === "hhy" ? "hhy-source" : undefined} data-language={language}>
+        <code>{language === "hhy" ? <HhyCode code={code} /> : code}</code>
+      </pre>
     </div>
   );
 }

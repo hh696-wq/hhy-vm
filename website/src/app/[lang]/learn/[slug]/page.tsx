@@ -199,7 +199,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.3.7", date: "2026-09-01", title: "Bytecode 特化实现加固", detail: "具名 metadata、统一 stack/error、fallback reason 与三路径差分验证", icon: ShieldCheck },
                     { version: "v1.3.8", date: "2026-09-01", title: "Compiler / Verifier 优化 IR", detail: "版本化 Stream Kernel 独立验证，动态或未知形状可靠回退", icon: Code },
                     { version: "v1.3.9", date: "2026-09-01", title: "Profiler 与资源一致性", detail: "普通执行和观测共用优化决策，取消、CPU 与 Heap 归因门禁通过", icon: ShieldCheck },
-                    { version: "v1.3.10", date: "2026-09-01", title: "Bytecode 缓存治理", detail: "五负载实测未达缓存准入门槛；不实现缓存，不接受未验证外部 Bytecode", icon: Gauge }
+                    { version: hhyVersionTag, date: "2026-09-01", title: "Bytecode 缓存治理", detail: "五负载实测未达缓存准入门槛；不实现缓存，不接受未验证外部 Bytecode", icon: Gauge }
                   ]
                   : [
                     { version: "v1.0.0", date: "2026-08-25", title: "Core semantics frozen", detail: "Pipe / Value / Stream / Error, 94 core callables, and three-platform release evidence", icon: Code },
@@ -224,7 +224,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                     { version: "v1.3.7", date: "2026-09-01", title: "Bytecode specialization hardening", detail: "Named metadata, unified stack/error rules, fallback reasons, and three-path differential verification", icon: ShieldCheck },
                     { version: "v1.3.8", date: "2026-09-01", title: "Compiler / Verifier optimization IR", detail: "Versioned Stream Kernels verify independently and dynamic or unknown shapes fall back safely", icon: Code },
                     { version: "v1.3.9", date: "2026-09-01", title: "Profiler and resource consistency", detail: "Normal and observed execution share decisions; cancellation, CPU, and Heap attribution gates pass", icon: ShieldCheck },
-                    { version: "v1.3.10", date: "2026-09-01", title: "Bytecode cache governance", detail: "Five-workload evidence misses cache admission; no cache and no unverified external Bytecode", icon: Gauge }
+                    { version: hhyVersionTag, date: "2026-09-01", title: "Bytecode cache governance", detail: "Five-workload evidence misses cache admission; no cache and no unverified external Bytecode", icon: Gauge }
                   ];
                 const releases: Array<{ version: string; window: string; title: string; items: string[]; icon: ElementType }> = lang === "zh"
                   ? [
@@ -272,7 +272,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ lang: 
                       ))}
                     </div>
                     <div className="evolution-principles"><strong><ShieldCheck size={30} weight="duotone" />{lang === "zh" ? "演进原则" : "Evolution principles"}</strong>{principles.map((principle, principleIndex) => <span key={principle}><b>{principleIndex + 1}</b>{principle}</span>)}</div>
-                    <figcaption>{lang === "zh" ? "演进顺序：v1.3.5 Bytecode 默认 → v1.3.6 fusion → v1.3.7 特化加固 → v1.3.8 优化 IR → v1.3.9 观测一致性 → v1.3.10 缓存治理 → 生态 ABI 决策" : "Evolution order: v1.3.5 Bytecode default → v1.3.6 fusion → v1.3.7 specialization hardening → v1.3.8 optimization IR → v1.3.9 observability consistency → v1.3.10 cache governance → ecosystem ABI decision"}</figcaption>
+                    <figcaption>{lang === "zh" ? `演进顺序：v1.3.5 Bytecode 默认 → v1.3.6 fusion → v1.3.7 特化加固 → v1.3.8 优化 IR → v1.3.9 观测一致性 → ${hhyVersionTag} 缓存治理 → 生态 ABI 决策` : `Evolution order: v1.3.5 Bytecode default → v1.3.6 fusion → v1.3.7 specialization hardening → v1.3.8 optimization IR → v1.3.9 observability consistency → ${hhyVersionTag} cache governance → ecosystem ABI decision`}</figcaption>
                   </figure>
                 );
               }

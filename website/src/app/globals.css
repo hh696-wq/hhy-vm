@@ -544,6 +544,8 @@ button, input { font: inherit; }
 .hhy-source .hhy-keyword { color: #8b3fd1; font-weight: 700; }
 .hhy-source .hhy-function { color: #0869c8; }
 .hhy-source .hhy-number, .hhy-source .hhy-boolean { color: #c2410c; }
+.hhy-source .hhy-string { color: #087f5b; }
+.hhy-source .hhy-regex { color: #9a4d00; }
 .hhy-source .hhy-comment { color: #65806c; font-style: italic; }
 .hhy-source .hhy-operator { color: #b42363; font-weight: 600; }
 .hhy-source .hhy-punctuation { color: #52678f; }

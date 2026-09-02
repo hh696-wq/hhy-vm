@@ -91,7 +91,7 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
         ))}
       </div>
       <h2 className="docs-index-heading reference-heading">{lang === "zh" ? "扩展" : "Extensions"}</h2>
-      <p className="docs-index-description">{lang === "zh" ? "学习 HHY v1.2.0 的签名扩展分发、进程扩展、编辑器工具与 Runtime 治理基线。" : "Learn HHY v1.2.0 signed extension distribution, process extensions, editor tooling, and Runtime governance."}</p>
+      <p className="docs-index-description">{lang === "zh" ? `学习 ${hhyVersionLabel} 的签名扩展分发、进程扩展、编辑器工具与 Runtime 治理基线。` : `Learn ${hhyVersionLabel} signed extension distribution, process extensions, editor tooling, and Runtime governance.`}</p>
       <div className="chapter-grid">
         {extensionChapters.map((chapter) => (
           <Link href={`/${lang}/learn/${chapter.slug}`} className="chapter-card" key={chapter.slug}>
@@ -103,7 +103,7 @@ export default async function LearnIndex({ params }: { params: Promise<{ lang: s
         ))}
       </div>
       <h2 className="docs-index-heading reference-heading">{lang === "zh" ? "路线图" : "Roadmap"}</h2>
-      <p className="docs-index-description">{lang === "zh" ? "了解 v1.1 已实现的扩展能力、设计边界和明确标注的后续计划。" : "Review implemented v1.1 extension capabilities, design boundaries, and explicitly labeled future work."}</p>
+      <p className="docs-index-description">{lang === "zh" ? `了解 ${hhyVersionLabel} 已验证的语言与 VM 能力、设计边界和明确标注的后续计划。` : `Review ${hhyVersionLabel} verified language and VM capabilities, design boundaries, and explicitly labeled future work.`}</p>
       <div className="chapter-grid">
         {roadmapChapters.map((chapter) => (
           <Link href={`/${lang}/learn/${chapter.slug}`} className="chapter-card" key={chapter.slug}>

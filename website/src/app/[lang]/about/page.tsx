@@ -17,7 +17,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/json-ld";
 import { isLanguage } from "@/lib/i18n";
-import { hhyReleaseUrl, hhyVersionTag } from "@/lib/release";
+import { hhyAboutMilestones, hhyReleaseUrl, hhyVersionTag } from "@/lib/release";
 import { createMetadata, localizedUrl, siteName } from "@/lib/seo";
 
 const content = {
@@ -37,12 +37,6 @@ const content = {
     progressEyebrow: "当前进度",
     progressTitle: `${hhyVersionTag} 已正式发布`,
     progressBody: "核心语言语义已经冻结，四平台发行证据持续验证；官方扩展已进入带签名、按 target 分发的 Registry 阶段。",
-    milestones: [
-      ["v1.0", "语言核心", "Pipe、Value、Stream、Error 与核心标准库完成语义冻结。"],
-      ["v1.1", "工程基线", "扩展协议、Runtime 治理、诊断、编辑器和跨平台验证形成闭环。"],
-      ["v1.2", "可信分发", "Ed25519 签名 Registry、确定性依赖解析与事务式安装正式发布。"],
-      ["下一步", "可复现生态", "锁定文件、离线缓存、安全回滚，以及由真实用户证据驱动的协议补强。"]
-    ],
     brandTitle: "品牌名称与标志",
     brandBody: "正式名称是 HHY Language，日常简称 HHY。品牌不人为扩写 HHY 的含义；它代表的是一套持续演进、以 Flow 为核心的语言实践。主标志由字母 H、连续流线与向前箭头组成，表达连接、流动与推进。",
     brandRules: ["优先使用完整彩色标志", "标志四周保留足够留白", "不要拉伸、旋转或重新着色", "小尺寸场景使用站点现有图标版本"],
@@ -74,12 +68,6 @@ const content = {
     progressEyebrow: "Current progress",
     progressTitle: `${hhyVersionTag} is officially released`,
     progressBody: "Core language semantics are frozen, four-platform release evidence remains continuously verified, and official extensions now ship through a signed, target-aware Registry.",
-    milestones: [
-      ["v1.0", "Language core", "Pipe, Value, Stream, Error, and the core standard library reached semantic freeze."],
-      ["v1.1", "Engineering baseline", "The extension protocol, Runtime governance, diagnostics, editor tooling, and cross-platform evidence formed a complete loop."],
-      ["v1.2", "Trusted distribution", "The Ed25519-signed Registry, deterministic dependency resolution, and transactional installation shipped."],
-      ["Next", "Reproducible ecosystem", "Lockfiles, offline caches, safe rollback, and protocol improvements driven by real user evidence."]
-    ],
     brandTitle: "Name and mark",
     brandBody: "The formal name is HHY Language; HHY is the everyday short name. We do not invent an expanded phrase for HHY. It stands for an evolving, Flow-first language practice. The primary mark combines the letter H, a continuous flow, and a forward arrow to express connection, movement, and progress.",
     brandRules: ["Prefer the complete full-color mark", "Keep generous clear space around it", "Do not stretch, rotate, or recolor it", "Use the existing site icon at small sizes"],
@@ -116,6 +104,7 @@ export default async function AboutPage({ params }: { params: Promise<{ lang: st
   const { lang } = await params;
   if (!isLanguage(lang)) notFound();
   const copy = content[lang];
+  const milestones = hhyAboutMilestones[lang];
 
   return <main className="about-page">
     <JsonLd data={{
@@ -170,8 +159,8 @@ export default async function AboutPage({ params }: { params: Promise<{ lang: st
           <p>{copy.progressBody}</p>
         </div>
         <div className="about-milestones">
-          {copy.milestones.map(([version, title, body], index) => <article className={index === 2 ? "current" : undefined} key={version}>
-            <div><CheckCircle weight={index <= 2 ? "fill" : "regular"} size={21} /><strong>{version}</strong></div>
+          {milestones.map(({ version, title, body, status }) => <article className={status === "current" ? "current" : undefined} key={version}>
+            <div><CheckCircle weight={status === "planned" ? "regular" : "fill"} size={21} /><strong>{version}</strong></div>
             <h3>{title}</h3><p>{body}</p>
           </article>)}
         </div>
