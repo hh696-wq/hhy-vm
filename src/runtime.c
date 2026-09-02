@@ -604,24 +604,24 @@ static void runtime_error_kind(Runtime *rt, const HhyNode *node, const char *kin
         else rt->exit_code = 1;
     }
     const char *names[] = {"kind", "code", "message", "source", "stage", "cause", "stack", "context"};
-    rt->error_value.kind = V_ERROR;
-    rt->error_value.as.map = map_storage_new(rt, 8);
-    rt->error_value.as.map->count = 8;
-    rt->error_value.as.map->keys = rt_alloc(rt, 8 * sizeof(char *));
-    rt->error_value.as.map->key_lengths = rt_alloc(rt, 8 * sizeof(size_t));
-    rt->error_value.as.map->values = rt_alloc(rt, 8 * sizeof(Value));
+    Value error = {.kind = V_ERROR};
+    error.as.map = map_storage_new(rt, 8);
+    error.as.map->count = 8;
+    error.as.map->keys = rt_alloc(rt, 8 * sizeof(char *));
+    error.as.map->key_lengths = rt_alloc(rt, 8 * sizeof(size_t));
+    error.as.map->values = rt_alloc(rt, 8 * sizeof(Value));
     for (size_t i = 0; i < 8; i++) {
-        rt->error_value.as.map->keys[i] = rt_strndup(rt, names[i], strlen(names[i]));
-        rt->error_value.as.map->key_lengths[i] = strlen(names[i]);
+        error.as.map->keys[i] = rt_strndup(rt, names[i], strlen(names[i]));
+        error.as.map->key_lengths[i] = strlen(names[i]);
     }
-    rt->error_value.as.map->values[0] = string_value(rt, kind);
-    rt->error_value.as.map->values[1] = string_value(rt, code);
-    rt->error_value.as.map->values[2] = string_value(rt, message);
-    rt->error_value.as.map->values[3] = string_value(rt, rt->source ? rt->source->path : "<runtime>");
-    rt->error_value.as.map->values[4] = string_value(rt,
+    error.as.map->values[0] = string_value(rt, kind);
+    error.as.map->values[1] = string_value(rt, code);
+    error.as.map->values[2] = string_value(rt, message);
+    error.as.map->values[3] = string_value(rt, rt->source ? rt->source->path : "<runtime>");
+    error.as.map->values[4] = string_value(rt,
         rt->current_contract != NULL ? rt->current_contract->name :
         (node == NULL ? "Runtime" : hhy_node_kind_name(node->kind)));
-    rt->error_value.as.map->values[5] = null_value();
+    error.as.map->values[5] = null_value();
     size_t stack_count = rt->call_stack_count + (node == NULL ? 0 : 1);
     Value stack = list_new(rt, stack_count);
     for (size_t i = 0; i < rt->call_stack_count; i++) {
@@ -647,8 +647,9 @@ static void runtime_error_kind(Runtime *rt, const HhyNode *node, const char *kin
         stack.as.list.items[stack_count - 1] = (Value){.kind = V_STRING,
             .string_length = (size_t)needed, .as.string = text};
     }
-    rt->error_value.as.map->values[6] = stack;
-    rt->error_value.as.map->values[7] = null_value();
+    error.as.map->values[6] = stack;
+    error.as.map->values[7] = null_value();
+    rt->error_value = error;
     rt->error_line = node == NULL ? 0 : node->token.line;
     rt->error_column = node == NULL ? 0 : node->token.column;
 }
