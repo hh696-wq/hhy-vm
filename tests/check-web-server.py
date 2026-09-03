@@ -56,6 +56,7 @@ def main() -> int:
             start_new_session=True,
         )
         failure_status = 0
+        forced_kill = False
         try:
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
@@ -178,16 +179,23 @@ def main() -> int:
                 try:
                     process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
+                    forced_kill = True
                     os.killpg(process.pid, signal.SIGKILL)
                     process.wait(timeout=3)
             try:
                 stdout, stderr = process.communicate(timeout=3)
             except subprocess.TimeoutExpired:
+                forced_kill = True
                 os.killpg(process.pid, signal.SIGKILL)
                 stdout, stderr = process.communicate(timeout=3)
             if stdout:
                 sys.stdout.write(stdout)
-            if process.returncode not in (0, -signal.SIGINT):
+            # POSIX shells/runtimes may surface SIGINT either as -SIGINT or
+            # the conventional 128 + SIGINT process status.
+            accepted_statuses = (0, -signal.SIGINT, 128 + signal.SIGINT)
+            if process.returncode not in accepted_statuses and not (
+                forced_kill and process.returncode == -signal.SIGKILL
+            ):
                 sys.stderr.write(stderr)
                 failure_status = process.returncode or 1
         if failure_status:
