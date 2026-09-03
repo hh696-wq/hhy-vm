@@ -33,6 +33,7 @@ jobs:
         run: make
 
       - name: Set up Node.js
+        if: ${{ hashFiles('website/package-lock.json') != '' }}
         uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -40,9 +41,15 @@ jobs:
           cache-dependency-path: website/package-lock.json
 
       - name: Install website dependencies
+        if: ${{ hashFiles('website/package-lock.json') != '' }}
         working-directory: website
         run: npm ci
 
       - name: Verify HHY examples, lint, types, and production build
+        if: ${{ hashFiles('website/package-lock.json') != '' }}
         working-directory: website
         run: npm run check
+
+      - name: Note separately managed website workspace
+        if: ${{ hashFiles('website/package-lock.json') == '' }}
+        run: echo "website/ is maintained and deployed as a separate workspace"
