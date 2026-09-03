@@ -8482,7 +8482,7 @@ HhyContext *hhy_context_new_engine(HhyApplication *application,
     return context;
 }
 
-HhyEmbedResult hhy_context_call_json(HhyContext *context,
+HhyEmbedResult hhy_context_call_json(HhyContext *volatile context,
                                      const char *function_name,
                                      const char *arguments_json) {
     HhyEmbedResult output = {.ok = false, .exit_code = 1};
