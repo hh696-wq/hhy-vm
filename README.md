@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.3.11-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.4.3-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -62,9 +62,22 @@ source |> transform |> filter |> action
 - **原生单位**：直接书写 `10mib`、`500ms`、`2h` 和 `80%`，避免隐含换算。
 - **可预测执行**：惰性 Stream、有界并发、背压、取消、资源限制和稳定退出码。
 
+## Web Runtime（v1.4）
+
+HHY 可作为常驻 Web Runtime 使用：应用每个 Worker 只加载一次，Router、JSON API、
+Middleware、静态文件、上传、CORS、gzip、SSE、流式响应、Range、多 Worker、健康检查与
+Prometheus 指标均由 Runtime 提供。
+
+```sh
+./build/hhy serve examples/10-web-api.hhy -- 8080
+./build/hhy serve --dev examples/10-web-api.hhy -- 8080
+```
+
+完整 API、反向代理部署边界和 C 嵌入示例见 [Web Runtime 文档](WEB_RUNTIME.md)。
+
 ## 快速开始
 
-当前版本是 **V1.3.11**（`1.3.11`），正式支持 macOS arm64、Linux arm64 和
+当前版本是 **V1.4.3**（`1.4.3`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
@@ -83,7 +96,7 @@ hhy --version
 需要 C11 编译器、`make`、libcurl、PCRE2、BDWGC、Jansson 和 OpenSSL。macOS 可以先安装依赖：
 
 ```sh
-brew install curl pcre2 bdw-gc jansson openssl@3
+brew install curl pcre2 bdw-gc jansson openssl@3 zlib
 ```
 
 然后构建并验证：
@@ -187,8 +200,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.3.11-PLATFORM-ARCH.tar.gz
-cd hhy-1.3.11-PLATFORM-ARCH
+tar -xzf hhy-1.4.3-PLATFORM-ARCH.tar.gz
+cd hhy-1.4.3-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```

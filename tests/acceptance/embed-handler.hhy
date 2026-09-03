@@ -1,0 +1,7 @@
+export fn handler(value) {
+    return {ok: true, value: value}
+}
+
+export fn add(left, right) {
+    return left + right
+}

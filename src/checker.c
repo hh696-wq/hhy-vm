@@ -231,6 +231,7 @@ static void check_import(Checker *checker, const HhyNode *node) {
             define(checker, node->children[0]->token, false);
             CheckBinding *binding = local(checker->scope, node->children[0]->token);
             if (binding != NULL && !token_is(node->children[0]->token, "http") &&
+                !token_is(node->children[0]->token, "web") &&
                 !token_is(node->children[0]->token, "datetime")) binding->sendable = false;
         }
         goto cleanup;
@@ -264,6 +265,7 @@ static void check_identifier(Checker *checker, const HhyNode *node) {
     if (hhy_contract_lookup_n(node->token.start, node->token.length) != NULL ||
         token_is(node->token, "args") || token_is(node->token, "env") ||
         token_is(node->token, "system") || token_is(node->token, "http") ||
+        token_is(node->token, "web") ||
         token_is(node->token, "datetime")) return;
     CheckScope *owner = NULL;
     CheckBinding *binding = find(checker->scope, node->token, &owner);

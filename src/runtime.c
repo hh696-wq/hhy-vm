@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #define _DARWIN_C_SOURCE
 #include "hhy/runtime.h"
+#include "hhy/embed.h"
 #include "bytecode_runtime.h"
 #include "runtime_ownership.h"
 #include "hhy/contracts.h"
@@ -10,7 +11,12 @@
 #include "hhy/platform_watch.h"
 #include "hhy/profiler.h"
 #include "hhy/fuzz.h"
+#include "hhy/web_server.h"
 #include <jansson.h>
+#include <openssl/core_names.h>
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/params.h>
 
 #include <errno.h>
 #include <ctype.h>
@@ -32,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
@@ -45,6 +52,7 @@
 #include <unistd.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <zlib.h>
 
 extern char **environ;
 
@@ -59,7 +67,8 @@ typedef enum {
     V_NULL, V_BOOL, V_INT, V_FLOAT, V_STRING, V_REGEX, V_LIST, V_RANGE, V_MAP, V_FUNCTION,
     V_STREAM, V_PATH, V_BYTES, V_DURATION, V_PERCENT,
     V_RESULT, V_FILE, V_DIRECTORY, V_FILE_EVENT, V_PROCESS, V_COMMAND_RESULT,
-    V_HTTP_REQUEST, V_HTTP_RESPONSE, V_BYTES_BUFFER, V_ERROR, V_DATETIME
+    V_HTTP_REQUEST, V_HTTP_RESPONSE, V_BYTES_BUFFER, V_ERROR, V_DATETIME,
+    V_WEB_APP, V_WEB_REQUEST, V_WEB_RESPONSE, V_UPLOADED_FILE
 } ValueKind;
 
 typedef struct Value Value;
@@ -262,6 +271,11 @@ struct Runtime {
     size_t memory_check_budget;
     size_t memory_observed_local;
     uint32_t safepoint_ticks;
+    uint64_t web_request_sequence;
+    uint64_t web_request_count;
+    uint64_t web_error_count;
+    uint64_t web_response_bytes;
+    uint64_t web_latency_ns;
     char *emergency_error_keys[8];
     size_t emergency_error_key_lengths[8];
     Value emergency_error_values[8];
@@ -311,7 +325,7 @@ static json_t *value_to_protocol_json(Runtime *rt, const HhyNode *site, Value va
             }
             return array;
         }
-        case V_MAP: {
+        case V_MAP: case V_RESULT: case V_ERROR: {
             json_t *object = json_object();
             for (size_t i = 0; i < value.as.map->count; i++) {
                 char *key = hhy_strndup(value.as.map->keys[i], value.as.map->key_lengths[i]);
@@ -919,7 +933,8 @@ static const char *value_type(Value value) {
     static const char *names[] = {
         "Null","Bool","Int","Float","String","Regex","List","Range","Map","Function",
         "Stream","Path","Bytes","Duration","Percent","Result","File","Directory","FileEvent","Process",
-        "CommandResult","HttpRequest","HttpResponse","BytesBuffer","Error","DateTime"
+        "CommandResult","HttpRequest","HttpResponse","BytesBuffer","Error","DateTime",
+        "WebApp","WebRequest","WebResponse","UploadedFile"
     };
     return names[value.kind];
 }
@@ -928,7 +943,8 @@ static bool record_kind(ValueKind kind) {
     return kind == V_MAP || kind == V_RESULT || kind == V_FILE || kind == V_DIRECTORY ||
            kind == V_FILE_EVENT ||
            kind == V_PROCESS || kind == V_COMMAND_RESULT || kind == V_HTTP_REQUEST ||
-           kind == V_HTTP_RESPONSE || kind == V_ERROR;
+           kind == V_HTTP_RESPONSE || kind == V_ERROR || kind == V_WEB_APP ||
+           kind == V_WEB_REQUEST || kind == V_WEB_RESPONSE || kind == V_UPLOADED_FILE;
 }
 
 static Value map_get(Value map, const char *key);
@@ -1004,6 +1020,7 @@ static void print_value(FILE *stream, Value value, bool json) {
             break;
         case V_MAP: case V_RESULT: case V_FILE: case V_DIRECTORY: case V_FILE_EVENT: case V_PROCESS:
         case V_COMMAND_RESULT: case V_HTTP_REQUEST: case V_HTTP_RESPONSE: case V_ERROR:
+        case V_WEB_APP: case V_WEB_REQUEST: case V_WEB_RESPONSE: case V_UPLOADED_FILE:
             if (value.kind == V_ERROR && !json) {
                 Value kind = map_get(value, "kind"), message = map_get(value, "message");
                 if (kind.kind == V_STRING) { fputs(kind.as.string, stream); fputs(": ", stream); }
@@ -1700,7 +1717,8 @@ static bool value_write(FILE *file, Value value) {
             }
             return true;
         }
-        case V_FUNCTION: case V_STREAM:
+        case V_FUNCTION: case V_STREAM: case V_WEB_APP: case V_WEB_REQUEST: case V_WEB_RESPONSE:
+        case V_UPLOADED_FILE:
             return false;
     }
     return false;
@@ -1769,7 +1787,9 @@ static bool value_read(Runtime *rt, FILE *file, Value *out, size_t depth) {
             }
             return true;
         }
-        case V_FUNCTION: case V_STREAM: return false;
+        case V_FUNCTION: case V_STREAM: case V_WEB_APP: case V_WEB_REQUEST: case V_WEB_RESPONSE:
+        case V_UPLOADED_FILE:
+            return false;
     }
     return false;
 }
@@ -4693,8 +4713,1034 @@ static Value url_resolve_value(Runtime *rt, const HhyNode *site, size_t argc, Va
     return result;
 }
 
+typedef struct {
+    Runtime *runtime;
+    Env *environment;
+    const HhyNode *site;
+    Value application;
+    bool dev_reload;
+    struct timespec source_modified;
+    bool reload_requested;
+} WebRuntimeContext;
+
+typedef struct {
+    Runtime *runtime;
+    const HhyNode *site;
+    Stream *stream;
+    bool sse;
+} WebStreamContext;
+
+static Value web_response(Runtime *rt, const HhyNode *site, Value body,
+                          const char *content_type, Value options) {
+    if (body.kind != V_STRING && body.kind != V_BYTES_BUFFER && body.kind != V_STREAM) {
+        runtime_type_error(rt, site, "Web response body must be String, BytesBuffer or Stream");
+        return null_value();
+    }
+    if (body.kind == V_STREAM) {
+        if (body.as.stream->claimed) {
+            runtime_value_error(rt, site, "Web response requires a fresh Stream"); return null_value();
+        }
+        body.as.stream->claimed = true;
+    }
+    int64_t status = 200;
+    Value headers = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+    if (options.kind != V_NULL) {
+        if (options.kind != V_MAP) {
+            runtime_type_error(rt, site, "Web response options must be Map"); return null_value();
+        }
+        Value configured_status = map_get(options, "status");
+        Value configured_headers = map_get(options, "headers");
+        if (configured_status.kind != V_NULL) {
+            if (configured_status.kind != V_INT || configured_status.as.integer < 100 ||
+                configured_status.as.integer > 599) {
+                runtime_value_error(rt, site, "Web response status must be an Int from 100 to 599");
+                return null_value();
+            }
+            status = configured_status.as.integer;
+        }
+        if (configured_headers.kind != V_NULL) {
+            if (configured_headers.kind != V_MAP) {
+                runtime_type_error(rt, site, "Web response headers must be Map"); return null_value();
+            }
+            headers = configured_headers;
+        }
+    }
+    const char *keys[] = {"status", "content_type", "headers", "body"};
+    Value values[] = {int_value(status), string_value(rt, content_type), headers, body};
+    return map_with_entries(rt, V_WEB_RESPONSE, 4, keys, values);
+}
+
+static Value web_json_response(Runtime *rt, const HhyNode *site, Value input, Value options) {
+    FILE *file = runtime_tmpfile(rt, site);
+    if (file == NULL) return null_value();
+    if (!json_encode_value(file, input, false, 0)) {
+        runtime_fclose(rt, file);
+        runtime_type_error(rt, site, "web.json expects a JSON-serializable value");
+        return null_value();
+    }
+    long size = ftell(file);
+    if (size < 0) { runtime_fclose(rt, file); runtime_io_error(rt, site, "cannot encode Web JSON response"); return null_value(); }
+    rewind(file);
+    char *text = rt_alloc(rt, (size_t)size + 1);
+    size_t read = fread(text, 1, (size_t)size, file);
+    runtime_fclose(rt, file); text[read] = '\0';
+    Value body = {.kind = V_STRING, .string_length = read}; body.as.string = text;
+    return web_response(rt, site, body, "application/json; charset=utf-8", options);
+}
+
+static Value web_add_route(Runtime *rt, const HhyNode *site, Value app,
+                           const char *method, Value path, Value handler) {
+    if (app.kind != V_WEB_APP || path.kind != V_STRING || handler.kind != V_FUNCTION ||
+        path.string_length == 0 || path.as.string[0] != '/' || string_has_nul(path)) {
+        runtime_type_error(rt, site, "web route expects WebApp, absolute path String and handler Function");
+        return null_value();
+    }
+    Value routes = map_get(app, "routes");
+    if (routes.kind != V_LIST) {
+        runtime_value_error(rt, site, "WebApp has invalid routes"); return null_value();
+    }
+    for (size_t i = 0; i < routes.as.list.count; i++) {
+        Value existing_method = map_get(routes.as.list.items[i], "method");
+        Value existing_path = map_get(routes.as.list.items[i], "path");
+        if (string_equals_c(existing_method, method) && existing_path.kind == V_STRING &&
+            existing_path.string_length == path.string_length &&
+            memcmp(existing_path.as.string, path.as.string, path.string_length) == 0) {
+            runtime_value_error(rt, site, "duplicate Web route"); return null_value();
+        }
+    }
+    Value next_routes = list_new(rt, routes.as.list.count + 1);
+    for (size_t i = 0; i < routes.as.list.count; i++) next_routes.as.list.items[i] = routes.as.list.items[i];
+    const char *keys[] = {"method", "path", "handler"};
+    Value values[] = {string_value(rt, method), path, handler};
+    next_routes.as.list.items[routes.as.list.count] = map_with_entries(rt, V_MAP, 3, keys, values);
+    return map_put_runtime(rt, app, "routes", next_routes);
+}
+
+static Value web_use(Runtime *rt, const HhyNode *site, Value app, Value middleware) {
+    if (app.kind != V_WEB_APP || middleware.kind != V_FUNCTION) {
+        runtime_type_error(rt, site, "web.use expects WebApp and middleware Function");
+        return null_value();
+    }
+    Value items = map_get(app, "middleware");
+    if (items.kind != V_LIST) { runtime_value_error(rt, site, "WebApp has invalid middleware"); return null_value(); }
+    Value next = list_new(rt, items.as.list.count + 1);
+    for (size_t i = 0; i < items.as.list.count; i++) next.as.list.items[i] = items.as.list.items[i];
+    next.as.list.items[items.as.list.count] = middleware;
+    return map_put_runtime(rt, app, "middleware", next);
+}
+
+static Value web_add_static(Runtime *rt, const HhyNode *site, Value app, Value prefix, Value root) {
+    if (app.kind != V_WEB_APP || prefix.kind != V_STRING || root.kind != V_PATH ||
+        prefix.string_length == 0 || prefix.as.string[0] != '/' || string_has_nul(prefix) ||
+        string_has_nul(root)) {
+        runtime_type_error(rt, site, "web.static expects WebApp, absolute URL prefix and root Path");
+        return null_value();
+    }
+    Value routes = map_get(app, "routes");
+    Value next = list_new(rt, routes.as.list.count + 1);
+    for (size_t i = 0; i < routes.as.list.count; i++) next.as.list.items[i] = routes.as.list.items[i];
+    const char *keys[] = {"method", "path", "static_root"};
+    Value values[] = {string_value(rt, "STATIC"), prefix, root};
+    next.as.list.items[routes.as.list.count] = map_with_entries(rt, V_MAP, 3, keys, values);
+    return map_put_runtime(rt, app, "routes", next);
+}
+
+static const char *web_request_header(const HhyWebServerRequest *request, const char *name);
+
+static Value map_get_ascii_ci(Value map, const char *key) {
+    if (!record_kind(map.kind)) return null_value();
+    size_t length = strlen(key);
+    for (size_t i = 0; i < map.as.map->count; i++)
+        if (map.as.map->key_lengths[i] == length &&
+            strncasecmp(map.as.map->keys[i], key, length) == 0) return map.as.map->values[i];
+    return null_value();
+}
+
+static Value web_parse_cookies(Runtime *rt, Value headers) {
+    Value result = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+    Value cookie = map_get_ascii_ci(headers, "Cookie");
+    if (cookie.kind != V_STRING || string_has_nul(cookie)) return result;
+    char *copy = rt_strndup(rt, cookie.as.string, cookie.string_length);
+    char *cursor = copy;
+    while (*cursor != '\0') {
+        while (*cursor == ' ' || *cursor == '\t' || *cursor == ';') cursor++;
+        char *separator = strchr(cursor, '=');
+        if (separator == NULL) break;
+        char *end = strchr(separator + 1, ';');
+        char *name_end = separator;
+        while (name_end > cursor && (name_end[-1] == ' ' || name_end[-1] == '\t')) name_end--;
+        const char *value_start = separator + 1;
+        while (*value_start == ' ' || *value_start == '\t') value_start++;
+        const char *value_end = end == NULL ? copy + strlen(copy) : end;
+        while (value_end > value_start && (value_end[-1] == ' ' || value_end[-1] == '\t')) value_end--;
+        if (name_end > cursor)
+            result = map_put_runtime_n(rt, result, cursor, (size_t)(name_end - cursor),
+                                       string_n(rt, value_start, (size_t)(value_end - value_start)));
+        if (end == NULL) break;
+        cursor = end + 1;
+    }
+    return result;
+}
+
+static bool web_hmac_sha256(const char *secret, size_t secret_length,
+                            const char *value, size_t value_length,
+                            unsigned char output[32]) {
+    EVP_MAC *algorithm = EVP_MAC_fetch(NULL, "HMAC", NULL);
+    EVP_MAC_CTX *context = algorithm == NULL ? NULL : EVP_MAC_CTX_new(algorithm);
+    char digest[] = "SHA256";
+    OSSL_PARAM parameters[] = {
+        OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_DIGEST, digest, 0),
+        OSSL_PARAM_construct_end()
+    };
+    size_t output_length = 0;
+    bool ok = context != NULL &&
+        EVP_MAC_init(context, (const unsigned char *)secret, secret_length, parameters) == 1 &&
+        EVP_MAC_update(context, (const unsigned char *)value, value_length) == 1 &&
+        EVP_MAC_final(context, output, &output_length, 32) == 1 && output_length == 32;
+    EVP_MAC_CTX_free(context); EVP_MAC_free(algorithm);
+    return ok;
+}
+
+static Value web_sign_cookie(Runtime *rt, const HhyNode *site, Value value, Value secret) {
+    if (value.kind != V_STRING || secret.kind != V_STRING || secret.string_length < 16 ||
+        string_has_nul(value) || string_has_nul(secret)) {
+        runtime_value_error(rt, site, "signed cookies require String value and a secret of at least 16 bytes");
+        return null_value();
+    }
+    unsigned char digest[32];
+    if (!web_hmac_sha256(secret.as.string, secret.string_length,
+                         value.as.string, value.string_length, digest)) {
+        runtime_error_kind(rt, site, "WebError", "HHY_WEB_COOKIE_SIGN", "cannot sign cookie");
+        return null_value();
+    }
+    static const char hex[] = "0123456789abcdef";
+    char *signed_value = rt_alloc(rt, value.string_length + 66);
+    memcpy(signed_value, value.as.string, value.string_length);
+    signed_value[value.string_length] = '.';
+    for (size_t i = 0; i < 32; i++) {
+        signed_value[value.string_length + 1 + i * 2] = hex[digest[i] >> 4];
+        signed_value[value.string_length + 2 + i * 2] = hex[digest[i] & 15];
+    }
+    signed_value[value.string_length + 65] = '\0';
+    return string_n(rt, signed_value, value.string_length + 65);
+}
+
+static int web_hex_nibble(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static Value web_verify_cookie(Runtime *rt, const HhyNode *site, Value signed_value, Value secret) {
+    if (signed_value.kind != V_STRING || secret.kind != V_STRING || secret.string_length < 16 ||
+        string_has_nul(signed_value) || string_has_nul(secret)) {
+        runtime_value_error(rt, site, "cookie verification requires signed String and secret of at least 16 bytes");
+        return null_value();
+    }
+    if (signed_value.string_length < 66 || signed_value.as.string[signed_value.string_length - 65] != '.')
+        return null_value();
+    size_t value_length = signed_value.string_length - 65;
+    unsigned char expected[32], supplied[32];
+    if (!web_hmac_sha256(secret.as.string, secret.string_length,
+                         signed_value.as.string, value_length, expected)) return null_value();
+    const char *signature = signed_value.as.string + value_length + 1;
+    for (size_t i = 0; i < 32; i++) {
+        int high = web_hex_nibble(signature[i * 2]), low = web_hex_nibble(signature[i * 2 + 1]);
+        if (high < 0 || low < 0) return null_value();
+        supplied[i] = (unsigned char)((high << 4) | low);
+    }
+    if (CRYPTO_memcmp(expected, supplied, sizeof(expected)) != 0) return null_value();
+    return string_n(rt, signed_value.as.string, value_length);
+}
+
+static const unsigned char *web_find_bytes(const unsigned char *data, size_t length,
+                                           const unsigned char *needle, size_t needle_length) {
+    if (needle_length == 0 || needle_length > length) return NULL;
+    for (size_t i = 0; i + needle_length <= length; i++)
+        if (data[i] == needle[0] && memcmp(data + i, needle, needle_length) == 0) return data + i;
+    return NULL;
+}
+
+static char *web_disposition_parameter(Runtime *rt, const char *header, const char *parameter) {
+    size_t parameter_length = strlen(parameter);
+    const char *cursor = header;
+    while ((cursor = strstr(cursor, parameter)) != NULL) {
+        if ((cursor == header || cursor[-1] == ';' || isspace((unsigned char)cursor[-1])) &&
+            cursor[parameter_length] == '=' && cursor[parameter_length + 1] == '"') {
+            const char *start = cursor + parameter_length + 2;
+            const char *end = strchr(start, '"');
+            if (end != NULL) return rt_strndup(rt, start, (size_t)(end - start));
+        }
+        cursor += parameter_length;
+    }
+    return NULL;
+}
+
+static Value web_multipart(Runtime *rt, const HhyNode *site, Value request, Value directory) {
+    if (request.kind != V_WEB_REQUEST || (directory.kind != V_NULL && directory.kind != V_PATH)) {
+        runtime_type_error(rt, site, "web.multipart expects WebRequest and optional upload directory Path");
+        return null_value();
+    }
+    Value content_type = map_get_ascii_ci(map_get(request, "headers"), "Content-Type");
+    Value bytes = map_get(request, "bytes");
+    if (content_type.kind != V_STRING || bytes.kind != V_BYTES_BUFFER) {
+        runtime_value_error(rt, site, "multipart request has no Content-Type or body"); return null_value();
+    }
+    const char *boundary_key = strstr(content_type.as.string, "boundary=");
+    if (boundary_key == NULL) {
+        runtime_value_error(rt, site, "multipart Content-Type has no boundary"); return null_value();
+    }
+    boundary_key += 9;
+    if (*boundary_key == '"') boundary_key++;
+    size_t boundary_length = strcspn(boundary_key, "\";");
+    if (boundary_length == 0 || boundary_length > 200) {
+        runtime_value_error(rt, site, "multipart boundary is invalid"); return null_value();
+    }
+    char delimiter[204]; delimiter[0] = '-'; delimiter[1] = '-';
+    memcpy(delimiter + 2, boundary_key, boundary_length);
+    size_t delimiter_length = boundary_length + 2; delimiter[delimiter_length] = '\0';
+    const unsigned char *data = bytes.as.bytes_buffer.data;
+    size_t length = bytes.as.bytes_buffer.length;
+    const unsigned char *cursor = web_find_bytes(data, length, (unsigned char *)delimiter, delimiter_length);
+    Value fields = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+    Value files = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+    const char *upload_root = directory.kind == V_PATH ? directory.as.string : "/tmp";
+    while (cursor != NULL) {
+        cursor += delimiter_length;
+        if ((size_t)(cursor - data) + 2 > length || memcmp(cursor, "--", 2) == 0) break;
+        if (memcmp(cursor, "\r\n", 2) != 0) { runtime_value_error(rt, site, "malformed multipart boundary"); return null_value(); }
+        cursor += 2;
+        size_t remaining = length - (size_t)(cursor - data);
+        const unsigned char *header_end = web_find_bytes(cursor, remaining,
+            (const unsigned char *)"\r\n\r\n", 4);
+        if (header_end == NULL || (size_t)(header_end - cursor) > 16 * 1024) {
+            runtime_value_error(rt, site, "multipart part headers are invalid"); return null_value();
+        }
+        char *part_headers = rt_strndup(rt, (const char *)cursor, (size_t)(header_end - cursor));
+        const char *disposition = strcasestr(part_headers, "content-disposition:");
+        char *name = disposition == NULL ? NULL : web_disposition_parameter(rt, disposition, "name");
+        char *filename = disposition == NULL ? NULL : web_disposition_parameter(rt, disposition, "filename");
+        if (name == NULL || name[0] == '\0') { runtime_value_error(rt, site, "multipart part has no name"); return null_value(); }
+        const unsigned char *part_data = header_end + 4;
+        remaining = length - (size_t)(part_data - data);
+        char marker[208]; marker[0] = '\r'; marker[1] = '\n';
+        memcpy(marker + 2, delimiter, delimiter_length);
+        size_t marker_length = delimiter_length + 2;
+        const unsigned char *next = web_find_bytes(part_data, remaining,
+            (unsigned char *)marker, marker_length);
+        if (next == NULL) { runtime_value_error(rt, site, "multipart part is not terminated"); return null_value(); }
+        size_t part_length = (size_t)(next - part_data);
+        if (filename == NULL) {
+            size_t codepoints = 0;
+            if (!utf8_count((const char *)part_data, part_length, &codepoints)) {
+                runtime_value_error(rt, site, "multipart text field is not valid UTF-8"); return null_value();
+            }
+            fields = map_put_runtime(rt, fields, name, string_n(rt, (const char *)part_data, part_length));
+        } else {
+            char root_real[PATH_MAX];
+            if (realpath(upload_root, root_real) == NULL) { runtime_io_error(rt, site, "upload directory is unavailable"); return null_value(); }
+            char temporary[PATH_MAX];
+            if (snprintf(temporary, sizeof(temporary), "%s/hhy-upload-XXXXXX", root_real) >= (int)sizeof(temporary)) {
+                runtime_value_error(rt, site, "upload path is too long"); return null_value();
+            }
+            int descriptor = mkstemp(temporary);
+            if (descriptor < 0) { runtime_io_error(rt, site, "cannot create upload temporary file"); return null_value(); }
+            FILE *file = runtime_fdopen(rt, site, descriptor, "wb");
+            if (file == NULL) { close(descriptor); unlink(temporary); return null_value(); }
+            char *owned_path = hhy_strndup(temporary, strlen(temporary));
+            RuntimeCleanup *cleanup = runtime_register_temporary(rt, file, owned_path);
+            bool written = part_length == 0 || fwrite(part_data, 1, part_length, file) == part_length;
+            if (runtime_fclose(rt, file) != 0) written = false;
+            cleanup->file = NULL;
+            if (!written) { runtime_io_error(rt, site, "cannot write upload temporary file"); return null_value(); }
+            Value upload_path = string_value(rt, temporary); upload_path.kind = V_PATH;
+            const char *upload_keys[] = {"name", "filename", "path", "size"};
+            Value upload_values[] = {string_value(rt, name), string_value(rt, filename),
+                                     upload_path, int_value((int64_t)part_length)};
+            Value uploaded = map_with_entries(rt, V_UPLOADED_FILE, 4, upload_keys, upload_values);
+            files = map_put_runtime(rt, files, name, uploaded);
+        }
+        cursor = next + 2;
+    }
+    const char *result_keys[] = {"fields", "files"}; Value result_values[] = {fields, files};
+    return map_with_entries(rt, V_MAP, 2, result_keys, result_values);
+}
+
+static const char *web_content_type(const char *path) {
+    const char *extension = strrchr(path, '.');
+    if (extension == NULL) return "application/octet-stream";
+    if (strcmp(extension, ".html") == 0) return "text/html; charset=utf-8";
+    if (strcmp(extension, ".css") == 0) return "text/css; charset=utf-8";
+    if (strcmp(extension, ".js") == 0) return "text/javascript; charset=utf-8";
+    if (strcmp(extension, ".json") == 0) return "application/json; charset=utf-8";
+    if (strcmp(extension, ".svg") == 0) return "image/svg+xml";
+    if (strcmp(extension, ".png") == 0) return "image/png";
+    if (strcmp(extension, ".jpg") == 0 || strcmp(extension, ".jpeg") == 0) return "image/jpeg";
+    if (strcmp(extension, ".txt") == 0) return "text/plain; charset=utf-8";
+    return "application/octet-stream";
+}
+
+typedef struct {
+    Runtime *runtime;
+    FILE *file;
+    size_t remaining;
+    unsigned char buffer[64 * 1024];
+} WebFileStreamContext;
+
+static bool web_file_stream_next(void *opaque, const unsigned char **data, size_t *length) {
+    WebFileStreamContext *context = opaque;
+    if (context->file == NULL || context->remaining == 0) return false;
+    size_t wanted = context->remaining < sizeof(context->buffer)
+        ? context->remaining : sizeof(context->buffer);
+    size_t received = fread(context->buffer, 1, wanted, context->file);
+    if (received == 0) return false;
+    context->remaining -= received; *data = context->buffer; *length = received;
+    return true;
+}
+
+static void web_file_stream_close(void *opaque) {
+    WebFileStreamContext *context = opaque;
+    if (context->file != NULL) {
+        runtime_fclose(context->runtime, context->file);
+        context->file = NULL;
+    }
+}
+
+static bool web_static_response(Runtime *rt, const HhyNode *site, Value route,
+                                const HhyWebServerRequest *request,
+                                HhyWebServerResponse *response) {
+    Value prefix = map_get(route, "path"), root = map_get(route, "static_root");
+    const char *request_path = request->path;
+    if (strncmp(request_path, prefix.as.string, prefix.string_length) != 0 ||
+        (request_path[prefix.string_length] != '\0' && request_path[prefix.string_length] != '/')) return false;
+    const char *relative = request_path + prefix.string_length;
+    while (*relative == '/') relative++;
+    if (*relative == '\0' || strstr(relative, "..") != NULL || strchr(relative, '\\') != NULL) {
+        response->status = 404; response->content_type = "text/plain; charset=utf-8";
+        response->body = (const unsigned char *)"Not Found\n"; response->body_length = 10; return true;
+    }
+    char root_real[PATH_MAX], candidate[PATH_MAX], candidate_real[PATH_MAX];
+    if (realpath(root.as.string, root_real) == NULL ||
+        snprintf(candidate, sizeof(candidate), "%s/%s", root_real, relative) >= (int)sizeof(candidate) ||
+        realpath(candidate, candidate_real) == NULL ||
+        strncmp(candidate_real, root_real, strlen(root_real)) != 0 ||
+        (candidate_real[strlen(root_real)] != '/' && candidate_real[strlen(root_real)] != '\0')) {
+        response->status = 404; response->content_type = "text/plain; charset=utf-8";
+        response->body = (const unsigned char *)"Not Found\n"; response->body_length = 10; return true;
+    }
+    struct stat metadata;
+    if (stat(candidate_real, &metadata) != 0 || !S_ISREG(metadata.st_mode) ||
+        metadata.st_size < 0 || (uint64_t)metadata.st_size > SIZE_MAX) {
+        response->status = 404; response->content_type = "text/plain; charset=utf-8";
+        response->body = (const unsigned char *)"Not Found\n"; response->body_length = 10; return true;
+    }
+    char *etag = rt_alloc(rt, 96);
+    snprintf(etag, 96, "\"%llx-%llx\"", (unsigned long long)metadata.st_mtime,
+             (unsigned long long)metadata.st_size);
+    char *last_modified = rt_alloc(rt, 64);
+    struct tm modified_tm;
+    gmtime_r(&metadata.st_mtime, &modified_tm);
+    strftime(last_modified, 64, "%a, %d %b %Y %H:%M:%S GMT", &modified_tm);
+    const char *if_none_match = web_request_header(request, "If-None-Match");
+    if (if_none_match != NULL && strcmp(if_none_match, etag) == 0) {
+        HhyWebHeader *cache_headers = rt_alloc(rt, 2 * sizeof(*cache_headers));
+        cache_headers[0] = (HhyWebHeader){"ETag", etag};
+        cache_headers[1] = (HhyWebHeader){"Last-Modified", last_modified};
+        response->status = 304; response->content_type = web_content_type(candidate_real);
+        response->headers = cache_headers; response->header_count = 2;
+        response->body = NULL; response->body_length = 0; return true;
+    }
+    FILE *file = runtime_fopen(rt, site, candidate_real, "rb");
+    if (file == NULL) return true;
+    size_t file_length = (size_t)metadata.st_size;
+    size_t start = 0, end = file_length == 0 ? 0 : file_length - 1;
+    const char *range = web_request_header(request, "Range");
+    bool partial = false;
+    if (range != NULL && strncmp(range, "bytes=", 6) == 0 && file_length != 0) {
+        const char *value = range + 6; char *range_end = NULL;
+        errno = 0; unsigned long long parsed_start = strtoull(value, &range_end, 10);
+        if (errno != 0 || range_end == value || *range_end != '-' || parsed_start >= file_length) {
+            runtime_fclose(rt, file);
+            response->status = 416; response->content_type = "text/plain; charset=utf-8";
+            response->body = (const unsigned char *)"Range Not Satisfiable\n";
+            response->body_length = 22; return true;
+        }
+        start = (size_t)parsed_start; range_end++;
+        if (*range_end != '\0') {
+            char *tail = NULL; errno = 0;
+            unsigned long long parsed_end = strtoull(range_end, &tail, 10);
+            if (errno != 0 || tail == range_end || *tail != '\0' || parsed_end < start) {
+                runtime_fclose(rt, file); response->status = 416;
+                response->content_type = "text/plain; charset=utf-8";
+                response->body = (const unsigned char *)"Range Not Satisfiable\n";
+                response->body_length = 22; return true;
+            }
+            end = parsed_end >= file_length ? file_length - 1 : (size_t)parsed_end;
+        }
+        partial = true;
+    }
+    size_t length = file_length == 0 ? 0 : end - start + 1;
+    if (length >= 1024 * 1024) {
+        if (start != 0 && fseek(file, (long)start, SEEK_SET) != 0) {
+            runtime_fclose(rt, file); return true;
+        }
+        WebFileStreamContext *stream = rt_alloc(rt, sizeof(*stream));
+        *stream = (WebFileStreamContext){.runtime = rt, .file = file, .remaining = length};
+        response->status = partial ? 206 : 200;
+        response->content_type = web_content_type(candidate_real);
+        response->next_chunk = web_file_stream_next;
+        response->close_stream = web_file_stream_close;
+        response->stream_context = stream;
+        HhyWebHeader *static_headers = rt_alloc(rt, (partial ? 4 : 3) * sizeof(*static_headers));
+        static_headers[0] = (HhyWebHeader){"Accept-Ranges", "bytes"};
+        static_headers[1] = (HhyWebHeader){"ETag", etag};
+        static_headers[2] = (HhyWebHeader){"Last-Modified", last_modified};
+        response->headers = static_headers; response->header_count = 3;
+        if (partial) {
+            char *content_range = rt_alloc(rt, 96);
+            snprintf(content_range, 96, "bytes %zu-%zu/%zu", start, end, file_length);
+            static_headers[3] = (HhyWebHeader){"Content-Range", content_range};
+            response->header_count = 4;
+        }
+        return true;
+    }
+    unsigned char *body = length ? rt_alloc(rt, length) : NULL;
+    bool ok = (start == 0 || fseek(file, (long)start, SEEK_SET) == 0) &&
+              (length == 0 || fread(body, 1, length, file) == length);
+    runtime_fclose(rt, file);
+    if (!ok) return true;
+    response->status = partial ? 206 : 200; response->content_type = web_content_type(candidate_real);
+    response->body = body; response->body_length = length;
+    HhyWebHeader *static_headers = rt_alloc(rt, (partial ? 4 : 3) * sizeof(*static_headers));
+    static_headers[0] = (HhyWebHeader){"Accept-Ranges", "bytes"};
+    static_headers[1] = (HhyWebHeader){"ETag", etag};
+    static_headers[2] = (HhyWebHeader){"Last-Modified", last_modified};
+    response->headers = static_headers; response->header_count = 3;
+    if (partial) {
+        char *content_range = rt_alloc(rt, 96);
+        snprintf(content_range, 96, "bytes %zu-%zu/%zu", start, end, file_length);
+        static_headers[3] = (HhyWebHeader){"Content-Range", content_range};
+        response->header_count = 4;
+    }
+    return true;
+}
+
+static bool web_match_route(Runtime *rt, const char *pattern, const char *path, Value *params) {
+    *params = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+    const char *left = pattern, *right = path;
+    while (*left != '\0' || *right != '\0') {
+        while (*left == '/') left++;
+        while (*right == '/') right++;
+        const char *left_end = strchr(left, '/');
+        const char *right_end = strchr(right, '/');
+        size_t left_length = left_end == NULL ? strlen(left) : (size_t)(left_end - left);
+        size_t right_length = right_end == NULL ? strlen(right) : (size_t)(right_end - right);
+        if (left_length == 0 || right_length == 0) return left_length == right_length;
+        if (left[0] == ':' && left_length > 1) {
+            Value value = string_n(rt, right, right_length);
+            *params = map_put_runtime_n(rt, *params, left + 1, left_length - 1, value);
+        } else if (left_length != right_length || memcmp(left, right, left_length) != 0) return false;
+        left += left_length; right += right_length;
+    }
+    return true;
+}
+
+static bool web_should_stop(void *opaque) {
+    WebRuntimeContext *context = opaque;
+    if (context->dev_reload && context->runtime->source != NULL &&
+        context->runtime->source->path != NULL) {
+        struct stat metadata;
+        if (stat(context->runtime->source->path, &metadata) == 0) {
+#ifdef __APPLE__
+            struct timespec modified = metadata.st_mtimespec;
+#else
+            struct timespec modified = metadata.st_mtim;
+#endif
+            if (modified.tv_sec != context->source_modified.tv_sec ||
+                modified.tv_nsec != context->source_modified.tv_nsec) {
+            context->reload_requested = true;
+            return true;
+            }
+        }
+    }
+    return hhy_interrupt_requested || context->runtime->cancelled || context->runtime->failed;
+}
+
+static const char *web_request_header(const HhyWebServerRequest *request, const char *name) {
+    for (size_t i = 0; i < request->header_count; i++)
+        if (strcasecmp(request->headers[i].name, name) == 0) return request->headers[i].value;
+    return NULL;
+}
+
+static int web_hex_digit(unsigned char value) {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+    return -1;
+}
+
+static Value web_decode_component(Runtime *rt, const char *text, size_t length) {
+    char *decoded = rt_alloc(rt, length + 1); size_t output = 0;
+    for (size_t i = 0; i < length; i++) {
+        if (text[i] == '+') decoded[output++] = ' ';
+        else if (text[i] == '%' && i + 2 < length) {
+            int high = web_hex_digit((unsigned char)text[i + 1]);
+            int low = web_hex_digit((unsigned char)text[i + 2]);
+            if (high >= 0 && low >= 0) { decoded[output++] = (char)((high << 4) | low); i += 2; }
+            else decoded[output++] = text[i];
+        } else decoded[output++] = text[i];
+    }
+    decoded[output] = '\0';
+    Value value = {.kind = V_STRING, .string_length = output}; value.as.string = decoded;
+    return value;
+}
+
+static Value web_parse_query(Runtime *rt, const char *query) {
+    Value result = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+    const char *cursor = query;
+    while (*cursor != '\0') {
+        const char *end = strchr(cursor, '&'); if (end == NULL) end = cursor + strlen(cursor);
+        const char *equals = memchr(cursor, '=', (size_t)(end - cursor));
+        const char *value = equals == NULL ? end : equals + 1;
+        size_t key_length = (size_t)((equals == NULL ? end : equals) - cursor);
+        Value key = web_decode_component(rt, cursor, key_length);
+        Value decoded = web_decode_component(rt, value, (size_t)(end - value));
+        if (key.string_length != 0)
+            result = map_put_runtime_n(rt, result, key.as.string, key.string_length, decoded);
+        cursor = *end == '\0' ? end : end + 1;
+    }
+    return result;
+}
+
+static void web_request_cleanup(Runtime *rt, RuntimeCleanup *checkpoint) {
+    while (rt->cleanups != checkpoint) {
+        RuntimeCleanup *cleanup = rt->cleanups;
+        rt->cleanups = cleanup->next;
+        if (cleanup->file != NULL) runtime_fclose(rt, cleanup->file);
+        if (cleanup->temporary_path != NULL) unlink(cleanup->temporary_path);
+        free(cleanup->temporary_path); free(cleanup);
+    }
+}
+
+static bool web_stream_next(void *opaque, const unsigned char **data, size_t *length) {
+    WebStreamContext *context = opaque;
+    Value item;
+    if (!stream_next(context->runtime, context->site, context->stream, &item)) return false;
+    if (item.kind != V_STRING && item.kind != V_BYTES_BUFFER) {
+        runtime_type_error(context->runtime, context->site,
+                           "Web response Stream items must be String or BytesBuffer");
+        return false;
+    }
+    if (context->sse) {
+        if (item.kind != V_STRING) {
+            runtime_type_error(context->runtime, context->site, "SSE Stream items must be String");
+            return false;
+        }
+        size_t output_length = item.string_length + 8;
+        char *output = rt_alloc(context->runtime, output_length + 1);
+        memcpy(output, "data: ", 6); memcpy(output + 6, item.as.string, item.string_length);
+        memcpy(output + 6 + item.string_length, "\n\n", 2);
+        output[output_length] = '\0'; *data = (unsigned char *)output; *length = output_length;
+        return true;
+    }
+    if (item.kind == V_STRING) { *data = (unsigned char *)item.as.string; *length = item.string_length; }
+    else { *data = item.as.bytes_buffer.data; *length = item.as.bytes_buffer.length; }
+    return true;
+}
+
+static void web_stream_close(void *opaque) {
+    WebStreamContext *context = opaque;
+    stream_close(context->stream);
+}
+
+static bool web_gzip_body(Runtime *rt, const unsigned char *input, size_t input_length,
+                          unsigned char **output, size_t *output_length) {
+    if (input_length > UINT_MAX) return false;
+    uLong bound = compressBound((uLong)input_length);
+    unsigned char *compressed = rt_alloc(rt, (size_t)bound + 32);
+    z_stream stream = {0};
+    if (deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8,
+                     Z_DEFAULT_STRATEGY) != Z_OK) return false;
+    stream.next_in = (Bytef *)input; stream.avail_in = (uInt)input_length;
+    stream.next_out = compressed; stream.avail_out = (uInt)(bound + 32);
+    int result = deflate(&stream, Z_FINISH);
+    bool ok = result == Z_STREAM_END;
+    *output_length = (size_t)stream.total_out; *output = compressed;
+    deflateEnd(&stream);
+    return ok;
+}
+
+static bool web_handle_request(void *opaque, const HhyWebServerRequest *request,
+                               HhyWebServerResponse *response) {
+    WebRuntimeContext *context = opaque;
+    Runtime *rt = context->runtime;
+    RuntimeCleanup *cleanup_checkpoint = rt->cleanups;
+    rt->failed = false; rt->exit_code = 0; rt->signal = SIGNAL_NONE;
+    rt->cancelled = false; rt->call_depth = 0; rt->call_stack_count = 0;
+    clock_gettime(CLOCK_MONOTONIC, &rt->started_at);
+    rt->web_request_count++;
+    Value metrics_path = map_get(context->application, "metrics_path");
+    if (metrics_path.kind == V_STRING && strcmp(request->method, "GET") == 0 &&
+        strcmp(metrics_path.as.string, request->path) == 0) {
+        char *metrics = rt_alloc(rt, 768);
+        int length = snprintf(metrics, 768,
+            "# HELP hhy_web_requests_total Total HTTP requests handled by this worker.\n"
+            "# TYPE hhy_web_requests_total counter\n"
+            "hhy_web_requests_total %" PRIu64 "\n"
+            "# TYPE hhy_web_errors_total counter\n"
+            "hhy_web_errors_total %" PRIu64 "\n"
+            "# TYPE hhy_web_response_bytes_total counter\n"
+            "hhy_web_response_bytes_total %" PRIu64 "\n"
+            "# TYPE hhy_web_handler_seconds_total counter\n"
+            "hhy_web_handler_seconds_total %.9f\n",
+            rt->web_request_count, rt->web_error_count, rt->web_response_bytes,
+            (double)rt->web_latency_ns / 1000000000.0);
+        response->status = 200; response->content_type = "text/plain; version=0.0.4; charset=utf-8";
+        response->body = (unsigned char *)metrics; response->body_length = length > 0 ? (size_t)length : 0;
+        return true;
+    }
+    Value health_path = map_get(context->application, "health_path");
+    if (health_path.kind == V_STRING && strcmp(request->method, "GET") == 0 &&
+        strcmp(health_path.as.string, request->path) == 0) {
+        response->status = 200; response->content_type = "application/json; charset=utf-8";
+        response->body = (const unsigned char *)"{\"status\":\"ok\"}";
+        response->body_length = 15;
+        return true;
+    }
+    Value routes = map_get(context->application, "routes");
+    Value handler = null_value(), params = null_value();
+    bool path_found = false;
+    for (size_t i = 0; i < routes.as.list.count; i++) {
+        Value route = routes.as.list.items[i];
+        Value route_method = map_get(route, "method"), route_path = map_get(route, "path");
+        if (string_equals_c(route_method, "STATIC") && strcmp(request->method, "GET") == 0 &&
+            web_static_response(rt, context->site, route, request, response)) return !rt->failed;
+        Value candidate_params;
+        if (!web_match_route(rt, route_path.as.string, request->path, &candidate_params)) continue;
+        path_found = true;
+        if (string_equals_c(route_method, request->method)) {
+            handler = map_get(route, "handler"); params = candidate_params; break;
+        }
+    }
+    if (params.kind == V_NULL) params = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+    Value headers = {.kind = V_MAP}; headers.as.map = map_storage_new(rt, request->header_count);
+    headers.as.map->count = request->header_count;
+    headers.as.map->keys = request->header_count ? rt_alloc(rt, request->header_count * sizeof(char *)) : NULL;
+    headers.as.map->key_lengths = request->header_count ? rt_alloc(rt, request->header_count * sizeof(size_t)) : NULL;
+    headers.as.map->values = request->header_count ? rt_alloc(rt, request->header_count * sizeof(Value)) : NULL;
+    for (size_t i = 0; i < request->header_count; i++) {
+        size_t length = strlen(request->headers[i].name);
+        headers.as.map->keys[i] = rt_strndup(rt, request->headers[i].name, length);
+        headers.as.map->key_lengths[i] = length;
+        headers.as.map->values[i] = string_value(rt, request->headers[i].value);
+    }
+    map_build_index(rt, headers.as.map);
+    size_t codepoints = 0;
+    Value body_text = utf8_count((const char *)request->body, request->body_length, &codepoints)
+        ? string_n(rt, (const char *)request->body, request->body_length) : null_value();
+    char request_id_text[64];
+    snprintf(request_id_text, sizeof(request_id_text), "%ld-%" PRIu64,
+             (long)getpid(), ++rt->web_request_sequence);
+    char *request_id = rt_strndup(rt, request_id_text, strlen(request_id_text));
+    Value cookies = web_parse_cookies(rt, headers);
+    Value query_params = web_parse_query(rt, request->query);
+    Value trust_proxy = map_get(context->application, "trust_proxy");
+    const char *remote_address = request->remote_address;
+    const char *forwarded = web_request_header(request, "X-Forwarded-For");
+    if (trust_proxy.kind == V_BOOL && trust_proxy.as.boolean && forwarded != NULL &&
+        strchr(forwarded, '\r') == NULL && strchr(forwarded, '\n') == NULL) remote_address = forwarded;
+    const char *keys[] = {"id", "method", "path", "query", "query_params", "headers", "cookies", "params", "remote_addr", "body", "bytes"};
+    Value values[] = {
+        string_value(rt, request_id), string_value(rt, request->method), string_value(rt, request->path),
+        string_value(rt, request->query), query_params, headers, cookies, params,
+        string_value(rt, remote_address), body_text,
+        bytes_buffer_value(rt, request->body, request->body_length)
+    };
+    Value web_request = map_with_entries(rt, V_WEB_REQUEST, 11, keys, values);
+    Value result = null_value();
+    Value middleware = map_get(context->application, "middleware");
+    for (size_t i = 0; i < middleware.as.list.count && !rt->failed; i++) {
+        result = call_value(rt, context->environment, context->site,
+                            middleware.as.list.items[i], 1, &web_request);
+        if (result.kind == V_WEB_RESPONSE) break;
+        if (result.kind != V_NULL) {
+            runtime_type_error(rt, context->site, "Web middleware must return WebResponse or Null");
+            break;
+        }
+    }
+    if (!rt->failed && result.kind != V_WEB_RESPONSE) {
+        if (handler.kind == V_FUNCTION)
+            result = call_value(rt, context->environment, context->site, handler, 1, &web_request);
+        else if (strcmp(request->method, "OPTIONS") == 0 &&
+                 map_get(context->application, "cors").kind == V_MAP) {
+            Value options = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+            options = map_put_runtime(rt, options, "status", int_value(204));
+            result = web_response(rt, context->site, string_value(rt, ""),
+                                  "text/plain; charset=utf-8", options);
+        } else {
+            const char *message = path_found ? "Method Not Allowed\n" : "Not Found\n";
+            response->status = path_found ? 405 : 404;
+            response->content_type = "text/plain; charset=utf-8";
+            response->body = (const unsigned char *)message;
+            response->body_length = strlen(message);
+            return true;
+        }
+    }
+    if (rt->failed || result.kind != V_WEB_RESPONSE) {
+        rt->web_error_count++;
+        if (getenv("HHY_WEB_ACCESS_LOG") == NULL || strcmp(getenv("HHY_WEB_ACCESS_LOG"), "0") != 0)
+            fprintf(stderr,
+                    "{\"event\":\"web_request_error\",\"request_id\":\"%s\",\"method\":\"%s\",\"path\":\"%s\",\"status\":500}\n",
+                    request_id, request->method, request->path);
+        web_request_cleanup(rt, cleanup_checkpoint);
+        rt->failed = false; rt->exit_code = 0; rt->signal = SIGNAL_NONE;
+        rt->cancelled = false; rt->call_depth = 0; rt->call_stack_count = 0;
+        return false;
+    }
+    Value status = map_get(result, "status"), content_type = map_get(result, "content_type");
+    Value response_headers = map_get(result, "headers"), body = map_get(result, "body");
+    response->status = (int)status.as.integer;
+    response->content_type = content_type.as.string;
+    if (body.kind == V_STRING) {
+        response->body = (unsigned char *)body.as.string; response->body_length = body.string_length;
+    } else if (body.kind == V_BYTES_BUFFER) {
+        response->body = body.as.bytes_buffer.data; response->body_length = body.as.bytes_buffer.length;
+    } else {
+        WebStreamContext *stream_context = rt_alloc(rt, sizeof(*stream_context));
+        *stream_context = (WebStreamContext){
+            .runtime = rt, .site = context->site, .stream = body.as.stream,
+            .sse = strncmp(content_type.as.string, "text/event-stream", 17) == 0
+        };
+        response->next_chunk = web_stream_next;
+        response->close_stream = web_stream_close;
+        response->stream_context = stream_context;
+    }
+    Value cors = map_get(context->application, "cors");
+    bool add_request_id = map_get(context->application, "request_id").kind == V_BOOL &&
+                          map_get(context->application, "request_id").as.boolean;
+    bool gzip_enabled = map_get(context->application, "gzip").kind == V_BOOL &&
+                        map_get(context->application, "gzip").as.boolean;
+    const char *accept_encoding = web_request_header(request, "Accept-Encoding");
+    bool gzip_response = gzip_enabled && response->next_chunk == NULL && response->body_length >= 64 &&
+                         accept_encoding != NULL && strstr(accept_encoding, "gzip") != NULL;
+    if (gzip_response) {
+        unsigned char *compressed = NULL; size_t compressed_length = 0;
+        if (web_gzip_body(rt, response->body, response->body_length, &compressed, &compressed_length)) {
+            response->body = compressed; response->body_length = compressed_length;
+        } else gzip_response = false;
+    }
+    bool cors_preflight = cors.kind == V_MAP && strcmp(request->method, "OPTIONS") == 0;
+    size_t extra_headers = (add_request_id ? 1 : 0) + (cors.kind == V_MAP ? 2 : 0) +
+                           (cors_preflight ? 2 : 0) +
+                           (gzip_response ? 2 : 0);
+    response->header_count = response_headers.as.map->count + extra_headers;
+    HhyWebHeader *native_headers = response->header_count
+        ? rt_alloc(rt, response->header_count * sizeof(*native_headers)) : NULL;
+    size_t native_count = 0;
+    for (size_t i = 0; i < response_headers.as.map->count; i++) {
+        Value value = response_headers.as.map->values[i];
+        if (value.kind != V_STRING) { response->header_count = 0; break; }
+        native_headers[native_count].name = response_headers.as.map->keys[i];
+        native_headers[native_count++].value = value.as.string;
+    }
+    if (response->header_count != 0 && add_request_id) {
+        native_headers[native_count++] = (HhyWebHeader){"X-Request-ID", request_id};
+    }
+    if (response->header_count != 0 && cors.kind == V_MAP) {
+        Value origin = map_get(cors, "origin");
+        const char *requested_origin = web_request_header(request, "Origin");
+        const char *allowed_origin = origin.kind == V_STRING ? origin.as.string : "*";
+        if (strcmp(allowed_origin, "*") != 0 && requested_origin != NULL &&
+            strcmp(allowed_origin, requested_origin) != 0) allowed_origin = "null";
+        native_headers[native_count++] = (HhyWebHeader){"Access-Control-Allow-Origin", allowed_origin};
+        native_headers[native_count++] = (HhyWebHeader){"Vary", "Origin"};
+        if (cors_preflight) {
+            const char *requested_headers = web_request_header(request, "Access-Control-Request-Headers");
+            native_headers[native_count++] = (HhyWebHeader){"Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS"};
+            native_headers[native_count++] = (HhyWebHeader){"Access-Control-Allow-Headers",
+                requested_headers == NULL ? "Content-Type, Authorization" : requested_headers};
+        }
+    }
+    if (response->header_count != 0 && gzip_response) {
+        native_headers[native_count++] = (HhyWebHeader){"Content-Encoding", "gzip"};
+        native_headers[native_count++] = (HhyWebHeader){"Vary", "Accept-Encoding"};
+    }
+    response->header_count = native_count;
+    response->headers = native_headers;
+    struct timespec finished;
+    clock_gettime(CLOCK_MONOTONIC, &finished);
+    uint64_t elapsed = (uint64_t)(finished.tv_sec - rt->started_at.tv_sec) * 1000000000ULL;
+    if (finished.tv_nsec >= rt->started_at.tv_nsec) elapsed += (uint64_t)(finished.tv_nsec - rt->started_at.tv_nsec);
+    else elapsed -= (uint64_t)(rt->started_at.tv_nsec - finished.tv_nsec);
+    rt->web_latency_ns += elapsed; rt->web_response_bytes += response->body_length;
+    if (getenv("HHY_WEB_ACCESS_LOG") == NULL || strcmp(getenv("HHY_WEB_ACCESS_LOG"), "0") != 0)
+        fprintf(stderr,
+                "{\"event\":\"web_request\",\"request_id\":\"%s\",\"method\":\"%s\",\"path\":\"%s\",\"status\":%d,\"bytes\":%zu,\"duration_ns\":%" PRIu64 "}\n",
+                request_id, request->method, request->path, response->status,
+                response->body_length, elapsed);
+    web_request_cleanup(rt, cleanup_checkpoint);
+    return true;
+}
+
+static Value web_listen(Runtime *rt, Env *env, const HhyNode *site, Value app, Value options) {
+    if (app.kind != V_WEB_APP || (options.kind != V_NULL && options.kind != V_MAP)) {
+        runtime_type_error(rt, site, "web.listen expects WebApp and optional options Map"); return null_value();
+    }
+    HhyWebServerOptions configured = {
+        .host = "127.0.0.1", .port = 8080, .max_header_bytes = 64 * 1024,
+        .max_headers = 100, .max_body_bytes = rt->limits.max_http_body,
+        .idle_timeout_ms = 30000, .workers = 1
+    };
+    if (options.kind == V_MAP) {
+        Value host = map_get(options, "host"), port = map_get(options, "port");
+        Value max_body = map_get(options, "max_body");
+        Value workers = map_get(options, "workers");
+        if (host.kind != V_NULL) {
+            if (host.kind != V_STRING || string_has_nul(host)) { runtime_type_error(rt, site, "Web host must be String"); return null_value(); }
+            configured.host = host.as.string;
+        }
+        if (port.kind != V_NULL) {
+            if (port.kind != V_INT || port.as.integer < 1 || port.as.integer > 65535) { runtime_value_error(rt, site, "Web port must be from 1 to 65535"); return null_value(); }
+            configured.port = (uint16_t)port.as.integer;
+        }
+        if (max_body.kind != V_NULL) {
+            if (max_body.kind != V_INT || max_body.as.integer < 1) { runtime_value_error(rt, site, "Web max_body must be positive Int bytes"); return null_value(); }
+            configured.max_body_bytes = (size_t)max_body.as.integer;
+        }
+        if (workers.kind != V_NULL) {
+            if (workers.kind != V_INT || workers.as.integer < 1 || workers.as.integer > 64 ||
+                (size_t)workers.as.integer > rt->limits.max_processes) {
+                runtime_value_error(rt, site, "Web workers must be within Runtime process limits"); return null_value();
+            }
+            configured.workers = (size_t)workers.as.integer;
+        }
+    }
+    if (!rt->effect_allowed) return null_value();
+    WebRuntimeContext context = {
+        .runtime = rt, .environment = env, .site = site, .application = app,
+        .dev_reload = getenv("HHY_WEB_DEV") != NULL
+    };
+    if (context.dev_reload && rt->source != NULL && rt->source->path != NULL) {
+        struct stat metadata;
+        if (stat(rt->source->path, &metadata) == 0) {
+#ifdef __APPLE__
+            context.source_modified = metadata.st_mtimespec;
+#else
+            context.source_modified = metadata.st_mtim;
+#endif
+        }
+    }
+    fprintf(stderr, "hhy: Web Server listening on http://%s:%u\n", configured.host, configured.port);
+    const char *error = NULL;
+    int result = hhy_web_server_run(&configured, web_handle_request, web_should_stop, &context, &error);
+    if (context.reload_requested) {
+        rt->exit_code = 75; rt->signal = SIGNAL_EXIT;
+        return null_value();
+    }
+    if (result != 0 && !rt->failed)
+        runtime_error_kind(rt, site, "WebError", "HHY_WEB_SERVER", error == NULL ? "Web Server failed" : error);
+    return null_value();
+}
+
 static Value builtin(Runtime *rt, Env *env, const HhyNode *site, const char *name,
                      size_t argc, Value *argv) {
+    if (strcmp(name, "web.app") == 0) {
+        Value routes = list_new(rt, 0), middleware = list_new(rt, 0);
+        const char *keys[] = {"routes", "middleware", "cors", "request_id", "metrics_path", "health_path", "trust_proxy", "gzip"};
+        Value values[] = {routes, middleware, null_value(), bool_value(false), null_value(), null_value(), bool_value(false), bool_value(false)};
+        return map_with_entries(rt, V_WEB_APP, 8, keys, values);
+    }
+    if (strcmp(name, "web.get") == 0) return web_add_route(rt, site, argv[0], "GET", argv[1], argv[2]);
+    if (strcmp(name, "web.post") == 0) return web_add_route(rt, site, argv[0], "POST", argv[1], argv[2]);
+    if (strcmp(name, "web.put") == 0) return web_add_route(rt, site, argv[0], "PUT", argv[1], argv[2]);
+    if (strcmp(name, "web.patch") == 0) return web_add_route(rt, site, argv[0], "PATCH", argv[1], argv[2]);
+    if (strcmp(name, "web.delete") == 0) return web_add_route(rt, site, argv[0], "DELETE", argv[1], argv[2]);
+    if (strcmp(name, "web.use") == 0) return web_use(rt, site, argv[0], argv[1]);
+    if (strcmp(name, "web.static") == 0) return web_add_static(rt, site, argv[0], argv[1], argv[2]);
+    if (strcmp(name, "web.cors") == 0) {
+        if (argv[0].kind != V_WEB_APP || (argc == 2 && argv[1].kind != V_MAP)) {
+            runtime_type_error(rt, site, "web.cors expects WebApp and optional options Map"); return null_value();
+        }
+        Value cors = argc == 2 ? argv[1] : map_with_entries(rt, V_MAP, 0, NULL, NULL);
+        Value origin = map_get(cors, "origin");
+        if (origin.kind != V_NULL && (origin.kind != V_STRING || string_has_nul(origin))) {
+            runtime_type_error(rt, site, "CORS origin must be String"); return null_value();
+        }
+        return map_put_runtime(rt, argv[0], "cors", cors);
+    }
+    if (strcmp(name, "web.request_id") == 0) {
+        if (argv[0].kind != V_WEB_APP) { runtime_type_error(rt, site, "web.request_id expects WebApp"); return null_value(); }
+        return map_put_runtime(rt, argv[0], "request_id", bool_value(true));
+    }
+    if (strcmp(name, "web.health") == 0) {
+        if (argv[0].kind != V_WEB_APP || (argc == 2 &&
+            (argv[1].kind != V_STRING || argv[1].string_length == 0 || argv[1].as.string[0] != '/'))) {
+            runtime_type_error(rt, site, "web.health expects WebApp and optional absolute path"); return null_value();
+        }
+        return map_put_runtime(rt, argv[0], "health_path",
+                               argc == 2 ? argv[1] : string_value(rt, "/healthz"));
+    }
+    if (strcmp(name, "web.trust_proxy") == 0) {
+        if (argv[0].kind != V_WEB_APP) { runtime_type_error(rt, site, "web.trust_proxy expects WebApp"); return null_value(); }
+        return map_put_runtime(rt, argv[0], "trust_proxy", bool_value(true));
+    }
+    if (strcmp(name, "web.text") == 0 || strcmp(name, "web.html") == 0) {
+        if (argv[0].kind != V_STRING) { runtime_type_error(rt, site, "web.text/html expects String"); return null_value(); }
+        return web_response(rt, site, argv[0], strcmp(name, "web.html") == 0
+            ? "text/html; charset=utf-8" : "text/plain; charset=utf-8",
+            argc == 2 ? argv[1] : null_value());
+    }
+    if (strcmp(name, "web.json") == 0)
+        return web_json_response(rt, site, argv[0], argc == 2 ? argv[1] : null_value());
+    if (strcmp(name, "web.response") == 0) {
+        if (argv[0].kind != V_MAP) { runtime_type_error(rt, site, "web.response expects Map"); return null_value(); }
+        Value body = map_get(argv[0], "body"), content_type = map_get(argv[0], "content_type");
+        if (body.kind == V_NULL) body = string_value(rt, "");
+        return web_response(rt, site, body,
+            content_type.kind == V_STRING ? content_type.as.string : "application/octet-stream", argv[0]);
+    }
+    if (strcmp(name, "web.multipart") == 0)
+        return web_multipart(rt, site, argv[0], argc == 2 ? argv[1] : null_value());
+    if (strcmp(name, "web.stream") == 0) {
+        if (argv[0].kind != V_STREAM) { runtime_type_error(rt, site, "web.stream expects Stream"); return null_value(); }
+        Value options = argc == 2 ? argv[1] : null_value();
+        Value configured_type = options.kind == V_MAP ? map_get(options, "content_type") : null_value();
+        return web_response(rt, site, argv[0], configured_type.kind == V_STRING
+            ? configured_type.as.string : "application/octet-stream", options);
+    }
+    if (strcmp(name, "web.sse") == 0) {
+        if (argv[0].kind != V_STREAM) { runtime_type_error(rt, site, "web.sse expects Stream<String>"); return null_value(); }
+        return web_response(rt, site, argv[0], "text/event-stream; charset=utf-8", null_value());
+    }
+    if (strcmp(name, "web.sign_cookie") == 0) return web_sign_cookie(rt, site, argv[0], argv[1]);
+    if (strcmp(name, "web.verify_cookie") == 0) return web_verify_cookie(rt, site, argv[0], argv[1]);
+    if (strcmp(name, "web.metrics") == 0) {
+        if (argv[0].kind != V_WEB_APP || (argc == 2 &&
+            (argv[1].kind != V_STRING || argv[1].string_length == 0 || argv[1].as.string[0] != '/'))) {
+            runtime_type_error(rt, site, "web.metrics expects WebApp and optional absolute path"); return null_value();
+        }
+        return map_put_runtime(rt, argv[0], "metrics_path",
+                               argc == 2 ? argv[1] : string_value(rt, "/metrics"));
+    }
+    if (strcmp(name, "web.gzip") == 0) {
+        if (argv[0].kind != V_WEB_APP) { runtime_type_error(rt, site, "web.gzip expects WebApp"); return null_value(); }
+        return map_put_runtime(rt, argv[0], "gzip", bool_value(true));
+    }
+    if (strcmp(name, "web.redirect") == 0) {
+        if (argv[0].kind != V_STRING || string_has_nul(argv[0])) {
+            runtime_type_error(rt, site, "web.redirect expects URL String"); return null_value();
+        }
+        Value options = argc == 2 ? argv[1] : map_with_entries(rt, V_MAP, 0, NULL, NULL);
+        if (options.kind != V_MAP) { runtime_type_error(rt, site, "web.redirect options must be Map"); return null_value(); }
+        Value headers = map_with_entries(rt, V_MAP, 0, NULL, NULL);
+        headers = map_put_runtime(rt, headers, "Location", argv[0]);
+        options = map_put_runtime(rt, options, "headers", headers);
+        if (map_get(options, "status").kind == V_NULL) options = map_put_runtime(rt, options, "status", int_value(302));
+        return web_response(rt, site, string_value(rt, ""), "text/plain; charset=utf-8", options);
+    }
+    if (strcmp(name, "web.listen") == 0)
+        return web_listen(rt, env, site, argv[0], argc == 2 ? argv[1] : null_value());
     if (strcmp(name, "url_resolve") == 0) return url_resolve_value(rt, site, argc, argv);
     if (strcmp(name, "print") == 0 || strcmp(name, "print_error") == 0) {
         FILE *stream = strcmp(name, "print_error") == 0 ? stderr : stdout;
@@ -6905,6 +7951,22 @@ static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc,
     }
     env_define(rt, global, site, "http",
                map_with_entries(rt, V_MAP, 4, http_keys, http_functions), false);
+    const char *web_keys[] = {
+        "app", "get", "post", "put", "patch", "delete",
+        "use", "static", "cors", "request_id", "health", "trust_proxy", "text", "html", "json", "redirect", "response", "multipart", "stream", "sse", "sign_cookie", "verify_cookie", "metrics", "gzip", "listen"
+    };
+    const char *web_names[] = {
+        "web.app", "web.get", "web.post", "web.put", "web.patch", "web.delete",
+        "web.use", "web.static", "web.cors", "web.request_id", "web.health", "web.trust_proxy", "web.text", "web.html", "web.json", "web.redirect",
+        "web.response", "web.multipart", "web.stream", "web.sse", "web.sign_cookie", "web.verify_cookie", "web.metrics", "web.gzip", "web.listen"
+    };
+    Value web_functions[25];
+    for (size_t i = 0; i < 25; i++) {
+        web_functions[i].kind = V_FUNCTION;
+        web_functions[i].as.function.builtin = web_names[i];
+    }
+    env_define(rt, global, site, "web",
+               map_with_entries(rt, V_MAP, 25, web_keys, web_functions), false);
     const char *datetime_keys[] = {"parse"};
     Value datetime_functions[1] = {{.kind = V_FUNCTION}};
     datetime_functions[0].as.function.builtin = "datetime.parse";
@@ -7061,9 +8123,10 @@ int hhy_repl(void) {
     HhyToken site_token = {.start = "repl", .length = 4, .line = 1, .column = 1};
     HhyNode site = {.kind = HHY_N_PROGRAM, .token = site_token};
     Env *session = env_new(&rt, runtime_core_environment(&rt, &site, 0, NULL));
-    struct sigaction action = {0}, previous_interrupt;
+    struct sigaction action = {0}, previous_interrupt, previous_terminate;
     action.sa_handler = hhy_signal_handler; sigemptyset(&action.sa_mask);
     sigaction(SIGINT, &action, &previous_interrupt);
+    sigaction(SIGTERM, &action, &previous_terminate);
     bool interactive = isatty(STDIN_FILENO);
     if (interactive) fputs("HHY " HHY_VERSION " — Pipe Everything.\n", stdout);
     char *buffer = NULL, *line = NULL;
@@ -7113,6 +8176,7 @@ int hhy_repl(void) {
         hhy_source_free(&chunks->source); free(chunks->path); free(chunks); chunks = next;
     }
     runtime_release(&rt); curl_global_cleanup(); sigaction(SIGINT, &previous_interrupt, NULL);
+    sigaction(SIGTERM, &previous_terminate, NULL);
     return 0;
 }
 
@@ -7163,10 +8227,11 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
         return failed;
     }
     hhy_interrupt_requested = 0;
-    struct sigaction action = {0}, previous_interrupt;
+    struct sigaction action = {0}, previous_interrupt, previous_terminate;
     action.sa_handler = hhy_signal_handler;
     sigemptyset(&action.sa_mask);
     sigaction(SIGINT, &action, &previous_interrupt);
+    sigaction(SIGTERM, &action, &previous_terminate);
     rt->memory_jump_ready = true;
     if (setjmp(rt->memory_jump) == 0) {
         const char *top_level = profile != NULL && profile->engine != NULL &&
@@ -7203,6 +8268,7 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
     runtime_release(rt);
     curl_global_cleanup();
     sigaction(SIGINT, &previous_interrupt, NULL);
+    sigaction(SIGTERM, &previous_terminate, NULL);
     GC_free(rt);
     return result;
 }
@@ -7299,4 +8365,196 @@ void hhy_fuzz_runtime_input(const uint8_t *data, size_t size, unsigned mode) {
         (void)builtin(&rt, NULL, &site, "regex_captures", 2, arguments);
     }
     runtime_release(&rt);
+}
+
+struct HhyApplication {
+    HhySource source;
+    HhyTokenList tokens;
+    HhyNode *program;
+    HhyPreparedBytecode *bytecode;
+};
+
+struct HhyContext {
+    HhyApplication *application;
+    Runtime *runtime;
+    Env *environment;
+    HhyExecutionEngine engine;
+};
+
+static char *embed_json_dump(Value value, Runtime *rt, const HhyNode *site) {
+    json_t *json = value_to_protocol_json(rt, site, value);
+    if (json == NULL) return NULL;
+    char *text = json_dumps(json, JSON_COMPACT | JSON_ENCODE_ANY);
+    json_decref(json);
+    return text;
+}
+
+HhyApplication *hhy_application_load(const char *path) {
+    if (path == NULL || *path == '\0') return NULL;
+    HhyApplication *application = calloc(1, sizeof(*application));
+    if (application == NULL) return NULL;
+    if (!hhy_source_load(path, &application->source) ||
+        !hhy_lex(&application->source, &application->tokens)) {
+        hhy_application_free(application);
+        return NULL;
+    }
+    HhyParseResult parsed = hhy_parse(&application->source, &application->tokens,
+                                      &application->program);
+    if (!parsed.ok) {
+        hhy_application_free(application);
+        return NULL;
+    }
+    hhy_resolve_slots(application->program);
+    HhyBytecodeResult prepared = hhy_bytecode_runtime_prepare(application->program, NULL,
+                                                               &application->bytecode);
+    if (!prepared.ok) {
+        hhy_application_free(application);
+        return NULL;
+    }
+    return application;
+}
+
+void hhy_application_free(HhyApplication *application) {
+    if (application == NULL) return;
+    hhy_bytecode_runtime_free(application->bytecode);
+    hhy_node_free(application->program);
+    hhy_tokens_free(&application->tokens);
+    hhy_source_free(&application->source);
+    free(application);
+}
+
+HhyContext *hhy_context_new(HhyApplication *application,
+                            const HhyRuntimeLimits *limits) {
+    return hhy_context_new_engine(application, limits, HHY_ENGINE_BYTECODE);
+}
+
+HhyContext *hhy_context_new_engine(HhyApplication *application,
+                                   const HhyRuntimeLimits *limits,
+                                   HhyExecutionEngine engine) {
+    if (application == NULL || application->program == NULL ||
+        !hhy_contract_registry_valid() ||
+        (engine != HHY_ENGINE_AST && engine != HHY_ENGINE_BYTECODE)) return NULL;
+    GC_INIT();
+    HhyContext *context = calloc(1, sizeof(*context));
+    Runtime *rt = GC_malloc_uncollectable(sizeof(*rt));
+    if (context == NULL || rt == NULL) {
+        free(context);
+        if (rt != NULL) GC_free(rt);
+        return NULL;
+    }
+    memset(rt, 0, sizeof(*rt));
+    rt->source = &application->source;
+    rt->engine = engine;
+    rt->effect_allowed = true;
+    rt->limits = limits == NULL ? hhy_runtime_limits_default() : *limits;
+    clock_gettime(CLOCK_MONOTONIC, &rt->started_at);
+    rt->memory_baseline = GC_get_memory_use();
+    if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
+        GC_free(rt); free(context); return NULL;
+    }
+    rt->memory_jump_ready = true;
+    if (setjmp(rt->memory_jump) == 0) {
+        Env *global = runtime_core_environment(rt, application->program, 0, NULL);
+        context->environment = env_new(rt, global);
+        if (engine == HHY_ENGINE_BYTECODE) {
+            hhy_active_bytecode_chunk = hhy_bytecode_runtime_chunk(application->bytecode);
+            bytecode_exec_active_program(rt, context->environment);
+            hhy_active_bytecode_chunk = NULL;
+        } else exec_node(rt, context->environment, application->program);
+        if (rt->signal == SIGNAL_RETURN) rt->signal = SIGNAL_NONE;
+        if (rt->signal == SIGNAL_BREAK || rt->signal == SIGNAL_CONTINUE)
+            runtime_check_error(rt, application->program, "loop control used outside a loop");
+    }
+    rt->memory_jump_ready = false;
+    if (rt->failed) {
+        runtime_release(rt); curl_global_cleanup(); GC_free(rt); free(context);
+        return NULL;
+    }
+    context->application = application;
+    for (size_t i = 0; i < context->environment->count; i++) {
+        if (context->environment->items[i].mutable) {
+            runtime_release(rt); curl_global_cleanup(); GC_free(rt); free(context);
+            return NULL;
+        }
+    }
+    context->runtime = rt;
+    context->engine = engine;
+    return context;
+}
+
+HhyEmbedResult hhy_context_call_json(HhyContext *context,
+                                     const char *function_name,
+                                     const char *arguments_json) {
+    HhyEmbedResult output = {.ok = false, .exit_code = 1};
+    if (context == NULL || context->runtime == NULL || function_name == NULL) return output;
+    Runtime *rt = context->runtime;
+    const HhyNode *site = context->application->program;
+    Binding *binding = env_find_n(context->environment, function_name, strlen(function_name));
+    if (binding == NULL || binding->value.kind != V_FUNCTION) {
+        const char *message = "{\"kind\":\"LookupError\",\"message\":\"function not found\"}";
+        output.error_json = hhy_strndup(message, strlen(message));
+        return output;
+    }
+    json_error_t json_error;
+    json_t *input = json_loads(arguments_json == NULL ? "[]" : arguments_json,
+                               JSON_DECODE_ANY, &json_error);
+    if (input == NULL) {
+        const char *message = "{\"kind\":\"JsonError\",\"message\":\"invalid arguments JSON\"}";
+        output.error_json = hhy_strndup(message, strlen(message));
+        return output;
+    }
+    size_t argc = json_is_array(input) ? json_array_size(input) : 1;
+    Value *argv = argc == 0 ? NULL : rt_alloc(rt, argc * sizeof(*argv));
+    for (size_t i = 0; i < argc; i++)
+        argv[i] = protocol_json_to_value(rt, site, json_is_array(input) ? json_array_get(input, i) : input);
+    json_decref(input);
+    rt->failed = false; rt->exit_code = 0; rt->signal = SIGNAL_NONE;
+    rt->cancelled = false; rt->call_depth = 0; rt->call_stack_count = 0;
+    clock_gettime(CLOCK_MONOTONIC, &rt->started_at);
+    Value result = null_value();
+    rt->memory_jump_ready = true;
+    if (context->engine == HHY_ENGINE_BYTECODE)
+        hhy_active_bytecode_chunk = hhy_bytecode_runtime_chunk(context->application->bytecode);
+    if (setjmp(rt->memory_jump) == 0)
+        result = call_value(rt, context->environment, site, binding->value, argc, argv);
+    hhy_active_bytecode_chunk = NULL;
+    rt->memory_jump_ready = false;
+    if (rt->failed) {
+        output.exit_code = rt->exit_code == 0 ? 1 : rt->exit_code;
+        output.error_json = embed_json_dump(rt->error_value, rt, site);
+        if (output.error_json == NULL) {
+            const char *message = "{\"kind\":\"RuntimeError\"}";
+            output.error_json = hhy_strndup(message, strlen(message));
+        }
+        return output;
+    }
+    output.json = embed_json_dump(result, rt, site);
+    output.ok = output.json != NULL;
+    output.exit_code = output.ok ? 0 : 1;
+    if (!output.ok) {
+        const char *message = "{\"kind\":\"SerializationError\"}";
+        output.error_json = hhy_strndup(message, strlen(message));
+    }
+    return output;
+}
+
+HhyEmbedResult hhy_call(HhyContext *context, const char *function_name,
+                        const char *arguments_json) {
+    return hhy_context_call_json(context, function_name, arguments_json);
+}
+
+void hhy_embed_result_free(HhyEmbedResult *result) {
+    if (result == NULL) return;
+    free(result->json); free(result->error_json);
+    *result = (HhyEmbedResult){0};
+}
+
+void hhy_context_free(HhyContext *context) {
+    if (context == NULL) return;
+    if (context->runtime != NULL) {
+        runtime_release(context->runtime);
+        curl_global_cleanup();
+        GC_free(context->runtime);
+    }
+    free(context);
 }

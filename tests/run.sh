@@ -142,6 +142,12 @@ assert print_contract["output"] == "Null"
 PY
 fi
 
+if [ "$socket_bind_available" -eq 1 ]; then
+    python3 tests/check-web-server.py "$HHY_BIN" || fail "Web Server acceptance failed"
+else
+    printf '%s\n' 'SKIP[HHY_CAP_SOCKET_BIND]: HHY Web Server acceptance is covered by socket-capable CI'
+fi
+
 "$HHY_BIN" tokens examples/07-language-basics.hhy > tests/output/language-basics.tokens.txt
 cmp -s tests/output/language-basics.tokens.txt tests/fixtures/language-basics.tokens.txt ||
     fail "Lexer token snapshot changed"

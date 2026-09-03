@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev \
-            libjansson-dev libssl-dev
+            libjansson-dev libssl-dev zlib1g-dev
 
       - name: Install editor packaging dependencies
         run: npm ci --prefix editors/vscode
@@ -88,6 +88,7 @@ jobs:
             pcre2-devel
             jansson-devel
             openssl-devel
+            zlib-devel
             cmake
 
       - name: Build HHY on Windows
@@ -195,7 +196,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev \
-            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev cmake patchelf
+            libjansson-dev libssl-dev zlib1g-dev libpq-dev default-libmysqlclient-dev cmake patchelf
 
       - name: Build pinned Linux HTML dependency
         run: |
@@ -260,7 +261,7 @@ jobs:
         run: test "$(uname -m)" = arm64
 
       - name: Install build dependencies
-        run: brew install pcre2 bdw-gc jansson openssl@3 libpq mysql lexbor
+        run: brew install pcre2 bdw-gc jansson openssl@3 zlib libpq mysql lexbor
 
       - name: Debug ASan and UBSan suite
         run: make test-debug
@@ -314,7 +315,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev \
-            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev cmake
+            libjansson-dev libssl-dev zlib1g-dev libpq-dev default-libmysqlclient-dev cmake
 
       - name: Build pinned HTML dependency
         run: |

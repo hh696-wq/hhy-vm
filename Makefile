@@ -1,4 +1,5 @@
 CC ?= cc
+AR ?= ar
 FUZZ_CC ?= clang
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -Werror -O2
 DEPFLAGS := -MMD -MP
@@ -9,6 +10,7 @@ PCRE2_PREFIX ?= $(shell brew --prefix pcre2 2>/dev/null)
 GC_PREFIX ?= $(shell brew --prefix bdw-gc 2>/dev/null)
 JANSSON_PREFIX ?= $(shell brew --prefix jansson 2>/dev/null)
 OPENSSL_PREFIX ?= $(shell brew --prefix openssl@3 2>/dev/null)
+ZLIB_PREFIX ?= $(shell brew --prefix zlib 2>/dev/null)
 ifneq ($(PCRE2_PREFIX),)
 CPPFLAGS += -I$(PCRE2_PREFIX)/include
 LDFLAGS += -L$(PCRE2_PREFIX)/lib
@@ -25,16 +27,23 @@ ifneq ($(OPENSSL_PREFIX),)
 CPPFLAGS += -I$(OPENSSL_PREFIX)/include
 LDFLAGS += -L$(OPENSSL_PREFIX)/lib
 endif
-LDLIBS ?= -lcurl -lpcre2-8 -lgc -ljansson -lcrypto -lm
+ifneq ($(ZLIB_PREFIX),)
+CPPFLAGS += -I$(ZLIB_PREFIX)/include
+LDFLAGS += -L$(ZLIB_PREFIX)/lib
+endif
+LDLIBS ?= -lcurl -lpcre2-8 -lgc -ljansson -lcrypto -lz -lm
 
 SOURCES := $(wildcard src/*.c)
 SOURCE_NAMES := $(notdir $(SOURCES:.c=.o))
 OBJECTS := $(addprefix build/release/,$(SOURCE_NAMES))
 DEBUG_OBJECTS := $(addprefix build/debug/,$(SOURCE_NAMES))
 TARGET := build/hhy
+STATIC_LIBRARY := build/libhhy.a
+LIB_OBJECTS := $(filter-out build/release/main.o,$(OBJECTS))
 DEBUG_TARGET := build/hhy-debug
 FUZZ_TARGET := build/hhy-fuzz
 BYTECODE_TEST_TARGET := build/hhy-bytecode-test
+EMBED_TEST_TARGET := build/hhy-embed-test
 LIBFUZZ_TARGET := build/hhy-libfuzzer
 FUZZ_SOURCES := $(filter-out src/main.c,$(SOURCES)) tests/fuzz_runtime.c
 SYSTEM := $(shell uname -s | tr '[:upper:]' '[:lower:]')
@@ -44,13 +53,17 @@ PACKAGE := hhy-$(VERSION)-$(SYSTEM)-$(ARCH)
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 
-.PHONY: all clean extensions test test-bytecode workload-test test-debug debug benchmark benchmark-bytecode benchmark-profiler benchmark-bytecode-cache quality install dist registry-package bytecode-test fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
+.PHONY: all clean extensions test test-bytecode workload-test test-debug debug benchmark benchmark-bytecode benchmark-profiler benchmark-bytecode-cache quality install dist registry-package bytecode-test embed-test fuzz fuzz-smoke fuzz-libfuzzer fuzz-ci
 
-all: $(TARGET)
+all: $(TARGET) $(STATIC_LIBRARY)
 
 $(TARGET): $(OBJECTS)
 	@mkdir -p build
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) $(LDLIBS) -o $@
+
+$(STATIC_LIBRARY): $(LIB_OBJECTS)
+	@mkdir -p build
+	$(AR) rcs $@ $(LIB_OBJECTS)
 
 build/release/%.o: src/%.c
 	@mkdir -p build/release
@@ -85,7 +98,14 @@ $(BYTECODE_TEST_TARGET): tests/bytecode_alpha.c src/bytecode.c src/common.c incl
 bytecode-test: $(BYTECODE_TEST_TARGET)
 	$(BYTECODE_TEST_TARGET)
 
-test: $(TARGET) extensions bytecode-test
+$(EMBED_TEST_TARGET): tests/embed_runtime.c $(filter-out build/release/main.o,$(OBJECTS))
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) tests/embed_runtime.c $(filter-out build/release/main.o,$(OBJECTS)) $(LDLIBS) -o $@
+
+embed-test: $(EMBED_TEST_TARGET)
+	$(EMBED_TEST_TARGET)
+
+test: $(TARGET) extensions bytecode-test embed-test
 	sh tests/run.sh $(TARGET)
 
 test-bytecode: $(TARGET) extensions bytecode-test
@@ -142,18 +162,23 @@ fuzz-ci: fuzz-libfuzzer
 	cp -R tests/fuzz-corpus build/fuzz-corpus
 	$(LIBFUZZ_TARGET) -max_total_time=15 -timeout=5 -rss_limit_mb=1024 build/fuzz-corpus
 
-install: $(TARGET)
+install: $(TARGET) $(STATIC_LIBRARY)
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(TARGET) $(DESTDIR)$(BINDIR)/hhy
+	install -d $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/include/hhy
+	install -m 644 $(STATIC_LIBRARY) $(DESTDIR)$(PREFIX)/lib/libhhy.a
+	install -m 644 include/hhy/*.h $(DESTDIR)$(PREFIX)/include/hhy/
 
 dist:
 	$(MAKE) clean
 	$(MAKE) all extensions
 	rm -rf build/$(PACKAGE)
-	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/lib build/$(PACKAGE)/examples \
+	mkdir -p build/$(PACKAGE)/bin build/$(PACKAGE)/lib build/$(PACKAGE)/sdk/lib build/$(PACKAGE)/sdk/include/hhy build/$(PACKAGE)/examples \
 		build/$(PACKAGE)/extensions/sample/bin build/$(PACKAGE)/extensions/database/bin \
 		build/$(PACKAGE)/extensions/html/bin dist
 	cp $(TARGET) build/$(PACKAGE)/bin/hhy
+	cp $(STATIC_LIBRARY) build/$(PACKAGE)/sdk/lib/libhhy.a
+	cp include/hhy/*.h build/$(PACKAGE)/sdk/include/hhy/
 	cp README.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
 	CC="$(CC)" sh scripts/build-info.sh $(TARGET) > build/$(PACKAGE)/BUILD_INFO.txt
 	cp examples/*.hhy examples/README.md build/$(PACKAGE)/examples/

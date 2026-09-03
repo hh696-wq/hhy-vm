@@ -1,0 +1,21 @@
+import web
+
+fn home(request) {
+    web.json({
+            ok: true,
+            message: "Hello from HHY",
+            path: request.path
+    })
+}
+
+fn show_user(request) {
+    web.json({
+            id: request.params.id,
+            method: request.method
+    })
+}
+
+web.app()
+    |> web.get("/", home)
+    |> web.get("/users/:id", show_user)
+    |> web.listen({ host: "127.0.0.1", port: 8080 })

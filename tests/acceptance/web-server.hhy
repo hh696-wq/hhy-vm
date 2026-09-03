@@ -1,0 +1,93 @@
+import web
+
+let cookie_secret = "test-secret-at-least-16-bytes"
+
+fn guard(request) {
+    if request.path == "/blocked" {
+        return web.text("blocked", { status: 403 })
+    }
+    return null
+}
+
+fn home(request) {
+    web.json({ ok: true, path: request.path })
+}
+
+fn user(request) {
+    web.json({ id: request.params.id })
+}
+
+fn echo(request) {
+    web.text(request.body, {
+            status: 201,
+            headers: { "X-HHY-Test": "yes" }
+    })
+}
+
+fn upload(request) {
+    let form = web.multipart(request, path(args[1]))
+    let file = form.files.document
+    web.json({
+            title: form.fields.title,
+            filename: file.filename,
+            size: file.size,
+            content: read_text(file.path)
+    })
+}
+
+fn streamed(request) {
+    ["one", "-", "two"]
+        |> stream
+        |> web.stream({ content_type: "text/plain; charset=utf-8" })
+}
+
+fn events(request) {
+    ["first", "second"]
+        |> stream
+        |> web.sse
+}
+
+fn set_cookie(request) {
+    let signed = web.sign_cookie("user-42", cookie_secret)
+    web.text("cookie set", {
+            headers: { "Set-Cookie": "session=" + signed + "; Path=/; HttpOnly; SameSite=Lax" }
+    })
+}
+
+fn read_cookie(request) {
+    web.json({ value: web.verify_cookie(request.cookies.session, cookie_secret) })
+}
+
+fn compressible(request) {
+    web.text("HHY Web Runtime compression response compression response compression response")
+}
+
+fn query_values(request) {
+    web.json(request.query_params)
+}
+
+fn explode(request) {
+    web.text(42)
+}
+
+web.app()
+    |> web.request_id
+    |> web.cors({ origin: "https://example.com" })
+    |> web.metrics
+    |> web.health
+    |> web.trust_proxy
+    |> web.gzip
+    |> web.use(guard)
+    |> web.get("/", home)
+    |> web.get("/users/:id", user)
+    |> web.post("/echo", echo)
+    |> web.post("/upload", upload)
+    |> web.get("/stream", streamed)
+    |> web.get("/events", events)
+    |> web.get("/cookie", set_cookie)
+    |> web.get("/cookie/read", read_cookie)
+    |> web.get("/gzip", compressible)
+    |> web.get("/query", query_values)
+    |> web.get("/explode", explode)
+    |> web.static("/assets", path(args[1]))
+    |> web.listen({ host: "127.0.0.1", port: to_int(args[0]), max_body: 1024, workers: 2 })

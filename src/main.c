@@ -32,6 +32,7 @@ typedef enum {
     COMMAND_TOKENS,
     COMMAND_FMT,
     COMMAND_PROFILE,
+    COMMAND_SERVE,
     COMMAND_RUN
 } Command;
 
@@ -61,6 +62,7 @@ static void usage(FILE *stream) {
         "  hhy run --engine ast|bytecode <file>  Select the execution engine\n"
         "  hhy run --dry-run <file>   Plan without external side effects\n"
         "  hhy run --limit NAME=VALUE <file>  Override a RuntimeLimit\n"
+        "  hhy serve <app.hhy> [args] Run a persistent HHY Web application\n"
         "  hhy profile [options] <file.hhy> [args]  Analyze CPU and heap usage\n"
         "    --engine ast|bytecode  Profile the selected execution engine\n"
         "    --cpu | --heap       Collect only the selected profile\n"
@@ -307,7 +309,7 @@ static int process_file(const char *path, Command command, bool quiet_success,
 
     bool ok = lex_ok && (command == COMMAND_TOKENS || parsed.ok);
     int run_exit = 0;
-    if (ok && command == COMMAND_RUN) {
+    if (ok && (command == COMMAND_RUN || command == COMMAND_SERVE)) {
         HhyRunResult run = hhy_run_program_engine(&source, program, script_argc,
                                                   script_argv, dry_run, limits,
                                                   engine);
@@ -506,13 +508,14 @@ int main(int argc, char **argv) {
     else if (strcmp(argv[1], "fmt") == 0) command = COMMAND_FMT;
     else if (strcmp(argv[1], "profile") == 0) command = COMMAND_PROFILE;
     else if (strcmp(argv[1], "run") == 0) command = COMMAND_RUN;
+    else if (strcmp(argv[1], "serve") == 0) command = COMMAND_SERVE;
     else {
         fprintf(stderr, "hhy: unknown command `%s`\n", argv[1]);
         usage(stderr);
         return 3;
     }
     const char *environment_engine = getenv("HHY_ENGINE");
-    if ((command == COMMAND_RUN || command == COMMAND_PROFILE) && environment_engine != NULL) {
+    if ((command == COMMAND_RUN || command == COMMAND_SERVE || command == COMMAND_PROFILE) && environment_engine != NULL) {
         if (strcmp(environment_engine, "ast") == 0) engine = HHY_ENGINE_AST;
         else if (strcmp(environment_engine, "bytecode") == 0) engine = HHY_ENGINE_BYTECODE;
         else {
@@ -520,10 +523,14 @@ int main(int argc, char **argv) {
             return 3;
         }
     }
-    if ((command == COMMAND_RUN || command == COMMAND_PROFILE) && source_index == 2) {
+    bool serve_dev = false;
+    if ((command == COMMAND_RUN || command == COMMAND_SERVE || command == COMMAND_PROFILE) && source_index == 2) {
         while (source_index < argc) {
             if (strcmp(argv[source_index], "--dry-run") == 0) {
                 dry_run = true; source_index++; continue;
+            }
+            if (command == COMMAND_SERVE && strcmp(argv[source_index], "--dev") == 0) {
+                serve_dev = true; source_index++; continue;
             }
             if (strcmp(argv[source_index], "--limit") == 0) {
                 if (source_index + 1 >= argc || !parse_limit(argv[source_index + 1], &limits)) {
@@ -586,7 +593,7 @@ int main(int argc, char **argv) {
         hhy_extensions_shutdown();
         return result;
     }
-    if (command != COMMAND_CHECK && command != COMMAND_FMT && command != COMMAND_RUN &&
+    if (command != COMMAND_CHECK && command != COMMAND_FMT && command != COMMAND_RUN && command != COMMAND_SERVE &&
         command != COMMAND_PROFILE &&
         argc != source_index + 1) {
         fprintf(stderr, "hhy: `%s` accepts exactly one source file\n", argv[1]);
@@ -594,9 +601,9 @@ int main(int argc, char **argv) {
     }
 
     int result = 0;
-    int end = (command == COMMAND_RUN || command == COMMAND_PROFILE) ? source_index + 1 : argc;
+    int end = (command == COMMAND_RUN || command == COMMAND_SERVE || command == COMMAND_PROFILE) ? source_index + 1 : argc;
     int script_start = source_index + 1;
-    if ((command == COMMAND_RUN || command == COMMAND_PROFILE) && script_start < argc &&
+    if ((command == COMMAND_RUN || command == COMMAND_SERVE || command == COMMAND_PROFILE) && script_start < argc &&
         strcmp(argv[script_start], "--") == 0)
         script_start++;
     FILE *profile_output = NULL;
@@ -616,16 +623,22 @@ int main(int argc, char **argv) {
         };
     }
     for (int i = source_index; i < end; i++) {
-        int file_result = process_file(argv[i], command, false,
-                                       (command == COMMAND_RUN || command == COMMAND_PROFILE)
+        if (command == COMMAND_SERVE && serve_dev) (void)setenv("HHY_WEB_DEV", "1", 1);
+        int file_result;
+        do {
+            file_result = process_file(argv[i], command, false,
+                                       (command == COMMAND_RUN || command == COMMAND_SERVE || command == COMMAND_PROFILE)
                                            ? argc - script_start : 0,
-                                       (command == COMMAND_RUN || command == COMMAND_PROFILE)
+                                       (command == COMMAND_RUN || command == COMMAND_SERVE || command == COMMAND_PROFILE)
                                            ? argv + script_start : NULL,
                                        dry_run,
-                                       (command == COMMAND_RUN || command == COMMAND_PROFILE)
+                                       (command == COMMAND_RUN || command == COMMAND_SERVE || command == COMMAND_PROFILE)
                                            ? &limits : NULL,
                                        command == COMMAND_PROFILE ? &profile_options : NULL,
                                        engine);
+            if (command == COMMAND_SERVE && serve_dev && file_result == 75)
+                fprintf(stderr, "hhy: source changed; reloading Web application\n");
+        } while (command == COMMAND_SERVE && serve_dev && file_result == 75);
         if (file_result != 0) result = file_result;
     }
     if (profile_output != NULL && fclose(profile_output) != 0 && result == 0) result = 4;

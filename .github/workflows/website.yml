@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev \
-            libjansson-dev libssl-dev
+            libjansson-dev libssl-dev zlib1g-dev
 
       - name: Build HHY documentation checker
         run: make

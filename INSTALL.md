@@ -1,7 +1,7 @@
 # Installing HHY
 
-Current version: `1.3.11` (from the repository `VERSION` file).
-HHY v1.1 supports macOS arm64 and Linux x86_64/arm64.
+Current version: `1.4.3` (from the repository `VERSION` file).
+HHY v1.4 supports macOS arm64 and Linux x86_64/arm64.
 
 ## Install a release binary
 
@@ -9,8 +9,8 @@ Download the archive for your platform from the
 [GitHub Releases page](https://github.com/hh696-wq/hhy-vm/releases/latest), then:
 
 ```sh
-tar -xzf hhy-1.3.11-PLATFORM-ARCH.tar.gz
-cd hhy-1.3.11-PLATFORM-ARCH
+tar -xzf hhy-1.4.3-PLATFORM-ARCH.tar.gz
+cd hhy-1.4.3-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```
@@ -31,14 +31,14 @@ Official local extension packages are included under `extensions/`. For example:
 macOS with Homebrew:
 
 ```sh
-brew install pcre2 bdw-gc jansson openssl@3
+brew install pcre2 bdw-gc jansson openssl@3 zlib
 ```
 
 Ubuntu/Debian:
 
 ```sh
 sudo apt-get install build-essential libcurl4-openssl-dev libpcre2-dev libgc-dev \
-  libjansson-dev libssl-dev
+  libjansson-dev libssl-dev zlib1g-dev
 ```
 
 运行开发用覆盖引导 fuzz 还需要 LLVM clang：macOS 使用 `brew install llvm`，

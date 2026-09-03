@@ -52,14 +52,14 @@ jobs:
 
       - name: Install macOS build dependencies
         if: runner.os == 'macOS'
-        run: brew install pcre2 bdw-gc jansson openssl@3 libpq mysql lexbor
+        run: brew install pcre2 bdw-gc jansson openssl@3 zlib libpq mysql lexbor
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install --yes clang libcurl4-openssl-dev libpcre2-dev libgc-dev \
-            libjansson-dev libssl-dev libpq-dev default-libmysqlclient-dev cmake patchelf
+            libjansson-dev libssl-dev zlib1g-dev libpq-dev default-libmysqlclient-dev cmake patchelf
 
       - name: Build pinned Linux HTML dependency
         if: runner.os == 'Linux'
@@ -152,6 +152,7 @@ jobs:
             pcre2-devel
             jansson-devel
             openssl-devel
+            zlib-devel
             cmake
 
       - name: Verify tag
