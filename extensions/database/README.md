@@ -236,14 +236,17 @@ A CMS application itself is not included in this database-extension release.
 python3 extensions/database/tests/protocol.py
 python3 extensions/database/tests/integration.py --config /path/to/test-configs.json
 python3 extensions/database/tests/runtime.py --config /path/to/test-configs.json
+python3 extensions/database/tests/cms.py --config /path/to/test-configs.json
 python3 extensions/database/tests/robustness.py --config /path/to/test-configs.json --ca /path/to/test-ca.pem --soak-seconds 60
 python3 extensions/database/tests/streaming.py --config /path/to/test-configs.json --rows 1000000
 ```
 
 Test configs are a JSON list of dedicated test data sources. Integration fixtures
 create/drop `hhy_db_acceptance`, `hhy_runtime_test`, `hhy_scope_test` and
-`hhy_db_proc`; never run them against a business database. GitHub Actions provisions
+`hhy_db_proc`, `hhy_cms_version` and `hhy_cms_articles`; never run them against a business database. GitHub Actions provisions
 MySQL 8.4/PostgreSQL 17, configures test TLS, verifies both HHY engines and prefork
 isolation, and uploads sanitizer, robustness and streaming evidence. Manual Actions
 runs support up to 7200 seconds of sustained queries per backend. A 24-hour soak and
 real RDS failover certification are separate, still-required deployment validations.
+
+See [ACCEPTANCE.md](ACCEPTANCE.md) for the measured local results and CI evidence map.
