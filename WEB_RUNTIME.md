@@ -1,6 +1,6 @@
 # HHY Web Runtime
 
-HHY v1.4 ships one Web release train. Applications use the HHY Runtime version;
+HHY v1.5.0 retains the v1.4 Web release train and adds Database 1.0.0 host integration. Applications use the HHY Runtime version;
 there is no separate `Web 0.x` version line.
 
 | HHY version | Web stage | Capability boundary |
@@ -9,6 +9,8 @@ there is no separate `Web 0.x` version line.
 | v1.4.1 | Web MVP | HTTP/1.1, Router, request data, JSON/text/HTML/redirect responses |
 | v1.4.2 | Web application | Middleware, static files, multipart upload, CORS, signed cookies, gzip, health and dev reload |
 | v1.4.3 | Streaming and workers | Response streams, SSE, Range requests, prefork workers, metrics and structured access logs |
+
+| v1.5.0 | Database resources | Scoped DB cleanup after responses, cancellation propagation and fork-safe extension restart; Database 1.0.0 has an independent version |
 
 ## Run a Web application
 

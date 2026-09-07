@@ -1,26 +1,45 @@
 # HHY Language v1.0 统一规范
 
-> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.4.3`
+> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.5.0`
 > 规范状态：v1.0 已冻结
-> 官网：[hhylang.dev](https://hhylang.dev)  
-> 定位：Flow-first system scripting language  
+> 官网：[hhylang.dev](https://hhylang.dev)
+> 定位：Flow-first system scripting language
 > 口号：Pipe Everything.
 
 本文档是 HHY v1.0 唯一规范来源。语法、运行时、标准库、CLI 和测试必须以本文档为准；实验实现与本文冲突时，应先修改规范并记录决策，再修改代码。
 
-## 当前兼容实现补充 · v1.4.3
+## 当前兼容实现补充 · v1.5.0
 
 本节记录 v1.0 冻结后的兼容能力增量，不改变下文的 v1.0 核心语义。
 v1.4.0–v1.4.2 是 Web Runtime 的能力里程碑，统一通过 v1.4.3 正式发行。
 
-| 范围 | v1.4.3 状态 |
+| 范围 | v1.5.0 状态 |
 |---|---|
 | 执行引擎 | Bytecode 默认；AST 永久保留为语义 oracle 与 `--engine ast` / `HHY_ENGINE=ast` 回退 |
 | C Embedding | Opaque `HhyApplication` / `HhyContext` 句柄、JSON ABI、应用一次加载与可重复 `hhy_call`；不公开 Runtime 内部结构 |
 | Web Runtime | `hhy serve`、HTTP/1.1、Router、Query/Header/Cookie、Middleware、静态文件、上传、CORS、signed cookie、gzip 与开发热重载 |
 | 流式与运维 | Stream、SSE、Range、多 Worker、健康检查、结构化日志与 Prometheus 指标 |
 | 服务边界 | TLS 与 HTTP/2 交给反向代理或负载均衡器；WebSocket 不在 v1.4 能力范围内 |
-| 发布验证 | 一个已加载 Context 的 100,000 次重复调用与双引擎输出对照；16 并发 loopback HTTP 的 1,000,000 次请求、0 失败 |
+| v1.4.3 历史 Web 验证 | 一个已加载 Context 的 100,000 次重复调用与双引擎输出对照；16 并发 loopback HTTP 的 1,000,000 次请求、0 失败 |
+
+| Database 1.0.0 | MySQL/PostgreSQL 有界连接池、配置 Map、显式远程端点授权与 TLS 身份校验 |
+| DB 事务与结果 | 读写事务、事务闭包、保存点、预处理复用、原子批量、增量游标、HHY Stream、列元数据与精确类型 |
+| DB 宿主集成 | Duration 转毫秒、BytesBuffer 往返、请求结束清理、取消传播、扩展崩溃恢复和 fork 后 Worker 隔离 |
+| v1.5.0 发布验证 | 本地/CI 双数据库与 AST/Bytecode、TLS 正反例、sanitizer、CMS 安装数据库夹具以及跨平台发行检查通过 |
+| 验证边界 | DB 发行支持 macOS arm64 与 Linux arm64/x86_64；Windows Runtime 包不含 DB；RDS 实机和 24 小时长稳未宣称通过 |
+
+### Database 1.0.0 兼容契约
+
+- 最低 HHY 版本为 1.5.0。远程连接使用可信配置 Map，包含 driver、host、port、user、password、database、allow、tls 与可选 ca；旧 URL 保留 loopback 支持。
+- 池按数据源和扩展进程隔离；默认 max_open=4、max_idle=2，多 Worker 需要累加总连接预算。
+- query 默认维持 String/null 返回，typed 模式启用类型映射；Decimal/大整数使用精确封装。字段、参数、结果、消息和租期均有上限。
+- with_transaction 回调成功提交、失败回滚；句柄不能跨请求/Worker 使用。提交结果不确定时禁止自动重放写入。
+- DB Stream 由宿主增量拉取游标；Protocol 1 协商 scoped_resources 与作用域结束/取消消息，不表示开放通用 Stream credit 或 Native ABI。
+- install.hhy 验收是最小数据库生命周期夹具，不是完整企业官网 CMS；MySQL 多步 DDL 仍需应用自行记录迁移检查点。
+
+完整 API 与边界见 [Database 1.0.0 README](https://github.com/hh696-wq/hhy-vm/blob/v1.5.0/extensions/database/README.md)，
+测量及复现方式见 [DB 验收记录](https://github.com/hh696-wq/hhy-vm/blob/v1.5.0/extensions/database/ACCEPTANCE.md)，
+发行记录见 [HHY 1.5.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.5.0)。
 
 Web Runtime 的 API、使用方法与部署边界见
 [Web Runtime](WEB_RUNTIME.md)，测量条件与发行记录见
@@ -1362,7 +1381,7 @@ platform 层统一：
 
 ## 34. v1.0 明确不做
 
-以下列表仅记录 v1.0 初始发行的范围，不代表当前 v1.4.3 的功能缺口。
+以下列表仅记录 v1.0 初始发行的范围，不代表当前 v1.5.0 的功能缺口。
 后续兼容版本已加入进程扩展、签名 Registry、Bytecode VM、Windows MSYS2
 发行与 Web Runtime；当前 Web 能力和边界见本文开头的兼容实现补充。
 
@@ -1501,7 +1520,7 @@ source |> transform |> filter |> action
 
 ## 37. v1.0 实现符合性台账
 
-本表保留 v1.0 冻结时的实现验证证据，表中的版本、平台与数量属于历史记录，不代表 v1.4.3 的全部能力。它不改变前述规范，也不能用单个平台通过代替跨平台发布条件。
+本表保留 v1.0 冻结时的实现验证证据，表中的版本、平台与数量属于历史记录，不代表 v1.5.0 的全部能力。它不改变前述规范，也不能用单个平台通过代替跨平台发布条件。
 
 | 发布门槛 | 当前证据 | 状态 |
 |---|---|---|
