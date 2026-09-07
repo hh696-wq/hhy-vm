@@ -515,29 +515,7 @@ assert result.stdout.strip() == "[1]", result.stdout
 PY
 fi
 
-"$HHY_BIN" run tests/valid/parallel-cancel.hhy >tests/output/parallel-cancel.log 2>&1 &
-parallel_cancel_pid=$!
-sleep 0.1
-kill -INT "$parallel_cancel_pid"
-set +e
-wait "$parallel_cancel_pid"
-parallel_cancel_status=$?
-set -e
-if [ "$parallel_cancel_status" -ne 5 ]; then
-    fail "parallel Ctrl+C returned status $parallel_cancel_status instead of 5"
-fi
-
-"$HHY_BIN" run tests/valid/cancel.hhy >tests/output/cancel.log 2>&1 &
-cancel_pid=$!
-sleep 0.1
-kill -INT "$cancel_pid"
-set +e
-wait "$cancel_pid"
-cancel_status=$?
-set -e
-if [ "$cancel_status" -ne 5 ]; then
-    fail "Ctrl+C cancellation returned exit status $cancel_status instead of 5"
-fi
+python3 tests/check-cancellation.py "$HHY_BIN"
 
 set +e
 runtime_limit_output=$("$HHY_BIN" run --limit max_runtime=20ms tests/valid/cancel.hhy 2>&1)
