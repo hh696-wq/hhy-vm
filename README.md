@@ -7,7 +7,7 @@
 
   A small, deterministic, flow-first language for files, processes, HTTP, data pipelines, and safe static crawling.
 
-  [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification](docs/HHY_V1.md)
+  [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification (English)](docs/HHY_V1.en.md) · [中文规范](docs/HHY_V1.md)
 
   [![Version](https://img.shields.io/badge/version-1.5.0-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
