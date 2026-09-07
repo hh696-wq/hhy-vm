@@ -1,6 +1,6 @@
 # HHY 1.5.0 — Database host integration
 
-This runtime maintenance release accompanies the independently versioned database
+This runtime release accompanies the independently versioned database
 extension 1.0. It adds scoped extension resources, fork-safe process restart,
 cancellation propagation, database transaction callbacks, native Duration/binary
 conversion and lazy database Streams. Web and embedded-call boundaries release

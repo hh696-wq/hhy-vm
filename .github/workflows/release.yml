@@ -254,6 +254,9 @@ jobs:
         working-directory: release-assets
         run: sha256sum *.tar.gz > SHA256SUMS
 
+      - name: Package independent database release
+        run: python3 scripts/package-database-release.py release-assets database-release-assets
+
       - name: Create or update release with every asset
         env:
           GH_TOKEN: ${{ github.token }}
@@ -279,16 +282,13 @@ jobs:
               $prerelease_option \
               --draft \
               --title "HHY Language $version" \
-              --generate-notes
+              --notes-file "RELEASE_NOTES_$version.md"
           fi
           if [ -n "$prerelease_option" ]; then
             gh release edit "$RELEASE_TAG" --draft=false --prerelease
           else
             gh release edit "$RELEASE_TAG" --draft=false --latest
           fi
-
-      - name: Package independent database release
-        run: python3 scripts/package-database-release.py release-assets database-release-assets
 
       - name: Publish independently versioned database package
         env:

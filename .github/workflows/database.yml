@@ -76,6 +76,8 @@ jobs:
         run: python3 extensions/database/tests/integration.py --config build/database-config.json | tee build/database-evidence/integration.json
       - name: AST, bytecode, and prefork Web integration
         run: python3 extensions/database/tests/runtime.py --config build/database-config.json | tee build/database-evidence/runtime.txt
+      - name: CMS installation database lifecycle
+        run: python3 extensions/database/tests/cms.py --config build/database-config.json | tee build/database-evidence/cms.txt
       - name: TLS, cancellation, and sustained pool verification
         env:
           SOAK_SECONDS: ${{ inputs.soak_seconds || '60' }}

@@ -5,6 +5,12 @@ from pathlib import Path
 
 SCRIPT='''import database
 let cfg = read_text(path(args[0])) |> parse_json
+let timed = {driver: cfg.driver, host: cfg.host, port: cfg.port, user: cfg.user, password: cfg.password,
+    database: cfg.database, tls: cfg.tls, allow: cfg.allow, timeout_ms: 2s, acquire_ms: 500ms}
+database.ping(timed)
+let bytes = read_bytes(path(args[1]))
+let binary = database.query(cfg, args[3], [bytes], {typed: true})
+write_bytes(path(args[2]), binary.rows[0].payload)
 database.execute(cfg, "DROP TABLE IF EXISTS hhy_runtime_test", [])
 database.execute(cfg, "CREATE TABLE hhy_runtime_test (id INT PRIMARY KEY)", [])
 let inserted = cfg |> database.with_transaction { tx ->
@@ -54,9 +60,13 @@ def main():
         web=tmp/'web.hhy';web.write_text(WEB)
         for cfg in cfgs:
             cp=tmp/'config.json';cp.write_text(json.dumps(cfg));cp.chmod(0o600)
+            payload=tmp/'payload.bin';payload.write_bytes(bytes([0,255,128,39,92,10]))
+            roundtrip=tmp/'roundtrip.bin'
+            binary_sql='SELECT CAST(? AS BINARY) AS payload' if cfg['driver']=='mysql' else 'SELECT $1::bytea AS payload'
             for engine in ['ast','bytecode']:
-                result=subprocess.run([hhy,'run','--engine',engine,str(script),str(cp)],env=env,check=False,text=True,capture_output=True,timeout=30)
+                result=subprocess.run([hhy,'run','--engine',engine,str(script),str(cp),str(payload),str(roundtrip),binary_sql],env=env,check=False,text=True,capture_output=True,timeout=30)
                 assert result.returncode==0,result.stderr
+                assert roundtrip.read_bytes()==payload.read_bytes(),'native BytesBuffer round trip failed'
                 r=json.loads(result.stdout)
                 assert r['committed']=='1' and r['failed'] is False and r['rows']==[{'id':'1'}] and r['taken']==[{'id':'1'}],r
                 assert r['stats']['pinned']==0,r

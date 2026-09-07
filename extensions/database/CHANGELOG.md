@@ -1,6 +1,6 @@
 # Database release history
 
-## 1.0.0-rc.1 — implementation under acceptance
+## 1.0.0 — stable API release
 
 - Replace per-call short connections with bounded per-data-source connection pools.
 - Add explicit remote endpoint authorization, structured configuration and TLS policies.
@@ -16,7 +16,7 @@
   query truncation and safer error categories for operational failures.
 
 The stable tag must only be published after the release commit passes its Actions
-checks. This candidate label does not claim completion of a 24-hour soak or actual
+checks. This release does not claim completion of a 24-hour soak or actual
 RDS failover testing. See README.md for precise compatibility and resource limits.
 
 ## 0.2.0

@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdatomic.h>
-#define DB_VERSION "1.0.0-rc.1"
+#define DB_VERSION "1.0.0"
 #define DB_MAX_SESSIONS 64
 #define DB_MAX_FIELD 65536
 #define DB_MAX_RESULT 524288

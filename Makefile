@@ -185,7 +185,7 @@ dist:
 	cp extensions/README.md build/$(PACKAGE)/extensions/
 	cp extensions/sample/hhy.toml extensions/sample/bin/hhy-sample build/$(PACKAGE)/extensions/sample/
 	mv build/$(PACKAGE)/extensions/sample/hhy-sample build/$(PACKAGE)/extensions/sample/bin/
-	cp extensions/database/hhy.toml extensions/database/README.md extensions/database/CHANGELOG.md extensions/database/bin/hhy-database build/$(PACKAGE)/extensions/database/
+	cp extensions/database/hhy.toml extensions/database/README.md extensions/database/CHANGELOG.md extensions/database/ACCEPTANCE.md extensions/database/bin/hhy-database build/$(PACKAGE)/extensions/database/
 	cp LICENSE NOTICE build/$(PACKAGE)/extensions/database/
 	mv build/$(PACKAGE)/extensions/database/hhy-database build/$(PACKAGE)/extensions/database/bin/
 	cp extensions/html/hhy.toml extensions/html/bin/hhy-html build/$(PACKAGE)/extensions/html/
