@@ -1,0 +1,102 @@
+name: Database production acceptance
+on:
+  push:
+  pull_request:
+  workflow_call:
+    inputs:
+      soak_seconds:
+        type: string
+        default: '60'
+        required: false
+  workflow_dispatch:
+    inputs:
+      soak_seconds:
+        description: 'Sustained query loop per database (0-7200 seconds)'
+        default: '60'
+        required: true
+permissions:
+  contents: read
+jobs:
+  database:
+    name: MySQL 8.4 and PostgreSQL 17 integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: hhy-ci-only
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: hhy_test
+        ports:
+          - 23306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -phhy-ci-only"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: hhy_test
+          POSTGRES_PASSWORD: hhy-ci-only
+          POSTGRES_DB: hhy_test
+        ports:
+          - 25432:5432
+        options: >-
+          --health-cmd="pg_isready -U hhy_test -d hhy_test"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential libcurl4-openssl-dev libpcre2-dev libgc-dev libjansson-dev libssl-dev zlib1g-dev libpq-dev default-libmysqlclient-dev
+      - name: Build runtime and database extension
+        run: |
+          make -j2
+          make -C extensions/database
+          python3 tests/check_contracts.py
+          python3 tests/check_runtime_governance.py
+      - name: Create isolated fixture configuration
+        run: |
+          mkdir -p build/database-evidence
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          configs=[dict(driver='mysql',host='127.0.0.1',port=23306,user='root',password='hhy-ci-only',database='hhy_test',tls='disabled',allow=['127.0.0.1:23306']),dict(driver='postgresql',host='127.0.0.1',port=25432,user='hhy_test',password='hhy-ci-only',database='hhy_test',tls='disabled',allow=['127.0.0.1:25432'])]
+          Path('build/database-config.json').write_text(json.dumps(configs))
+          PY
+      - name: Configure fixture TLS
+        env:
+          MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: bash extensions/database/tests/ci-tls.sh
+      - name: Database protocol and resource tests
+        run: python3 extensions/database/tests/protocol.py | tee build/database-evidence/protocol.txt
+      - name: Real database integration
+        run: python3 extensions/database/tests/integration.py --config build/database-config.json | tee build/database-evidence/integration.json
+      - name: AST, bytecode, and prefork Web integration
+        run: python3 extensions/database/tests/runtime.py --config build/database-config.json | tee build/database-evidence/runtime.txt
+      - name: TLS, cancellation, and sustained pool verification
+        env:
+          SOAK_SECONDS: ${{ inputs.soak_seconds || '60' }}
+        run: |
+          python3 - <<'PY'
+          import os
+          n=int(os.environ['SOAK_SECONDS'])
+          assert 0<=n<=7200
+          PY
+          python3 extensions/database/tests/robustness.py --config build/database-config.json --ca build/database-tls/ca.pem --soak-seconds "$SOAK_SECONDS" | tee build/database-evidence/robustness.jsonl
+      - name: Streaming memory and throughput evidence
+        run: python3 extensions/database/tests/streaming.py --config build/database-config.json | tee build/database-evidence/streaming.jsonl
+      - name: ASan and UBSan database integration
+        run: |
+          make -C extensions/database TARGET=bin/hhy-database-asan CFLAGS='-std=c11 -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'
+          ASAN_OPTIONS=detect_leaks=1 python3 extensions/database/tests/integration.py --binary extensions/database/bin/hhy-database-asan --config build/database-config.json | tee build/database-evidence/sanitizers.json
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: database-evidence-${{ github.sha }}
+          path: build/database-evidence/
+          if-no-files-found: error
+          retention-days: 30

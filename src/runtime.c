@@ -157,7 +157,7 @@ typedef enum {
     STREAM_SKIP, STREAM_FLAT_MAP, STREAM_INSPECT, STREAM_DISTINCT, STREAM_SORT, STREAM_GROUP,
     STREAM_CSV_PARSE, STREAM_CSV_ENCODE, STREAM_ON_ERROR, STREAM_PARALLEL, STREAM_DEBOUNCE,
     STREAM_EVERY, STREAM_WATCH, STREAM_PROCESSES,
-    STREAM_FILE_LINES, STREAM_FILES
+    STREAM_FILE_LINES, STREAM_FILES, STREAM_DATABASE
 } StreamKind;
 struct Stream {
     StreamKind kind;
@@ -306,7 +306,26 @@ static Value list_new(Runtime *rt, size_t count);
 static void runtime_type_error(Runtime *rt, const HhyNode *node, const char *message);
 static void runtime_value_error(Runtime *rt, const HhyNode *node, const char *message);
 
+static Value bytes_buffer_value(Runtime *rt, const void *data, size_t length);
+static bool database_value_context(Runtime *rt) {
+    return rt->current_contract != NULL && strncmp(rt->current_contract->name, "database.", 9) == 0;
+}
 static json_t *value_to_protocol_json(Runtime *rt, const HhyNode *site, Value value) {
+    if (database_value_context(rt) && value.kind == V_DURATION) {
+        double milliseconds = ceil(value.as.number / 1000000.0);
+        if (!isfinite(milliseconds) || milliseconds < 0 || milliseconds >= (double)INT64_MAX) {
+            runtime_value_error(rt, site, "database duration is out of range"); return NULL;
+        }
+        return json_integer((json_int_t)milliseconds);
+    }
+    if (database_value_context(rt) && value.kind == V_BYTES_BUFFER) {
+        size_t n = value.as.bytes_buffer.length;
+        if (n > 65536) { runtime_value_error(rt, site, "database binary parameter exceeds 64 KiB"); return NULL; }
+        char *hex = rt_alloc(rt, n * 2 + 1);
+        const char digits[] = "0123456789abcdef";
+        for (size_t i = 0; i < n; i++) { unsigned char b = value.as.bytes_buffer.data[i]; hex[2*i] = digits[b >> 4]; hex[2*i+1] = digits[b & 15]; }
+        hex[n*2] = '\0'; return json_pack("{s:s,s:s}", "type", "bytes", "value", hex);
+    }
     switch (value.kind) {
         case V_NULL: return json_null();
         case V_BOOL: return json_boolean(value.as.boolean);
@@ -359,6 +378,24 @@ static Value protocol_json_to_value(Runtime *rt, const HhyNode *site, json_t *va
         return result;
     }
     if (json_is_object(value)) {
+        const char *type = json_string_value(json_object_get(value, "type"));
+        const char *hex = json_string_value(json_object_get(value, "value"));
+        if (database_value_context(rt) && json_object_size(value) == 2 && type != NULL &&
+            strcmp(type, "bytes") == 0 && hex != NULL) {
+            size_t n = strlen(hex);
+            if (n % 2 != 0 || n > 131072) { runtime_value_error(rt, site, "invalid database binary result"); return null_value(); }
+            unsigned char *bytes = rt_alloc(rt, n / 2 + 1);
+            for (size_t i = 0; i < n; i += 2) {
+                unsigned value = 0;
+                for (size_t j = 0; j < 2; j++) {
+                    char c = hex[i+j]; int digit = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1;
+                    if (digit < 0) { runtime_value_error(rt, site, "invalid database binary encoding"); return null_value(); }
+                    value = value * 16 + (unsigned)digit;
+                }
+                bytes[i/2] = (unsigned char)value;
+            }
+            return bytes_buffer_value(rt, bytes, n/2);
+        }
         size_t count = json_object_size(value); Value result = {.kind = V_MAP};
         result.as.map = map_storage_new(rt, count);
         result.as.map->count = count; result.as.map->keys = count ? rt_alloc(rt, count * sizeof(char *)) : NULL;
@@ -767,6 +804,38 @@ static bool runtime_check_cancel(Runtime *rt, const HhyNode *node) {
         runtime_error_kind(rt, node, "CancelledError", "HHY_CANCELLED", "execution cancelled");
     }
     return true;
+}
+
+typedef struct { Runtime *runtime; const HhyNode *site; } DatabaseCancel;
+static bool database_cancelled(void *opaque) {
+    DatabaseCancel *state = opaque;
+    return runtime_check_cancel(state->runtime, state->site);
+}
+static Value database_invoke(Runtime *rt, const HhyNode *site, const char *name,
+                              size_t argc, Value *argv) {
+    const HhyCallableContract *previous = rt->current_contract;
+    rt->current_contract = hhy_contract_lookup(name);
+    json_t *arguments = json_array();
+    for (size_t i = 0; i < argc && !rt->failed; i++) {
+        json_t *v = value_to_protocol_json(rt, site, argv[i]);
+        if (v != NULL) json_array_append_new(arguments, v);
+    }
+    if (rt->failed) { json_decref(arguments); rt->current_contract = previous; return null_value(); }
+    DatabaseCancel state = {rt, site}; HhyExtensionError error;
+    json_t *response = hhy_extension_call_checked(name, arguments, &error, database_cancelled, &state);
+    json_decref(arguments);
+    if (response == NULL) {
+        if (!rt->failed) runtime_extension_error(rt, site, &error);
+        rt->current_contract = previous; return null_value();
+    }
+    Value result = rt->failed ? null_value() : protocol_json_to_value(rt, site, response);
+    json_decref(response); rt->current_contract = previous; return result;
+}
+static void database_close_resource(const char *name, const char *handle) {
+    if (handle == NULL) return;
+    json_t *arguments = json_pack("[s]", handle); HhyExtensionError ignored;
+    json_t *result = hhy_extension_call(name, arguments, &ignored);
+    json_decref(arguments); json_decref(result);
 }
 
 static bool runtime_safepoint(Runtime *rt, const HhyNode *node) {
@@ -1915,6 +1984,10 @@ static Value watch_event(Runtime *rt, const char *kind, const char *path,
 static void stream_close(Stream *stream) {
     if (stream == NULL || stream->closed) return;
     stream->closed = true;
+    if (stream->kind == STREAM_DATABASE && stream->path != NULL) {
+        database_close_resource("database.close_result", stream->path);
+        stream->path = NULL;
+    }
     if (stream->file != NULL && stream->owns_file) {
         runtime_fclose(stream->runtime, stream->file);
     }
@@ -1986,6 +2059,24 @@ static void stream_close(Stream *stream) {
 
 static bool stream_next(Runtime *rt, const HhyNode *site, Stream *stream, Value *out) {
     if (stream->closed || rt->failed || runtime_check_cancel(rt, site)) return false;
+    if (stream->kind == STREAM_DATABASE) {
+        if (!stream->initialized) {
+            Value handle = database_invoke(rt, site, "database.cursor", stream->source.as.list.count, stream->source.as.list.items);
+            if (rt->failed || handle.kind != V_STRING) { stream_close(stream); return false; }
+            stream->path = rt_strndup(rt, handle.as.string, handle.string_length);
+            stream->initialized = true;
+        }
+        while (stream->materialized.kind != V_LIST || stream->index >= stream->materialized.as.list.count) {
+            if (stream->upstream_done) { stream_close(stream); return false; }
+            Value arguments[] = {string_value(rt, stream->path), int_value(100)};
+            Value batch = database_invoke(rt, site, "database.fetch", 2, arguments);
+            if (rt->failed) { stream_close(stream); return false; }
+            stream->materialized = map_get(batch, "rows");
+            stream->upstream_done = map_get(batch, "done").as.boolean;
+            stream->index = 0;
+        }
+        *out = stream->materialized.as.list.items[stream->index++]; return true;
+    }
     if (stream->kind == STREAM_PROCESSES) {
         if (!stream->initialized) {
             stream->initialized = true;
@@ -5371,11 +5462,30 @@ static bool web_gzip_body(Runtime *rt, const unsigned char *input, size_t input_
     return ok;
 }
 
+typedef struct { Runtime *runtime; Stream *checkpoint; RuntimeCleanup *cleanups; } WebRequestResources;
+static void request_streams_close(Runtime *rt, Stream *checkpoint) {
+    while (rt->streams != checkpoint) {
+        Stream *stream = rt->streams;
+        if (stream == NULL) break;
+        rt->streams = stream->runtime_next;
+        stream_close(stream);
+    }
+}
+static void web_request_finished(void *opaque) {
+    WebRequestResources *resources = opaque;
+    request_streams_close(resources->runtime, resources->checkpoint);
+    web_request_cleanup(resources->runtime, resources->cleanups);
+}
+
 static bool web_handle_request(void *opaque, const HhyWebServerRequest *request,
                                HhyWebServerResponse *response) {
     WebRuntimeContext *context = opaque;
     Runtime *rt = context->runtime;
     RuntimeCleanup *cleanup_checkpoint = rt->cleanups;
+    WebRequestResources *resources = rt_alloc(rt, sizeof(*resources));
+    *resources = (WebRequestResources){rt, rt->streams, cleanup_checkpoint};
+    response->finish_request = web_request_finished;
+    response->finish_context = resources;
     rt->failed = false; rt->exit_code = 0; rt->signal = SIGNAL_NONE;
     rt->cancelled = false; rt->call_depth = 0; rt->call_stack_count = 0;
     clock_gettime(CLOCK_MONOTONIC, &rt->started_at);
@@ -5493,7 +5603,6 @@ static bool web_handle_request(void *opaque, const HhyWebServerRequest *request,
             fprintf(stderr,
                     "{\"event\":\"web_request_error\",\"request_id\":\"%s\",\"method\":\"%s\",\"path\":\"%s\",\"status\":500}\n",
                     request_id, request->method, request->path);
-        web_request_cleanup(rt, cleanup_checkpoint);
         rt->failed = false; rt->exit_code = 0; rt->signal = SIGNAL_NONE;
         rt->cancelled = false; rt->call_depth = 0; rt->call_stack_count = 0;
         return false;
@@ -5579,7 +5688,6 @@ static bool web_handle_request(void *opaque, const HhyWebServerRequest *request,
                 "{\"event\":\"web_request\",\"request_id\":\"%s\",\"method\":\"%s\",\"path\":\"%s\",\"status\":%d,\"bytes\":%zu,\"duration_ns\":%" PRIu64 "}\n",
                 request_id, request->method, request->path, response->status,
                 response->body_length, elapsed);
-    web_request_cleanup(rt, cleanup_checkpoint);
     return true;
 }
 
@@ -6877,7 +6985,24 @@ static Value call_value_impl(Runtime *rt, Env *env, const HhyNode *site, Value c
         Value result;
         if (hhy_extension_owns_callable(callee.as.function.builtin)) {
             if (!rt->effect_allowed && contract->action) result = null_value();
-            else {
+            else if (strcmp(callee.as.function.builtin, "database.stream") == 0) {
+                Value args = list_new(rt, argc);
+                for (size_t i = 0; i < argc; i++) args.as.list.items[i] = argv[i];
+                result = stream_value(rt, STREAM_DATABASE, args, null_value(), env);
+            } else if (strcmp(callee.as.function.builtin, "database.with_transaction") == 0) {
+                Value callback = argv[argc - 1]; result = null_value();
+                if (callback.kind != V_FUNCTION) runtime_type_error(rt, site, "with_transaction requires a callback Function");
+                else {
+                    Value handle = database_invoke(rt, site, "database.begin", argc - 1, argv);
+                    if (!rt->failed) {
+                        result = call_value(rt, env, site, callback, 1, &handle);
+                        if (!rt->failed && result.kind == V_STREAM)
+                            runtime_type_error(rt, site, "transaction streams must be consumed inside the transaction callback");
+                        if (rt->failed) database_close_resource("database.rollback", handle.as.string);
+                        else (void)database_invoke(rt, site, "database.commit", 1, &handle);
+                    }
+                }
+            } else {
                 json_t *arguments = json_array();
                 for (size_t i = 0; i < argc && !rt->failed; i++) {
                     json_t *argument = value_to_protocol_json(rt, site, argv[i]);
@@ -6889,10 +7014,11 @@ static Value call_value_impl(Runtime *rt, Env *env, const HhyNode *site, Value c
                 if (rt->failed) result = null_value();
                 else {
                     HhyExtensionError extension_error;
-                    json_t *response = hhy_extension_call(callee.as.function.builtin,
-                                                          arguments, &extension_error);
+                    DatabaseCancel cancel_state = {rt, site};
+                    json_t *response = hhy_extension_call_checked(callee.as.function.builtin,
+                        arguments, &extension_error, database_cancelled, &cancel_state);
                     if (response == NULL) {
-                        runtime_extension_error(rt, site, &extension_error);
+                        if (!rt->failed) runtime_extension_error(rt, site, &extension_error);
                         result = null_value();
                     } else {
                         result = protocol_json_to_value(rt, site, response);
@@ -8515,8 +8641,12 @@ HhyEmbedResult hhy_context_call_json(HhyContext *volatile context,
     rt->memory_jump_ready = true;
     if (context->engine == HHY_ENGINE_BYTECODE)
         hhy_active_bytecode_chunk = hhy_bytecode_runtime_chunk(context->application->bytecode);
+    unsigned long long extension_scope = hhy_extensions_scope_begin();
+    Stream *stream_checkpoint = rt->streams;
     if (setjmp(rt->memory_jump) == 0)
         result = call_value(rt, context->environment, site, binding->value, argc, argv);
+    request_streams_close(rt, stream_checkpoint);
+    hhy_extensions_scope_end(extension_scope);
     hhy_active_bytecode_chunk = NULL;
     rt->memory_jump_ready = false;
     if (rt->failed) {

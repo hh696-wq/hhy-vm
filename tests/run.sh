@@ -19,6 +19,7 @@ export HHY_EXTENSION_HOME="$extension_test_home"
 mkdir -p tests/output
 
 sh tests/check-version.sh "$HHY_BIN"
+python3 tests/check-package-versions.py "$HHY_BIN"
 
 fail() {
     echo "test failure: $1" >&2
@@ -257,7 +258,7 @@ $HHY_BIN remove database >/dev/null
 $HHY_BIN remove html >/dev/null
 [ -z "$($HHY_BIN list)" ] || fail "removed extensions remain installed"
 case "$extension_list" in
-    *"database 0.2.0"*"Author"*"HHY Official"*"Protocol"*"1"*"Permissions"*) ;;
+    *"database 1.0.0-rc.1"*"Author"*"HHY Official"*"Protocol"*"1"*"Permissions"*) ;;
     *) fail "database extension was not listed: $extension_list" ;;
 esac
 case "$extension_list" in

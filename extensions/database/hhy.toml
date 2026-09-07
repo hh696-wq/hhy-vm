@@ -1,8 +1,8 @@
 [package]
 name = "database"
-version = "0.2.0"
+version = "1.0.0-rc.1"
 author = "HHY Official"
-requires_hhy = ">=1.1,<2.0"
+requires_hhy = ">=1.4.4,<2.0"
 
 [extension]
 kind = "process"
@@ -10,7 +10,7 @@ command = "bin/hhy-database"
 protocol = "1"
 
 [capabilities]
-read = []
+read = ["explicit-ca-files"]
 write = []
-network = ["127.0.0.1:5432", "127.0.0.1:3306"]
+network = ["explicit-data-source-endpoints", "loopback-database-urls"]
 process = false

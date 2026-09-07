@@ -69,7 +69,7 @@ build/release/%.o: src/%.c
 	@mkdir -p build/release
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-build/release/main.o: VERSION
+$(OBJECTS): VERSION
 
 SANITIZERS ?= address,undefined
 DEBUG_CFLAGS := -std=c11 -Wall -Wextra -Wpedantic -Werror -O0 -g3 -fsanitize=$(SANITIZERS)
@@ -82,7 +82,7 @@ build/debug/%.o: src/%.c
 	@mkdir -p build/debug
 	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-build/debug/main.o: VERSION
+$(DEBUG_OBJECTS): VERSION
 
 debug: $(DEBUG_TARGET)
 
@@ -185,7 +185,8 @@ dist:
 	cp extensions/README.md build/$(PACKAGE)/extensions/
 	cp extensions/sample/hhy.toml extensions/sample/bin/hhy-sample build/$(PACKAGE)/extensions/sample/
 	mv build/$(PACKAGE)/extensions/sample/hhy-sample build/$(PACKAGE)/extensions/sample/bin/
-	cp extensions/database/hhy.toml extensions/database/bin/hhy-database build/$(PACKAGE)/extensions/database/
+	cp extensions/database/hhy.toml extensions/database/README.md extensions/database/CHANGELOG.md extensions/database/bin/hhy-database build/$(PACKAGE)/extensions/database/
+	cp LICENSE NOTICE build/$(PACKAGE)/extensions/database/
 	mv build/$(PACKAGE)/extensions/database/hhy-database build/$(PACKAGE)/extensions/database/bin/
 	cp extensions/html/hhy.toml extensions/html/bin/hhy-html build/$(PACKAGE)/extensions/html/
 	mv build/$(PACKAGE)/extensions/html/hhy-html build/$(PACKAGE)/extensions/html/bin/

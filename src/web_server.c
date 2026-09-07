@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "hhy/web_server.h"
+#include "hhy/extensions.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -276,8 +277,13 @@ static void handle_client(int socket_fd, const char *remote_address,
         .body = (unsigned char *)buffer + header_bytes, .body_length = body_length
     };
     HhyWebServerResponse response = {0};
+    unsigned long long extension_scope = hhy_extensions_scope_begin();
+    hhy_extensions_client_socket(socket_fd);
     if (!handler(context, &request, &response)) send_simple(socket_fd, 500, "Internal Server Error\n");
     else write_response(socket_fd, &response);
+    hhy_extensions_client_socket(-1);
+    if (response.finish_request != NULL) response.finish_request(response.finish_context);
+    hhy_extensions_scope_end(extension_scope);
 done:
     free(headers); free(buffer);
 }

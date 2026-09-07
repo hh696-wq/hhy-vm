@@ -32,6 +32,8 @@ typedef struct {
     bool (*next_chunk)(void *context, const unsigned char **data, size_t *length);
     void (*close_stream)(void *context);
     void *stream_context;
+    void (*finish_request)(void *context);
+    void *finish_context;
 } HhyWebServerResponse;
 
 typedef struct {

@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700
 #include "hhy/package.h"
+#include "hhy/common.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -84,6 +85,51 @@ static bool read_manifest(const char *path, Manifest *manifest) {
         strcmp(manifest->protocol, "1") == 0 && manifest->command[0] != '\0' &&
         strncmp(manifest->command, "bin/", 4) == 0 &&
         strchr(manifest->command + 4, '/') == NULL && strstr(manifest->command, "..") == NULL;
+}
+
+/* Numeric release ranges: comma-separated <, <=, =, >= and > clauses.
+ * Missing minor/patch components mean zero; reject unsupported syntax. */
+static bool release_version(const char **cursor, unsigned parts[3]) {
+    const char *p = *cursor;
+    for (int i = 0; i < 3; i++) {
+        parts[i] = 0;
+        if (*p < '0' || *p > '9') return false;
+        do {
+            if (parts[i] > 100000) return false;
+            parts[i] = parts[i] * 10 + (unsigned)(*p++ - '0');
+        } while (*p >= '0' && *p <= '9');
+        if (*p != '.') {
+            while (++i < 3) parts[i] = 0;
+            *cursor = p;
+            return true;
+        }
+        p++;
+    }
+    return false;
+}
+
+static bool compatible_release(const char *range) {
+    unsigned current[3]; const char *runtime = HHY_VERSION;
+    if (!release_version(&runtime, current) || *runtime) return false;
+    const char *p = range;
+    do {
+        while (*p == ' ' || *p == '\t') p++;
+        char op = '='; bool inclusive = false;
+        if (*p == '<' || *p == '>' || *p == '=') op = *p++;
+        if (*p == '=' && op != '=') inclusive = true, p++;
+        while (*p == ' ' || *p == '\t') p++;
+        unsigned required[3];
+        if (!release_version(&p, required)) return false;
+        int cmp = 0;
+        for (int i = 0; i < 3 && !cmp; i++)
+            cmp = current[i] > required[i] ? 1 : current[i] < required[i] ? -1 : 0;
+        if (op == '=' ? cmp != 0 : op == '<' ? !(cmp < 0 || (inclusive && !cmp)) :
+            !(cmp > 0 || (inclusive && !cmp))) return false;
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p) return true;
+        if (*p++ != ',') return false;
+    } while (*p);
+    return false;
 }
 
 static bool make_directory(const char *path) {
@@ -227,7 +273,7 @@ int hhy_package_install(const char *source, const HhyPackageInstallOptions *opti
     if (manifest.author[0] == '\0') {
         fputs("hhy: extension manifest requires package.author\n", stderr); return 3;
     }
-    if (strncmp(manifest.requires_hhy, ">=1.1", 5) != 0) {
+    if (!compatible_release(manifest.requires_hhy)) {
         fputs("hhy: extension requires an incompatible HHY version\n", stderr); return 3;
     }
     if (snprintf(executable, sizeof(executable), "%s/%s", resolved, manifest.command) >= (int)sizeof(executable) ||

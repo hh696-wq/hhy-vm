@@ -18,6 +18,8 @@ permissions:
   contents: read
 
 jobs:
+  database-acceptance:
+    uses: ./.github/workflows/database.yml
   build:
     name: Build ${{ matrix.package }}
     strategy:
@@ -107,6 +109,15 @@ jobs:
             "$verify_dir"/hhy-*/extensions/html
           HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'sample 0.1.0'
           HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy list | grep 'html 0.2.0'
+
+      - name: Verify relocated database extension
+        shell: bash
+        run: |
+          verify_dir=$(mktemp -d)
+          tar -xzf dist/*.tar.gz -C "$verify_dir"
+          extension_home="$verify_dir/database-home"
+          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy install --yes "$verify_dir"/hhy-*/extensions/database
+          HHY_EXTENSION_HOME="$extension_home" "$verify_dir"/hhy-*/bin/hhy run tests/valid/extension-database-error.hhy
 
       - name: Attest release archives
         uses: actions/attest@v4
@@ -223,7 +234,7 @@ jobs:
 
   publish:
     name: Publish GitHub Release
-    needs: [build, build-windows]
+    needs: [build, build-windows, database-acceptance]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -274,4 +285,27 @@ jobs:
             gh release edit "$RELEASE_TAG" --draft=false --prerelease
           else
             gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi
+
+      - name: Package independent database release
+        run: python3 scripts/package-database-release.py release-assets database-release-assets
+
+      - name: Publish independently versioned database package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          database_version=$(python3 -c 'import tomllib; print(tomllib.load(open("extensions/database/hhy.toml", "rb"))["package"]["version"])')
+          database_tag="database-v$database_version"
+          if gh release view "$database_tag" >/dev/null 2>&1; then
+            existing_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$database_tag" --jq .object.sha)
+            test "$existing_sha" = "$GITHUB_SHA"
+            gh release upload "$database_tag" database-release-assets/* --clobber
+          else
+            gh release create "$database_tag" database-release-assets/* --target "$GITHUB_SHA" --draft --latest=false --title "HHY Database $database_version" --notes-file extensions/database/RELEASE_NOTES.md
+          fi
+          if [[ "$database_version" == *-* ]]; then
+            gh release edit "$database_tag" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$database_tag" --draft=false --latest=false
           fi
