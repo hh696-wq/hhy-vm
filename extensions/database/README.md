@@ -1,7 +1,7 @@
 # HHY Database 1.0
 
 MySQL and PostgreSQL access for HHY CLI scripts and persistent Web workers. Requires
-HHY **1.4.4 or later** for scoped resources, transaction callbacks, native binary
+HHY **1.5.0 or later** for scoped resources, transaction callbacks, native binary
 values, cancellation and database Streams. The extension is independently
 versioned; see `hhy.toml` and `CHANGELOG.md` for the exact release status.
 

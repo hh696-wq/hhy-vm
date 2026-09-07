@@ -53,7 +53,12 @@ static bool identity(json_t *m) {
     const char *id = json_string_value(json_object_get(m, "request_id")),
                *ext = json_string_value(json_object_get(m, "extension_id")),
                *v = json_string_value(json_object_get(m, "protocol_version"));
-    return id && strlen(id) < 96 && ext && !strcmp(ext, "database") && v && !strcmp(v, "1.0");
+    return id && *id && strlen(id) < 96 &&
+           strlen(id) == json_string_length(json_object_get(m, "request_id")) &&
+           ext && !strcmp(ext, "database") &&
+           json_string_length(json_object_get(m, "extension_id")) == 8 &&
+           v && !strcmp(v, "1.0") &&
+           json_string_length(json_object_get(m, "protocol_version")) == 3;
 }
 static void error_response(const char *id, DbError *e) {
     json_t *m = envelope("error", id);
@@ -83,6 +88,7 @@ static void *worker(void *unused) {
         head = (head + 1) % QUEUE;
         queued--;
         active++;
+        db_operation_begin(json_string_value(json_object_get(m, "request_id")));
         pthread_mutex_unlock(&queue_mutex);
         const char *id = json_string_value(json_object_get(m, "request_id")),
                    *name = json_string_value(json_object_get(m, "callable")),
@@ -92,7 +98,6 @@ static void *worker(void *unused) {
         if (!scope)
             scope = "legacy";
         uint64_t began = db_now();
-        db_operation_begin(id);
         if (json_is_true(json_object_get(m, "_cancelled")))
             db_error(&e, "DB_CANCELLED", "queued database operation cancelled");
         else if (!name || strlen(scope) >= 96)
@@ -209,8 +214,8 @@ int main(int argc, char **argv) {
         if (type && !strcmp(type, "cancel")) {
             const char *target = json_string_value(json_object_get(m, "target"));
             if (target) {
-                db_cancel(target);
                 pthread_mutex_lock(&queue_mutex);
+                db_cancel(target);
                 for (unsigned i = 0; i < queued; i++) {
                     json_t *item = queue[(head + i) % QUEUE];
                     const char *queued_id = json_string_value(json_object_get(item, "request_id"));
@@ -252,8 +257,8 @@ int main(int argc, char **argv) {
         pthread_cond_signal(&work);
         pthread_mutex_unlock(&queue_mutex);
     }
-    db_cancel(NULL);
     pthread_mutex_lock(&queue_mutex);
+    db_cancel(NULL);
     for (unsigned i = 0; i < queued; i++)
         json_object_set_new(queue[(head + i) % QUEUE], "_cancelled", json_true());
     stopping = true;

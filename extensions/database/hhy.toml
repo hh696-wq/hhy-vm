@@ -2,7 +2,7 @@
 name = "database"
 version = "1.0.0-rc.1"
 author = "HHY Official"
-requires_hhy = ">=1.4.4,<2.0"
+requires_hhy = ">=1.5.0,<2.0"
 
 [extension]
 kind = "process"

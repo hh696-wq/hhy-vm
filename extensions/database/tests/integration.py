@@ -7,7 +7,7 @@ class Client:
     def __init__(self, binary):
         self.p = subprocess.Popen([str(binary), '--protocol', '1'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
         self.seq = 0
-        self.send({'type':'handshake','request_id':'handshake','runtime_version':'1.4.4'})
+        self.send({'type':'handshake','request_id':'handshake','runtime_version':'1.5.0'})
         assert self.read()['type']=='handshake_result'
         assert self.read()['type']=='register'
     def send(self, value):

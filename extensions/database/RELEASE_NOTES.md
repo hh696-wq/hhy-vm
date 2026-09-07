@@ -5,7 +5,7 @@ TLS identity verification, bounded connection pools, scoped read/write transacti
 savepoints, reusable statements, batch writes, incremental cursors, typed/binary
 values, MySQL multiple results and operational metrics.
 
-Requires HHY 1.4.4 or later. The accompanying Runtime adds transaction callbacks,
+Requires HHY 1.5.0 or later. The accompanying Runtime adds transaction callbacks,
 lazy database Streams, Duration/BytesBuffer conversion, request-scope cleanup,
 cancellation and fork-safe extension processes.
 

@@ -1,4 +1,4 @@
-# HHY 1.4.4 — Database host integration
+# HHY 1.5.0 — Database host integration
 
 This runtime maintenance release accompanies the independently versioned database
 extension 1.0. It adds scoped extension resources, fork-safe process restart,

@@ -8,7 +8,7 @@
   statements, batch execution, incremental cursors and MySQL result chains.
 - Add exact scalar/decimal/binary results, column metadata, duplicate-column handling,
   generated IDs, parameter/row/field/message budgets and operation metrics.
-- Add cancellation, resource leases, request cleanup and HHY 1.4.4 host integration
+- Add cancellation, resource leases, request cleanup and HHY 1.5.0 host integration
   for transaction callbacks, Duration/BytesBuffer values, lazy Streams and prefork isolation.
 - Add MySQL/PostgreSQL integration, TLS negative cases, protocol, sanitizer, streaming
   and Web resource tests. RDS test configuration is deferred by the project owner.
