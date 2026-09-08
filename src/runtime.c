@@ -5,6 +5,7 @@
 #include "hhy/embed.h"
 #include "bytecode_runtime.h"
 #include "runtime_ownership.h"
+#include "runtime_unwind.h"
 #include "hhy/contracts.h"
 #include "hhy/extensions.h"
 #include "hhy/parser.h"
@@ -312,7 +313,8 @@ static void runtime_value_error(Runtime *rt, const HhyNode *node, const char *me
 
 static Value bytes_buffer_value(Runtime *rt, const void *data, size_t length);
 static bool database_value_context(Runtime *rt) {
-    return rt->current_contract != NULL && strncmp(rt->current_contract->name, "database.", 9) == 0;
+    return rt != NULL && rt->current_contract != NULL &&
+        strncmp(rt->current_contract->name, "database.", 9) == 0;
 }
 static json_t *value_to_protocol_json(Runtime *rt, const HhyNode *site, Value value) {
     if (database_value_context(rt) && value.kind == V_DURATION) {
@@ -364,7 +366,7 @@ static json_t *value_to_protocol_json(Runtime *rt, const HhyNode *site, Value va
             return object;
         }
         default:
-            runtime_type_error(rt, site, "extension arguments must be protocol-serializable values");
+            if (rt != NULL) runtime_type_error(rt, site, "extension arguments must be protocol-serializable values");
             return NULL;
     }
 }
@@ -3123,15 +3125,20 @@ static const char *require_path(Runtime *rt, const HhyNode *site, Value value) {
     return value.as.string;
 }
 
+static RuntimeCleanup *runtime_register_temporary(Runtime *rt, FILE *file, char *path);
+static void runtime_unregister_temporary(Runtime *rt, RuntimeCleanup *cleanup);
+
 static Value read_text_file(Runtime *rt, const HhyNode *site, const char *path) {
     FILE *file = runtime_fopen(rt, site, path, "rb");
     if (file == NULL) { if (!rt->failed) runtime_io_error(rt, site, "cannot open file for reading"); return null_value(); }
     if (fseek(file, 0, SEEK_END) != 0) { runtime_fclose(rt, file); runtime_io_error(rt, site, "cannot seek file"); return null_value(); }
     long length = ftell(file);
     if (length < 0 || fseek(file, 0, SEEK_SET) != 0) { runtime_fclose(rt, file); runtime_io_error(rt, site, "cannot read file size"); return null_value(); }
+    RuntimeCleanup *cleanup = runtime_register_temporary(rt, file, NULL);
     char *text = rt_alloc(rt, (size_t)length + 1);
     size_t read = fread(text, 1, (size_t)length, file);
     bool failed = ferror(file) != 0;
+    runtime_unregister_temporary(rt, cleanup);
     runtime_fclose(rt, file);
     if (failed || read != (size_t)length) { runtime_io_error(rt, site, "cannot read complete file"); return null_value(); }
     text[read] = '\0';
@@ -3152,9 +3159,12 @@ static Value read_bytes_file(Runtime *rt, const HhyNode *site, const char *path)
         runtime_fclose(rt, file); runtime_error_kind(rt, site, "ResourceLimitError", "HHY_FILE_SIZE",
                                         "binary file exceeds 256 MiB limit"); return null_value();
     }
+    RuntimeCleanup *cleanup = runtime_register_temporary(rt, file, NULL);
     Value value = bytes_buffer_value(rt, NULL, (size_t)length);
     size_t read = fread(value.as.bytes_buffer.data, 1, (size_t)length, file);
-    bool failed = ferror(file) != 0; runtime_fclose(rt, file);
+    bool failed = ferror(file) != 0;
+    runtime_unregister_temporary(rt, cleanup);
+    runtime_fclose(rt, file);
     if (failed || read != (size_t)length) { runtime_io_error(rt, site, "cannot read complete file"); return null_value(); }
     return value;
 }
@@ -5429,7 +5439,7 @@ static Value web_parse_query(Runtime *rt, const char *query) {
     return result;
 }
 
-static void web_request_cleanup(Runtime *rt, RuntimeCleanup *checkpoint) {
+static void runtime_cleanup_to(Runtime *rt, RuntimeCleanup *checkpoint) {
     while (rt->cleanups != checkpoint) {
         RuntimeCleanup *cleanup = rt->cleanups;
         rt->cleanups = cleanup->next;
@@ -5499,7 +5509,7 @@ static void request_streams_close(Runtime *rt, Stream *checkpoint) {
 static void web_request_finished(void *opaque) {
     WebRequestResources *resources = opaque;
     request_streams_close(resources->runtime, resources->checkpoint);
-    web_request_cleanup(resources->runtime, resources->cleanups);
+    runtime_cleanup_to(resources->runtime, resources->cleanups);
 }
 
 static bool web_handle_request(void *opaque, const HhyWebServerRequest *request,
@@ -8541,8 +8551,9 @@ struct HhyContext {
     HhyExecutionEngine engine;
 };
 
-static char *embed_json_dump(Value value, Runtime *rt, const HhyNode *site) {
-    json_t *json = value_to_protocol_json(rt, site, value);
+static char *embed_json_dump(Value value) {
+    /* NULL Runtime selects native-only conversion without error construction. */
+    json_t *json = value_to_protocol_json(NULL, NULL, value);
     if (json == NULL) return NULL;
     char *text = json_dumps(json, JSON_COMPACT | JSON_ENCODE_ANY);
     json_decref(json);
@@ -8612,20 +8623,22 @@ HhyContext *hhy_context_new_engine(HhyApplication *application,
     if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
         GC_free(rt); free(context); return NULL;
     }
+    const HhyBytecodeChunk *previous_chunk = hhy_active_bytecode_chunk;
+    hhy_active_bytecode_chunk = engine == HHY_ENGINE_BYTECODE
+        ? hhy_bytecode_runtime_chunk(application->bytecode) : NULL;
     rt->memory_jump_ready = true;
     if (setjmp(rt->memory_jump) == 0) {
         Env *global = runtime_core_environment(rt, application->program, 0, NULL);
         context->environment = env_new(rt, global);
         if (engine == HHY_ENGINE_BYTECODE) {
-            hhy_active_bytecode_chunk = hhy_bytecode_runtime_chunk(application->bytecode);
             bytecode_exec_active_program(rt, context->environment);
-            hhy_active_bytecode_chunk = NULL;
         } else exec_node(rt, context->environment, application->program);
         if (rt->signal == SIGNAL_RETURN) rt->signal = SIGNAL_NONE;
         if (rt->signal == SIGNAL_BREAK || rt->signal == SIGNAL_CONTINUE)
             runtime_check_error(rt, application->program, "loop control used outside a loop");
     }
     rt->memory_jump_ready = false;
+    hhy_active_bytecode_chunk = previous_chunk;
     if (rt->failed) {
         runtime_release(rt); curl_global_cleanup(); GC_free(rt); free(context);
         return NULL;
@@ -8640,6 +8653,45 @@ HhyContext *hhy_context_new_engine(HhyApplication *application,
     context->runtime = rt;
     context->engine = engine;
     return context;
+}
+
+typedef struct {
+    Runtime *runtime;
+    Stream *streams;
+    RuntimeCleanup *cleanups;
+    unsigned long long extension_scope;
+    const HhyBytecodeChunk *active_chunk;
+    const HhyCallableContract *contract;
+    bool effect_allowed;
+    size_t call_depth;
+    size_t call_stack_count;
+} RuntimeBoundaryCheckpoint;
+
+static void runtime_boundary_unwind_step(void *opaque, HhyUnwindAction action) {
+    const RuntimeBoundaryCheckpoint *checkpoint = opaque;
+    Runtime *rt = checkpoint->runtime;
+    switch (action) {
+        case HHY_UNWIND_STREAMS:
+            request_streams_close(rt, checkpoint->streams);
+            break;
+        case HHY_UNWIND_TEMPORARIES:
+            runtime_cleanup_to(rt, checkpoint->cleanups);
+            break;
+        case HHY_UNWIND_EXTENSION_SCOPE:
+            hhy_extensions_scope_end(checkpoint->extension_scope);
+            break;
+        case HHY_UNWIND_EXECUTION_STATE:
+            hhy_active_bytecode_chunk = checkpoint->active_chunk;
+            rt->current_contract = checkpoint->contract;
+            rt->effect_allowed = checkpoint->effect_allowed;
+            rt->call_depth = checkpoint->call_depth;
+            rt->call_stack_count = checkpoint->call_stack_count;
+            rt->signal = SIGNAL_NONE;
+            rt->signal_value = null_value();
+            break;
+        case HHY_UNWIND_ACTION_COUNT:
+            abort(); /* The table verifier excludes this sentinel. */
+    }
 }
 
 HhyEmbedResult hhy_context_call_json(HhyContext *volatile context,
@@ -8664,35 +8716,43 @@ HhyEmbedResult hhy_context_call_json(HhyContext *volatile context,
         return output;
     }
     size_t argc = json_is_array(input) ? json_array_size(input) : 1;
-    Value *argv = argc == 0 ? NULL : rt_alloc(rt, argc * sizeof(*argv));
-    for (size_t i = 0; i < argc; i++)
-        argv[i] = protocol_json_to_value(rt, site, json_is_array(input) ? json_array_get(input, i) : input);
-    json_decref(input);
     rt->failed = false; rt->exit_code = 0; rt->signal = SIGNAL_NONE;
     rt->cancelled = false; rt->call_depth = 0; rt->call_stack_count = 0;
     clock_gettime(CLOCK_MONOTONIC, &rt->started_at);
     Value result = null_value();
+    const RuntimeBoundaryCheckpoint checkpoint = {
+        .runtime = rt, .streams = rt->streams, .cleanups = rt->cleanups,
+        .extension_scope = hhy_extensions_scope_begin(),
+        .active_chunk = hhy_active_bytecode_chunk, .contract = rt->current_contract,
+        .effect_allowed = rt->effect_allowed, .call_depth = rt->call_depth,
+        .call_stack_count = rt->call_stack_count
+    };
     rt->memory_jump_ready = true;
-    if (context->engine == HHY_ENGINE_BYTECODE)
-        hhy_active_bytecode_chunk = hhy_bytecode_runtime_chunk(context->application->bytecode);
-    unsigned long long extension_scope = hhy_extensions_scope_begin();
-    Stream *stream_checkpoint = rt->streams;
-    if (setjmp(rt->memory_jump) == 0)
-        result = call_value(rt, context->environment, site, binding->value, argc, argv);
-    request_streams_close(rt, stream_checkpoint);
-    hhy_extensions_scope_end(extension_scope);
-    hhy_active_bytecode_chunk = NULL;
+    hhy_active_bytecode_chunk = context->engine == HHY_ENGINE_BYTECODE
+        ? hhy_bytecode_runtime_chunk(context->application->bytecode) : NULL;
+    if (setjmp(rt->memory_jump) == 0) {
+        if (argc > SIZE_MAX / sizeof(Value)) runtime_memory_limit(rt);
+        Value *argv = argc == 0 ? NULL : rt_alloc(rt, argc * sizeof(*argv));
+        for (size_t i = 0; i < argc && !rt->failed; i++)
+            argv[i] = protocol_json_to_value(rt, site,
+                json_is_array(input) ? json_array_get(input, i) : input);
+        if (!rt->failed)
+            result = call_value(rt, context->environment, site, binding->value, argc, argv);
+    }
     rt->memory_jump_ready = false;
+    if (!hhy_runtime_unwind_apply(&hhy_runtime_boundary_unwind,
+                                  (void *)&checkpoint, runtime_boundary_unwind_step)) abort();
+    json_decref(input);
     if (rt->failed) {
         output.exit_code = rt->exit_code == 0 ? 1 : rt->exit_code;
-        output.error_json = embed_json_dump(rt->error_value, rt, site);
+        output.error_json = embed_json_dump(rt->error_value);
         if (output.error_json == NULL) {
             const char *message = "{\"kind\":\"RuntimeError\"}";
             output.error_json = hhy_strndup(message, strlen(message));
         }
         return output;
     }
-    output.json = embed_json_dump(result, rt, site);
+    output.json = embed_json_dump(result);
     output.ok = output.json != NULL;
     output.exit_code = output.ok ? 0 : 1;
     if (!output.ok) {

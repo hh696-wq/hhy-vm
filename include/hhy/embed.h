@@ -25,7 +25,12 @@ HhyContext *hhy_context_new_engine(HhyApplication *application,
                                    const HhyRuntimeLimits *limits,
                                    HhyExecutionEngine engine);
 
-/* Call a top-level function repeatedly through a JSON array/object boundary. */
+/* Call a top-level function repeatedly through a JSON array/object boundary.
+   Managed-memory quota failures during argument conversion or execution return
+   an error result. Call-local streams and registered temporary files are cleaned
+   up before returning; the context can be called again after a runtime error.
+   This does not roll back application state or completed external side effects.
+   Release each result with hhy_embed_result_free. */
 HhyEmbedResult hhy_context_call_json(HhyContext *context,
                                      const char *function_name,
                                      const char *arguments_json);

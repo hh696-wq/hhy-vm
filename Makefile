@@ -106,10 +106,22 @@ build/hhy-dispatch-test: tests/dispatch_profile.c src/profiler.c src/bytecode.c 
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dispatch_profile.c src/profiler.c src/bytecode.c src/common.c -o $@
 
+build/hhy-unwind-test: tests/runtime_unwind.c src/runtime_unwind.c src/runtime_unwind.h
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc tests/runtime_unwind.c src/runtime_unwind.c -o $@
+
+build/hhy-embed-unwind-test: tests/embed_unwind.c $(LIB_OBJECTS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) tests/embed_unwind.c $(LIB_OBJECTS) $(LDLIBS) -o $@
+
+build/hhy-embed-unwind-debug: tests/embed_unwind.c $(filter-out build/debug/main.o,$(DEBUG_OBJECTS))
+	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) $(LDFLAGS) tests/embed_unwind.c $(filter-out build/debug/main.o,$(DEBUG_OBJECTS)) $(LDLIBS) -o $@
+
 embed-test: $(EMBED_TEST_TARGET)
 	$(EMBED_TEST_TARGET)
 
-test: $(TARGET) extensions bytecode-test embed-test build/hhy-dispatch-test
+test: $(TARGET) extensions bytecode-test embed-test build/hhy-dispatch-test build/hhy-unwind-test build/hhy-embed-unwind-test
+	build/hhy-unwind-test
+	python3 tests/check-embed-unwind.py
 	python3 tests/check-dispatch-boundaries.py build/hhy-dispatch-test
 	sh tests/run.sh $(TARGET)
 
@@ -119,7 +131,8 @@ test-bytecode: $(TARGET) extensions bytecode-test
 workload-test: $(TARGET) extensions
 	python3 scripts/run-bytecode-workloads.py --binary $(TARGET)
 
-test-debug: $(DEBUG_TARGET) extensions bytecode-test
+test-debug: $(DEBUG_TARGET) extensions bytecode-test build/hhy-embed-unwind-debug
+	python3 tests/check-embed-unwind.py --binary build/hhy-embed-unwind-debug --output build/embed-unwind-debug.json
 	HHY_SKIP_GC_STRESS=1 sh tests/run.sh $(DEBUG_TARGET)
 
 benchmark: $(TARGET)

@@ -1,0 +1,14 @@
+export fn echo(value) { return value }
+export fn add(left, right) { return left + right }
+export fn text_file(source) { return read_text(path(source)) }
+export fn bytes_file(source) { return read_bytes(path(source)) }
+export fn atomic_copy(source, target) {
+    return [path(source)]
+        |> stream
+        |> map { item -> read_text(item) }
+        |> save_text(path(target))
+}
+export fn unsupported() { return add }
+export fn thrown_function() { throw(add) }
+export fn recurse(value) { return recurse(value + 1) }
+export fn timed() { while true {} }
