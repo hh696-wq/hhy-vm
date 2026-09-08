@@ -209,9 +209,13 @@ CPU profiling samples process CPU time, so file, HTTP, and process waits are not
 v1.7.0 defaults to the Compiler/Verifier-validated Bytecode VM. Native Opcode dispatch, static slots, reusable call frames, and low-allocation closure fast paths reduce CPU cost; the AST Interpreter remains the permanent semantic oracle and explicit fallback.
 
 
-{% hint style="info" %}
-View the interactive diagram for this section on [hhylang.dev](https://hhylang.dev/en/learn/cli-reference).
-{% endhint %}
+Default: Source → AST → Bytecode Compiler → Verifier → VM.
+
+Optional compile-time path (off by default): AST → structured HIR → six passes, independently verified after each pass → Bytecode → Verifier. Integer MIR plans can be generated and independently verified with either compiler path.
+
+Runtime: parameter feedback → guard every entry → integer MIR specialization; not ready, unsupported or mismatched → generic Bytecode. Arithmetic failure restores original-operation error semantics. HHY_SCALAR_REPLACEMENT=1 separately enables local List scalar replacement while retaining GC/quota reservations.
+
+AST Interpreter remains the semantic oracle and explicit --engine ast fallback. HIR/MIR remain off by default; real workloads have not met admission gates.
 
 
 {% hint style="info" %}

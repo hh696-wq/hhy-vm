@@ -26,4 +26,4 @@
   * [23. HTML Extension and Crawler Framework](23-html-crawler-framework.md)
   * [24. Language and VM Evolution Roadmap](24-language-vm-roadmap.md)
   * [25. Editor Language Support](25-editor-support.md)
-  * [26. HHY Language Status Report · 2026-09-07](26-language-health-report.md)
+  * [26. HHY Language Status Report · 2026-09-08](26-language-health-report.md)

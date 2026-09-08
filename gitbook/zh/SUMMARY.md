@@ -26,4 +26,4 @@
   * [23. HTML 扩展与抓取框架](23-html-crawler-framework.md)
   * [24. 语言与 VM 演进路线图](24-language-vm-roadmap.md)
   * [25. 编辑器语言支持](25-editor-support.md)
-  * [26. HHY 语言状态报告 · 2026-09-07](26-language-health-report.md)
+  * [26. HHY 语言状态报告 · 2026-09-08](26-language-health-report.md)

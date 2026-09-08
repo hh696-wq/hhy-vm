@@ -210,9 +210,13 @@ CPU 使用进程 CPU 时间采样，文件、HTTP 和进程等待不会被误算
 v1.7.0 默认使用经 Compiler/Verifier 验证的 Bytecode VM。原生 Opcode dispatch、静态槽位、可复用调用帧和低分配 Closure 快路径降低 CPU 开销；AST Interpreter 永久保留为语义 oracle 与显式回退。
 
 
-{% hint style="info" %}
-本节的交互式图表请在 [hhylang.dev](https://hhylang.dev/zh/learn/cli-reference) 查看。
-{% endhint %}
+默认：Source → AST → Bytecode Compiler → Verifier → VM。
+
+可选编译期路径（默认关闭）：AST → 结构化 HIR → 六个 pass（每个 pass 后独立验证）→ Bytecode → Verifier。整数 MIR 计划可随任一编译路径生成并独立验证。
+
+运行时：参数类型反馈 → 每次入口 guard → 整数 MIR 特化；未稳定、不支持或失配 → 通用 Bytecode。算术失败恢复原操作的错误语义。HHY_SCALAR_REPLACEMENT=1 另行启用局部 List 标量替换，保留 GC/配额预约。
+
+AST Interpreter 永久作为语义 oracle 和 --engine ast 显式回退。HIR/MIR 默认关闭，真实负载收益尚未满足默认准入门槛。
 
 
 {% hint style="info" %}

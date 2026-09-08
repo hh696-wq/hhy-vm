@@ -1,4 +1,4 @@
-# 26. HHY Language Status Report · 2026-09-07
+# 26. HHY Language Status Report · 2026-09-08
 
 Published status of HHY semantics, Runtime, performance, and engineering quality with reproducible CI measurements.
 
