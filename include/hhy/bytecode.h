@@ -151,6 +151,8 @@ typedef struct {
 
 void hhy_bytecode_chunk_init(HhyBytecodeChunk *chunk);
 void hhy_bytecode_chunk_free(HhyBytecodeChunk *chunk);
+/* Baseline emitter, also used by the structured IR backend adapter. */
+HhyBytecodeResult hhy_bytecode_compile_direct(const HhyNode *program, HhyBytecodeChunk *chunk);
 HhyBytecodeResult hhy_bytecode_compile(const HhyNode *program, HhyBytecodeChunk *chunk);
 HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk);
 HhyBytecodeResult hhy_bytecode_prepare_execution(const HhyBytecodeChunk *chunk,

@@ -1,5 +1,6 @@
 #include "hhy/ast.h"
 #include "hhy/bytecode.h"
+#include "hhy/compiler.h"
 #include "hhy/common.h"
 #include "hhy/fuzz.h"
 #include "hhy/parser.h"
@@ -31,6 +32,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             HhyBytecodeResult compiled = hhy_bytecode_compile(program, &chunk);
             if (compiled.ok) (void)hhy_bytecode_verify(&chunk);
             hhy_bytecode_chunk_free(&chunk);
+            HhyCompilerIR ir = {0};
+            if (hhy_compiler_lower(program, &ir).ok) {
+                HhyCompilerReport report = {0};
+                HhyCompilerOptions options = {{true, true, true, true, true, true}};
+                if (!hhy_compiler_optimize(&ir, options, &report).ok) abort();
+                if (!hhy_compiler_emit(&ir, &chunk).ok) abort();
+                hhy_bytecode_chunk_free(&chunk);
+            }
+            hhy_compiler_ir_free(&ir);
         }
     }
     hhy_node_free(program); hhy_tokens_free(&tokens); free(text);

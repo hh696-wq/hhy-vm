@@ -1,5 +1,6 @@
 #include "hhy/bytecode.h"
 #include "hhy/common.h"
+#include "hhy/compiler.h"
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -436,7 +437,7 @@ static HhyBytecodeResult compile_node(const HhyNode *node, HhyBytecodeChunk *chu
     return result(true, chunk->count, NULL);
 }
 
-HhyBytecodeResult hhy_bytecode_compile(const HhyNode *program, HhyBytecodeChunk *chunk) {
+HhyBytecodeResult hhy_bytecode_compile_direct(const HhyNode *program, HhyBytecodeChunk *chunk) {
     if (chunk == NULL) return result(false, 0, "compiler received a null chunk");
     hhy_bytecode_chunk_free(chunk);
     HhyBytecodeResult compiled = compile_node(program, chunk, 0);
@@ -454,6 +455,19 @@ HhyBytecodeResult hhy_bytecode_compile(const HhyNode *program, HhyBytecodeChunk 
     HhyBytecodeResult exceptions = compile_exception_regions(chunk);
     if (!exceptions.ok) return exceptions;
     return hhy_bytecode_verify(chunk);
+}
+
+HhyBytecodeResult hhy_bytecode_compile(const HhyNode *program, HhyBytecodeChunk *chunk) {
+    const char *mode = getenv("HHY_COMPILER");
+    if (mode == NULL || strcmp(mode, "ir") != 0)
+        return hhy_bytecode_compile_direct(program, chunk);
+    HhyCompilerReport report = {0};
+    HhyBytecodeResult compiled = hhy_compiler_compile(program, chunk,
+        hhy_compiler_options(), &report);
+    const char *diagnostics = getenv("HHY_COMPILER_REPORT");
+    if (diagnostics != NULL && strcmp(diagnostics, "1") == 0)
+        hhy_compiler_report(&report, stderr);
+    return compiled;
 }
 
 static HhyBytecodeResult verify_node(const HhyBytecodeChunk *chunk, size_t *cursor,

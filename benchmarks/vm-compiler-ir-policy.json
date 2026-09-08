@@ -1,24 +1,174 @@
 {
-  "schema_version": 1,
-  "stage": "v1.7.0-research",
-  "status": "restricted_prototype_local_validation_complete",
-  "runtime_admitted": false,
-  "v1.7.0_complete": false,
-  "v1.7_complete": false,
-  "ir_layers": 1,
-  "ir_version": 1,
-  "block_limit": 1,
-  "instruction_limit": 256,
-  "types": ["I64"],
-  "operations": ["CONST", "ADD_CHECKED", "SUB_CHECKED", "MUL_CHECKED", "MOD_CHECKED", "NEG_CHECKED", "RETURN"],
-  "passes": {"closed_integer_folding": "prototype_only_explicit_cli_option"},
-  "exceptional_expression_policy": "preserve_original_ir",
-  "bytecode_backend": false,
-  "general_cfg_dominance_phi": false,
-  "constant_propagation_dce_peephole": false,
-  "feedback_specialization_escape_analysis": false,
-  "runtime_speedup_measured": false,
+  "schema_version": 2,
+  "stage": "v1.7.0-v1.7.3",
+  "status": "local_implementation_and_validation_complete_default_not_admitted",
+  "local_implementation_complete": true,
+  "local_validation_complete": true,
+  "default_admitted": false,
   "cross_platform_admitted": false,
-  "resource_cancellation_stack_equivalence": "not_proven_for_runtime_integration",
-  "production_compile_budget": null
+  "ir": {
+    "layers": 1,
+    "representation": "structured_memory_form",
+    "version": 1,
+    "whole_program": true,
+    "bytecode_backend": "owned_IR_backend_view_to_verified_structural_emitter",
+    "cfg": "statement_regions_with_callable_owners_loops_and_conservative_exception_edges",
+    "ssa_phi": false,
+    "jit": false,
+    "verification": [
+      "region_ownership_and_arity",
+      "type_and_effect_reconstruction",
+      "cfg_and_exception_edges",
+      "dominating_immutable_copy_origins",
+      "independently_reresolved_direct_slot_uses",
+      "bytecode_and_kernel_verifier"
+    ]
+  },
+  "selection": {
+    "enable": "HHY_COMPILER=ir",
+    "disable_all": "HHY_COMPILER_DISABLE=all",
+    "disable_individual": "HHY_COMPILER_DISABLE=comma,separated,pass,names",
+    "report": "HHY_COMPILER_REPORT=1",
+    "default": "direct_bytecode"
+  },
+  "passes": {
+    "fold": {
+      "implemented": true,
+      "independently_switchable": true,
+      "verify_after": true
+    },
+    "constant-propagation": {
+      "implemented": true,
+      "independently_switchable": true,
+      "verify_after": true
+    },
+    "copy-propagation": {
+      "implemented": true,
+      "independently_switchable": true,
+      "verify_after": true
+    },
+    "peephole": {
+      "implemented": true,
+      "independently_switchable": true,
+      "verify_after": true
+    },
+    "unreachable": {
+      "implemented": true,
+      "independently_switchable": true,
+      "verify_after": true
+    },
+    "dce": {
+      "implemented": true,
+      "independently_switchable": true,
+      "verify_after": true
+    }
+  },
+  "runtime_invariants": [
+    "preserve_declared_frame_capacities",
+    "preserve_executed_allocations_and_gc_roots",
+    "preserve_loop_safepoints",
+    "preserve_first_runtime_error",
+    "preserve_last_block_value",
+    "preserve_generic_dynamic_type_checks",
+    "preserve_call_source_attribution"
+  ],
+  "advanced": {
+    "call_target_feedback": "measured_stable_and_changing_sites",
+    "argument_type_feedback_available": false,
+    "new_speculative_specialization": false,
+    "specialization_decision": "retain_generic_pending_type_guard_lifetime_and_cross_platform_evidence",
+    "escape_analysis": "conservative_immediate_aggregate_use_and_capture_classification",
+    "allocation_elision": false,
+    "unboxing": false,
+    "escape_decision": "local_candidates_still_have_observable_allocation_quota_and_error_behavior",
+    "claims_no_benefit": false
+  },
+  "budgets": {
+    "hard_instruction_growth_ratio": 1.0,
+    "hard_logical_bytecode_storage_ratio": 1.0,
+    "on_size_growth": "whole_candidate_fallback_to_direct_bytecode",
+    "measured_compile_ns_max": "2 * direct + 500000",
+    "runtime_ratio_max": 0.95,
+    "managed_allocation_ratio_max": 1.01,
+    "apply_independently_per_platform_and_workload": true
+  },
+  "platform_evidence": {
+    "macos_arm64": "release_debug_asan_ubsan_fuzz_six_projects_and_paired_budgets_passed_with_runtime_admission_rejections",
+    "linux_arm64": "not_run",
+    "linux_x86_64": "not_run",
+    "windows": "not_run"
+  },
+  "release": {
+    "version_changed": false,
+    "actions_requested": false,
+    "tag_created": false,
+    "release_created": false
+  },
+  "validation": {
+    "execution_paths_per_build": 1668,
+    "pass_combinations": 64,
+    "combination_programs": 16,
+    "compile_fixtures": 104,
+    "typed_ir_mutations_per_build": 10000,
+    "fuzz_smoke_inputs": 1000,
+    "real_projects": 6,
+    "project_engines": [
+      "ast",
+      "ir_bytecode"
+    ],
+    "paired_samples_per_mode": 15,
+    "warmups_per_mode": 2
+  },
+  "local_budget_decisions": [
+    {
+      "workload": "constant-loop.hhy",
+      "runtime_ratio": 0.7422844042090412,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime_benefit": true,
+        "allocation": true
+      }
+    },
+    {
+      "workload": "propagation.hhy",
+      "runtime_ratio": 0.8686602555658016,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime_benefit": true,
+        "allocation": true
+      }
+    },
+    {
+      "workload": "core-flow.hhy",
+      "runtime_ratio": 1.0167664670658683,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime_benefit": false,
+        "allocation": true
+      }
+    },
+    {
+      "workload": "json-flow.hhy",
+      "runtime_ratio": 0.9846990757586784,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime_benefit": false,
+        "allocation": true
+      }
+    },
+    {
+      "workload": "call-closure.hhy",
+      "runtime_ratio": 1.0040991512345678,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime_benefit": false,
+        "allocation": true
+      }
+    }
+  ]
 }

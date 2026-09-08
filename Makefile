@@ -91,13 +91,13 @@ extensions:
 	$(MAKE) -C extensions/database
 	$(MAKE) -C extensions/html
 
-$(BYTECODE_TEST_TARGET): tests/bytecode_alpha.c src/bytecode.c src/common.c include/hhy/bytecode.h
+$(BYTECODE_TEST_TARGET): tests/bytecode_alpha.c src/bytecode.c src/compiler.c src/resolver.c src/common.c include/hhy/bytecode.h include/hhy/compiler.h
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/bytecode_alpha.c src/bytecode.c src/common.c -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/bytecode_alpha.c src/bytecode.c src/compiler.c src/resolver.c src/common.c -o $@
 
-build/hhy-exception-test: tests/exception_regions.c src/bytecode.c src/ast.c src/lexer.c src/parser.c src/common.c include/hhy/bytecode.h
+build/hhy-exception-test: tests/exception_regions.c src/bytecode.c src/compiler.c src/resolver.c src/ast.c src/lexer.c src/parser.c src/common.c include/hhy/bytecode.h include/hhy/compiler.h
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exception_regions.c src/bytecode.c src/ast.c src/lexer.c src/parser.c src/common.c -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exception_regions.c src/bytecode.c src/compiler.c src/resolver.c src/ast.c src/lexer.c src/parser.c src/common.c -o $@
 
 bytecode-test: $(BYTECODE_TEST_TARGET) build/hhy-exception-test
 	$(BYTECODE_TEST_TARGET)
@@ -107,9 +107,9 @@ $(EMBED_TEST_TARGET): tests/embed_runtime.c $(filter-out build/release/main.o,$(
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) tests/embed_runtime.c $(filter-out build/release/main.o,$(OBJECTS)) $(LDLIBS) -o $@
 
-build/hhy-dispatch-test: tests/dispatch_profile.c src/profiler.c src/runtime_lookup.c src/bytecode.c src/common.c include/hhy/profiler.h include/hhy/bytecode.h src/runtime_lookup.h
+build/hhy-dispatch-test: tests/dispatch_profile.c src/profiler.c src/runtime_lookup.c src/bytecode.c src/compiler.c src/resolver.c src/common.c include/hhy/profiler.h include/hhy/bytecode.h src/runtime_lookup.h include/hhy/compiler.h
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dispatch_profile.c src/profiler.c src/runtime_lookup.c src/bytecode.c src/common.c -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dispatch_profile.c src/profiler.c src/runtime_lookup.c src/bytecode.c src/compiler.c src/resolver.c src/common.c -o $@
 
 build/hhy-unwind-test: tests/runtime_unwind.c src/runtime_unwind.c src/runtime_unwind.h
 	@mkdir -p build
@@ -136,7 +136,10 @@ build/hhy-call-unwind-debug: tests/runtime_call_unwind.c $(filter-out build/debu
 embed-test: $(EMBED_TEST_TARGET)
 	$(EMBED_TEST_TARGET)
 
-test: $(TARGET) extensions bytecode-test embed-test build/hhy-dispatch-test build/hhy-unwind-test build/hhy-embed-unwind-test build/hhy-file-unwind-test build/hhy-call-unwind-test
+test: build/hhy-compiler-test $(TARGET) extensions bytecode-test embed-test build/hhy-dispatch-test build/hhy-unwind-test build/hhy-embed-unwind-test build/hhy-file-unwind-test build/hhy-call-unwind-test
+	build/hhy-compiler-test
+	python3 tests/check-compiler-program.py $(TARGET)
+	python3 tests/check-compiler-observability.py $(TARGET)
 	build/hhy-unwind-test
 	HHY_CALL_FRAME_UNWIND=1 build/hhy-call-unwind-test ast
 	HHY_CALL_FRAME_UNWIND=1 build/hhy-call-unwind-test bytecode
@@ -151,7 +154,10 @@ test-bytecode: $(TARGET) extensions bytecode-test
 workload-test: $(TARGET) extensions
 	python3 scripts/run-bytecode-workloads.py --binary $(TARGET)
 
-test-debug: $(DEBUG_TARGET) extensions bytecode-test build/hhy-embed-unwind-debug build/hhy-file-unwind-debug build/hhy-call-unwind-debug
+test-debug: build/hhy-compiler-test-debug $(DEBUG_TARGET) extensions bytecode-test build/hhy-embed-unwind-debug build/hhy-file-unwind-debug build/hhy-call-unwind-debug
+	build/hhy-compiler-test-debug
+	python3 tests/check-compiler-program.py $(DEBUG_TARGET)
+	python3 tests/check-compiler-observability.py $(DEBUG_TARGET)
 	HHY_CALL_FRAME_UNWIND=1 build/hhy-call-unwind-debug ast
 	HHY_CALL_FRAME_UNWIND=1 build/hhy-call-unwind-debug bytecode
 	python3 tests/check-file-unwind.py --binary build/hhy-file-unwind-debug --output build/file-unwind-debug.json
@@ -285,3 +291,19 @@ build/hhy-ir-test-debug: tests/compiler_ir.c compiler/ir.c compiler/ir.h
 test-compiler-ir: $(TARGET) build/hhy-ir-probe build/hhy-ir-test
 	build/hhy-ir-test
 	python3 tests/check-compiler-ir.py
+
+COMPILER_TEST_SOURCES := src/compiler.c src/bytecode.c src/ast.c src/resolver.c src/lexer.c src/parser.c src/common.c
+build/hhy-compiler-probe: compiler/program_probe.c $(COMPILER_TEST_SOURCES) include/hhy/compiler.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) compiler/program_probe.c $(COMPILER_TEST_SOURCES) -o $@
+
+build/hhy-compiler-test: tests/compiler_program.c $(COMPILER_TEST_SOURCES) include/hhy/compiler.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/compiler_program.c $(COMPILER_TEST_SOURCES) -o $@
+
+build/hhy-compiler-test-debug: tests/compiler_program.c $(COMPILER_TEST_SOURCES) include/hhy/compiler.h
+	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) tests/compiler_program.c $(COMPILER_TEST_SOURCES) -o $@
+
+.PHONY: test-compiler
+test-compiler: $(TARGET) build/hhy-compiler-probe build/hhy-compiler-test
+	build/hhy-compiler-test
+	python3 tests/check-compiler-program.py $(TARGET)
+	python3 tests/check-compiler-observability.py $(TARGET)

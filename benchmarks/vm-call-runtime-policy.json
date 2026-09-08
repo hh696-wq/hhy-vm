@@ -22,6 +22,6 @@
     "call_state_unwind": "verified_table_over_registered_scanned_frames",
     "language_memory_error": "preserve_allocation_free_emergency_error_format",
     "v1.6.2": "local_evaluation_complete_default_not_admitted",
-    "v1.7": "restricted_ir_research_started_no_runtime_admission"
+    "v1.7": "whole_program_ir_implemented_default_admission_conditional"
   }
 }
