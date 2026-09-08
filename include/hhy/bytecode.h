@@ -103,7 +103,25 @@ typedef struct {
     uint32_t frame_capacity;
 } HhyBytecodeCallPlan;
 
+#define HHY_BYTECODE_EXCEPTION_VERSION 1u
+
+/* Half-open structural ranges; owner is PROGRAM, FN_DECL or CLOSURE.
+   parent_source denotes the enclosing protected region in the same function. */
 typedef struct {
+    uint32_t version;
+    uint32_t source_instruction;
+    uint32_t owner_instruction;
+    uint32_t parent_source;
+    uint32_t protected_begin;
+    uint32_t protected_end;
+    uint32_t catch_binding;
+    uint32_t handler_begin;
+    uint32_t handler_end;
+} HhyBytecodeExceptionRegion;
+
+typedef struct {
+    HhyBytecodeExceptionRegion *exception_regions;
+    size_t exception_region_count;
     HhyBytecodeCallPlan *call_plans;
     size_t call_plan_count;
     HhyInstruction *code;
@@ -145,6 +163,8 @@ const HhyStreamKernel *hhy_bytecode_stream_kernel(const HhyBytecodeChunk *chunk,
                                                   size_t source_instruction);
 const HhyBytecodeCallPlan *hhy_bytecode_call_plan(const HhyBytecodeChunk *chunk,
                                                  size_t source_instruction);
+const HhyBytecodeExceptionRegion *hhy_bytecode_exception_region(
+    const HhyBytecodeChunk *chunk, size_t source_instruction);
 bool hhy_bytecode_child(const HhyBytecodeChunk *chunk, size_t parent,
                         uint32_t child_index, size_t *child);
 

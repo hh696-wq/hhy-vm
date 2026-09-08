@@ -272,6 +272,7 @@ struct Runtime {
     jmp_buf memory_jump;
     bool memory_jump_ready;
     bool gc_stress;
+    bool exception_tables;
     size_t memory_baseline;
     size_t memory_check_budget;
     size_t memory_observed_local;
@@ -1197,6 +1198,13 @@ static BytecodeCursor bytecode_child_cursor(BytecodeCursor parent, uint32_t inde
     for (uint32_t current = 0; current < index; current++)
         child += parent.chunk->code[child].subtree_size;
     return (BytecodeCursor){.chunk = parent.chunk, .instruction = child};
+}
+
+static const HhyBytecodeExceptionRegion *bytecode_exception_plan(Runtime *rt, BytecodeCursor node) {
+    const HhyBytecodeExceptionRegion *plan = rt->exception_tables
+        ? hhy_bytecode_exception_region(node.chunk, node.instruction) : NULL;
+    if (rt->profiler != NULL) hhy_profiler_exception_layout(rt->profiler, plan != NULL);
+    return plan;
 }
 
 static Value decode_string(Runtime *rt, HhyToken token) {
@@ -7405,9 +7413,11 @@ static Value bytecode_eval(Runtime *rt, Env *env, BytecodeCursor node) {
             binding->value = bytecode_eval(rt, env, bytecode_child_cursor(node, 1)); return binding->value;
         }
         case HHY_OP_ATTEMPT: {
+            const HhyBytecodeExceptionRegion *plan = bytecode_exception_plan(rt, node);
             bool outer_failed = rt->failed; Value outer_error = rt->error_value; int outer_exit = rt->exit_code;
             rt->failed = false; rt->exit_code = 0;
-            Value result = bytecode_exec(rt, env, bytecode_child_cursor(node, 0));
+            Value result = bytecode_exec(rt, env, plan
+                ? (BytecodeCursor){node.chunk, plan->protected_begin} : bytecode_child_cursor(node, 0));
             bool failed = rt->failed; Value error = rt->error_value;
             rt->failed = outer_failed; rt->error_value = outer_error; rt->exit_code = outer_exit;
             Value map = {.kind = V_RESULT}; map.as.map = map_storage_new(rt, 3);
@@ -7584,13 +7594,17 @@ static Value bytecode_exec(Runtime *rt, Env *env, BytecodeCursor node) {
         case HHY_OP_BREAK: rt->signal = SIGNAL_BREAK; return null_value();
         case HHY_OP_CONTINUE: rt->signal = SIGNAL_CONTINUE; return null_value();
         case HHY_OP_TRY: {
-            Value result = bytecode_exec(rt, env, bytecode_child_cursor(node, 0));
+            const HhyBytecodeExceptionRegion *plan = bytecode_exception_plan(rt, node);
+            Value result = bytecode_exec(rt, env, plan
+                ? (BytecodeCursor){node.chunk, plan->protected_begin} : bytecode_child_cursor(node, 0));
             if (!rt->failed) return result;
             Value error = rt->error_value; rt->failed = false; rt->exit_code = 0;
             Env *catch_env = env_new_with_capacity(rt, env, 1);
-            HhyNode name = bytecode_site(bytecode_child_cursor(node, 1));
+            HhyNode name = bytecode_site(plan
+                ? (BytecodeCursor){node.chunk, plan->catch_binding} : bytecode_child_cursor(node, 1));
             env_define_token(rt, catch_env, &site, name.token, error, false);
-            return bytecode_exec(rt, catch_env, bytecode_child_cursor(node, 2));
+            return bytecode_exec(rt, catch_env, plan
+                ? (BytecodeCursor){node.chunk, plan->handler_begin} : bytecode_child_cursor(node, 2));
         }
         case HHY_OP_IMPORT_DECL:
             return bytecode_import_module(rt, env, node);
@@ -8099,6 +8113,8 @@ static Value import_module(Runtime *rt, Env *target, const HhyNode *node) {
 }
 
 static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc, char **argv) {
+    const char *exception_tables = getenv("HHY_BYTECODE_EXCEPTION_TABLES");
+    rt->exception_tables = exception_tables != NULL && strcmp(exception_tables, "1") == 0;
     Env *global = env_new(rt, NULL);
     rt->core = global;
     Value args = list_new(rt, (size_t)argc);

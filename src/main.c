@@ -292,6 +292,10 @@ static int process_file(const char *path, Command command, bool quiet_success,
                     json_object_set_new(metrics, "call_plans", json_integer((json_int_t)chunk.call_plan_count));
                     json_object_set_new(metrics, "call_plan_bytes", json_integer(
                         (json_int_t)(chunk.call_plan_count * sizeof(*chunk.call_plans))));
+                    json_object_set_new(metrics, "exception_table_version", json_integer(HHY_BYTECODE_EXCEPTION_VERSION));
+                    json_object_set_new(metrics, "exception_regions", json_integer((json_int_t)chunk.exception_region_count));
+                    json_object_set_new(metrics, "exception_table_bytes", json_integer(
+                        (json_int_t)(chunk.exception_region_count * sizeof(*chunk.exception_regions))));
                     json_dumpf(metrics, stdout, JSON_SORT_KEYS);
                     fputc('\n', stdout);
                     json_decref(metrics);

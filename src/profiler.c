@@ -48,6 +48,8 @@ typedef struct {
 } DispatchProfile;
 
 struct HhyProfiler {
+    uint64_t exception_layout_selected;
+    uint64_t exception_layout_generic;
     uint64_t call_layout_selected;
     uint64_t call_layout_generic;
     DispatchProfile *dispatch;
@@ -191,6 +193,12 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
 #endif
     }
     return profiler;
+}
+
+void hhy_profiler_exception_layout(HhyProfiler *profiler, bool selected) {
+    if (profiler == NULL) return;
+    if (selected) profiler->exception_layout_selected++;
+    else profiler->exception_layout_generic++;
 }
 
 void hhy_profiler_call_layout(HhyProfiler *profiler, bool selected) {
@@ -441,6 +449,9 @@ static void print_json(HhyProfiler *p, FILE *out) {
     fprintf(out, ",\n  \"call_layout\": {\"schema_version\": 1, \"plan_version\": %u, "
             "\"selected_calls\": %" PRIu64 ", \"generic_calls\": %" PRIu64 "}",
             HHY_BYTECODE_CALL_PLAN_VERSION, p->call_layout_selected, p->call_layout_generic);
+    fprintf(out, ",\n  \"exception_layout\": {\"schema_version\": 1, \"table_version\": %u, "
+            "\"selected_regions\": %" PRIu64 ", \"generic_regions\": %" PRIu64 "}",
+            HHY_BYTECODE_EXCEPTION_VERSION, p->exception_layout_selected, p->exception_layout_generic);
     print_dispatch_json(p, out);
     fputs("\n}\n", out);
 }

@@ -30,6 +30,7 @@ void hhy_bytecode_chunk_free(HhyBytecodeChunk *chunk) {
     free(chunk->code);
     free(chunk->stream_kernels);
     free(chunk->call_plans);
+    free(chunk->exception_regions);
     hhy_bytecode_chunk_init(chunk);
 }
 
@@ -170,6 +171,104 @@ static HhyBytecodeResult verify_call_plans(const HhyBytecodeChunk *chunk) {
             return result(false, p->source_instruction, "invalid call plan layout or version");
     }
     return result(true, 0, NULL);
+}
+
+const HhyBytecodeExceptionRegion *hhy_bytecode_exception_region(
+    const HhyBytecodeChunk *chunk, size_t source_instruction) {
+    if (chunk == NULL || chunk->exception_regions == NULL) return NULL;
+    size_t low = 0, high = chunk->exception_region_count;
+    while (low < high) {
+        size_t middle = low + (high - low) / 2;
+        if (chunk->exception_regions[middle].source_instruction < source_instruction)
+            low = middle + 1;
+        else high = middle;
+    }
+    return low < chunk->exception_region_count &&
+        chunk->exception_regions[low].source_instruction == source_instruction
+        ? &chunk->exception_regions[low] : NULL;
+}
+
+/* Reconstruct ownership and enclosing protection from the instruction tree.
+   A catch body is protected by its outer region, never by its own TRY.
+   Entering a function/closure starts a new dynamic exception scope. */
+static HhyBytecodeResult exception_walk(HhyBytecodeChunk *output,
+    const HhyBytecodeChunk *chunk, size_t source, uint32_t owner,
+    uint32_t parent, size_t *index) {
+    HhyInstruction node = chunk->code[source];
+    if (node.opcode == HHY_OP_FN_DECL || node.opcode == HHY_OP_CLOSURE) {
+        owner = (uint32_t)source;
+        parent = HHY_BYTECODE_NO_INSTRUCTION;
+    }
+    bool region = node.opcode == HHY_OP_TRY || node.opcode == HHY_OP_ATTEMPT;
+    if (region) {
+        bool attempt = node.opcode == HHY_OP_ATTEMPT;
+        if (node.child_count != (attempt ? 1u : 3u))
+            return result(false, source, "invalid exception region child count");
+        size_t body = source + 1;
+        size_t binding = body + chunk->code[body].subtree_size;
+        size_t handler = binding + 1;
+        if (!attempt && (handler >= chunk->count ||
+            chunk->code[body].opcode != HHY_OP_BLOCK ||
+            chunk->code[binding].opcode != HHY_OP_IDENTIFIER ||
+            chunk->code[binding].subtree_size != 1 ||
+            chunk->code[handler].opcode != HHY_OP_BLOCK))
+            return result(false, source, "invalid catch binding or handler");
+        HhyBytecodeExceptionRegion expected = {
+            .version = HHY_BYTECODE_EXCEPTION_VERSION,
+            .source_instruction = (uint32_t)source, .owner_instruction = owner,
+            .parent_source = parent, .protected_begin = (uint32_t)body,
+            .protected_end = (uint32_t)binding,
+            .catch_binding = attempt ? HHY_BYTECODE_NO_INSTRUCTION : (uint32_t)binding,
+            .handler_begin = attempt ? HHY_BYTECODE_NO_INSTRUCTION : (uint32_t)handler,
+            .handler_end = attempt ? HHY_BYTECODE_NO_INSTRUCTION : (uint32_t)(source + node.subtree_size)
+        };
+        if (output != NULL) output->exception_regions[*index] = expected;
+        else {
+            if (*index >= chunk->exception_region_count)
+                return result(false, source, "missing exception region");
+            const HhyBytecodeExceptionRegion *actual = &chunk->exception_regions[*index];
+            if (actual->version != expected.version ||
+                actual->source_instruction != expected.source_instruction ||
+                actual->owner_instruction != expected.owner_instruction ||
+                actual->parent_source != expected.parent_source ||
+                actual->protected_begin != expected.protected_begin ||
+                actual->protected_end != expected.protected_end ||
+                actual->catch_binding != expected.catch_binding ||
+                actual->handler_begin != expected.handler_begin ||
+                actual->handler_end != expected.handler_end)
+                return result(false, source, "invalid exception region layout, scope or version");
+        }
+        (*index)++;
+    }
+    size_t child = source + 1;
+    for (uint32_t i = 0; i < node.child_count; i++) {
+        HhyBytecodeResult checked = exception_walk(output, chunk, child, owner,
+            region && i == 0 ? (uint32_t)source : parent, index);
+        if (!checked.ok) return checked;
+        child += chunk->code[child].subtree_size;
+    }
+    return result(true, source, NULL);
+}
+
+static HhyBytecodeResult compile_exception_regions(HhyBytecodeChunk *chunk) {
+    for (size_t i = 0; i < chunk->count; i++)
+        if (chunk->code[i].opcode == HHY_OP_TRY || chunk->code[i].opcode == HHY_OP_ATTEMPT)
+            chunk->exception_region_count++;
+    if (chunk->exception_region_count)
+        chunk->exception_regions = hhy_alloc(chunk->exception_region_count * sizeof(*chunk->exception_regions));
+    size_t index = 0;
+    return exception_walk(chunk, chunk, 0, 0, HHY_BYTECODE_NO_INSTRUCTION, &index);
+}
+
+static HhyBytecodeResult verify_exception_regions(const HhyBytecodeChunk *chunk) {
+    if (chunk->exception_region_count > chunk->count ||
+        (chunk->exception_region_count && chunk->exception_regions == NULL))
+        return result(false, 0, "invalid exception region storage");
+    size_t index = 0;
+    HhyBytecodeResult checked = exception_walk(NULL, chunk, 0, 0, HHY_BYTECODE_NO_INSTRUCTION, &index);
+    if (!checked.ok) return checked;
+    return index == chunk->exception_region_count ? result(true, 0, NULL)
+        : result(false, 0, "unexpected exception region entries");
 }
 
 static HhyOpcode opcode_for_node(HhyNodeKind kind) {
@@ -352,6 +451,8 @@ HhyBytecodeResult hhy_bytecode_compile(const HhyNode *program, HhyBytecodeChunk 
         .subtree_size = 1, .line = line, .column = column
     };
     compile_call_plans(chunk);
+    HhyBytecodeResult exceptions = compile_exception_regions(chunk);
+    if (!exceptions.ok) return exceptions;
     return hhy_bytecode_verify(chunk);
 }
 
@@ -505,6 +606,8 @@ HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk) {
         return result(false, cursor, "root must be followed by a canonical HALT");
     if (cursor + 1 != chunk->count)
         return result(false, cursor + 1, "instructions follow HALT");
+    HhyBytecodeResult exceptions = verify_exception_regions(chunk);
+    if (!exceptions.ok) return exceptions;
     HhyBytecodeResult calls = verify_call_plans(chunk);
     if (!calls.ok) return calls;
     for (size_t i = 0; i < chunk->stream_kernel_count; i++) {
@@ -585,6 +688,15 @@ void hhy_bytecode_disassemble(const HhyBytecodeChunk *chunk, FILE *output) {
                 "first_body=%u bodies=%u frame_capacity=%u\n", p->source_instruction,
                 p->parameter_count, p->first_parameter, p->first_body, p->body_count,
                 p->frame_capacity);
+    }
+    fprintf(output, "exception_regions %zu version=%u\n", chunk->exception_region_count,
+            HHY_BYTECODE_EXCEPTION_VERSION);
+    for (size_t i = 0; i < chunk->exception_region_count; i++) {
+        const HhyBytecodeExceptionRegion *p = &chunk->exception_regions[i];
+        fprintf(output, "exception_region source=%u owner=%u parent=%u protected=[%u,%u) "
+                "binding=%u handler=[%u,%u)\n", p->source_instruction, p->owner_instruction,
+                p->parent_source, p->protected_begin, p->protected_end, p->catch_binding,
+                p->handler_begin, p->handler_end);
     }
     for (size_t i = 0; i < chunk->count; i++) {
         HhyInstruction instruction = chunk->code[i];

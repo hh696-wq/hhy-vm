@@ -288,6 +288,21 @@ Profiler 的 `call_layout` 记录 Bytecode 新旧路径调用次数（不含 bui
 此实验保留捕获、GC roots、递归上限与 stack trace；不消除尾调用、不改变 unwind 机制。
 默认启用仍需真实负载和跨平台收益证据。
 
+异常区域表实验同样默认关闭：
+
+```sh
+HHY_BYTECODE_EXCEPTION_TABLES=1 ./build/hhy run tests/valid/exception-regions.hhy
+HHY_BYTECODE_EXCEPTION_TABLES=1 ./build/hhy profile --format json --output exceptions.json tests/valid/exception-regions.hhy
+```
+
+Compiler 为 `try/catch` 和 `attempt` 生成 exception region v1，记录所属函数/闭包、
+保护区间、catch 绑定和处理器。Verifier 从指令树检查完整性、范围与嵌套归属；
+闭包不继承定义处的处理器，catch 内重新抛出由外层保护区处理。
+开关在 Runtime/Context 初始化时读取。Runtime 实验路径直接使用验证后的入口位置，设置 `HHY_BYTECODE_EXCEPTION_TABLES=0` 回退原路径。
+反汇编及 `bytecode --metrics` 展示区域数量/字节数，Profiler `exception_layout` 记录新旧路径次数。
+表不改变错误传播、GC roots、stack trace 或宿主内存配额跳转，不实现原生调用栈替换；
+默认启用仍需真实性能及跨平台证据。
+
 ## 进程扩展与签名 Registry
 
 本地开发安装仍会展示 capability，安装后和每次加载前都会

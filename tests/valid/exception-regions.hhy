@@ -1,0 +1,42 @@
+fn identity(ignored, callback) { return callback }
+fn fail(n) {
+    if n == 0 { throw("deep") }
+    return fail(n - 1)
+}
+fn returning() {
+    try { return 17 } catch err { return 0 }
+}
+try {
+    try { fail(3) } catch inner {
+        print(inner)
+        try { throw("rethrown") } catch relay { throw(relay) }
+    }
+} catch outer { print(outer) }
+fn make(seed) {
+    try {
+        return null |> identity { value ->
+            try { throw(seed + value) } catch err { err }
+        }
+    } catch err { return null }
+}
+let escaped = make(40)
+print(escaped(2))
+print(returning())
+let attempted = attempt { throw("attempted") }
+print(attempted.ok)
+print(attempted.error)
+for n in [1, 2, 3] {
+    try {
+        if n == 1 { continue }
+        if n == 3 { break }
+        print(n)
+    } catch err { print("unexpected") }
+}
+try {
+    let captured = "root-survives"
+    let callback = null |> identity { value ->
+        let ignored = range(0, 1000) |> stream |> collect
+        throw(captured)
+    }
+    callback(null)
+} catch err { print(err) }

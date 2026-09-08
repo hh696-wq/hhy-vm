@@ -95,8 +95,13 @@ $(BYTECODE_TEST_TARGET): tests/bytecode_alpha.c src/bytecode.c src/common.c incl
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/bytecode_alpha.c src/bytecode.c src/common.c -o $@
 
-bytecode-test: $(BYTECODE_TEST_TARGET)
+build/hhy-exception-test: tests/exception_regions.c src/bytecode.c src/ast.c src/lexer.c src/parser.c src/common.c include/hhy/bytecode.h
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/exception_regions.c src/bytecode.c src/ast.c src/lexer.c src/parser.c src/common.c -o $@
+
+bytecode-test: $(BYTECODE_TEST_TARGET) build/hhy-exception-test
 	$(BYTECODE_TEST_TARGET)
+	build/hhy-exception-test
 
 $(EMBED_TEST_TARGET): tests/embed_runtime.c $(filter-out build/release/main.o,$(OBJECTS))
 	@mkdir -p build

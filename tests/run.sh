@@ -30,6 +30,7 @@ sh tests/check-bytecode-specialization.sh "$HHY_BIN"
 python3 tests/check-bytecode-cache-governance.py "$HHY_BIN"
 python3 tests/check-dispatch-profile.py "$HHY_BIN"
 python3 tests/check-call-layout.py "$HHY_BIN"
+python3 tests/check-exception-regions.py "$HHY_BIN"
 
 process_snapshot_available=0
 socket_bind_available=0
@@ -69,6 +70,7 @@ if [ "${HHY_SKIP_GC_STRESS:-0}" != 1 ]; then
         tests/valid/advanced-flow.hhy \
         tests/valid/call-layout.hhy \
         tests/valid/call-unwind.hhy \
+        tests/valid/exception-regions.hhy \
         tests/valid/json-flow.hhy \
         tests/valid/csv-flow.hhy \
         tests/valid/gc-distinct-dynamic.hhy \

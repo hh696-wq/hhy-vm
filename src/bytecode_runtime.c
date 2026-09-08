@@ -37,6 +37,10 @@ HhyBytecodeResult hhy_bytecode_runtime_prepare(const HhyNode *program,
             if (prepared->chunk.call_plan_count > 0)
                 prepared->chunk.call_plans[0].first_body = UINT32_MAX;
             else result = boundary_error("call plan fault requires a callable");
+        } else if (strcmp(fault_injection, "invalid-exception-region") == 0) {
+            if (prepared->chunk.exception_region_count > 0)
+                prepared->chunk.exception_regions[0].protected_end = UINT32_MAX;
+            else result = boundary_error("exception region fault requires TRY or ATTEMPT");
         } else if (strcmp(fault_injection, "invalid-opcode") != 0 &&
                  strcmp(fault_injection, "missing-halt") != 0)
             result = boundary_error("unknown Bytecode fault injection");
