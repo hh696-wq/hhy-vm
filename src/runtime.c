@@ -244,6 +244,22 @@ typedef struct {
     uint32_t column;
 } RuntimeStackFrame;
 
+/* The native C stack still controls execution. These compact scanned records
+   retain call roots and restore Runtime state even when C returns are skipped. */
+typedef struct {
+    Env *environment;
+    Env *closure_root;
+    const HhyNode *target_root;
+    Value *arguments_root;
+    const HhyCallableContract *contract;
+    const HhySource *source;
+    size_t profiler_previous;
+    size_t call_depth;
+    uint32_t trace_count;
+    bool effect_allowed;
+} RuntimeCallFrame;
+_Static_assert(sizeof(RuntimeCallFrame) <= 72, "call records must remain compact");
+
 #define HHY_RUNTIME_STACK_TRACE_LIMIT 128u
 #define HHY_FRAME_POOL_BUCKETS 9u
 #define HHY_FRAME_POOL_MAX_COUNT 64u
@@ -260,6 +276,9 @@ struct Runtime {
     uint32_t error_line;
     uint32_t error_column;
     Env *core;
+    RuntimeCallFrame *call_frames;
+    size_t call_frame_count, call_frame_capacity;
+    bool registered_call_unwind;
     Env *free_call_frames;
     Env *frame_buckets[HHY_FRAME_POOL_BUCKETS];
     size_t retained_frames, retained_frame_bytes;
@@ -910,6 +929,11 @@ static size_t frame_gc_bytes(Env *env) {
         ? GC_size(env->items) : 0);
 }
 
+static void call_frame_attach(Runtime *rt, Env *env) {
+    if (rt->registered_call_unwind && rt->call_frame_count)
+        rt->call_frames[rt->call_frame_count - 1].environment = env;
+}
+
 static Env *call_frame_acquire(Runtime *rt, Env *parent, size_t capacity) {
     Env **link = &rt->free_call_frames;
     size_t probes = 0;
@@ -933,6 +957,7 @@ static Env *call_frame_acquire(Runtime *rt, Env *parent, size_t capacity) {
     Env *env = *link;
     if (env == NULL) {
         env = env_new_with_capacity(rt, parent, capacity);
+        call_frame_attach(rt, env);
         if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_ALLOCATED,
             rt->bounded_frame_pool, probes, rt->retained_frames, rt->retained_frame_bytes);
         return env;
@@ -945,12 +970,13 @@ static Env *call_frame_acquire(Runtime *rt, Env *parent, size_t capacity) {
     env->count = 0;
     env->escaped = false;
     env->free_next = NULL;
+    call_frame_attach(rt, env);
     if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_REUSED,
         rt->bounded_frame_pool, probes, rt->retained_frames, rt->retained_frame_bytes);
     return env;
 }
 
-static void call_frame_release(Runtime *rt, Env *env) {
+static void call_frame_recycle(Runtime *rt, Env *env) {
     if (env->escaped) {
         if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_ESCAPED,
             rt->bounded_frame_pool, 0, rt->retained_frames, rt->retained_frame_bytes);
@@ -976,6 +1002,76 @@ static void call_frame_release(Runtime *rt, Env *env) {
     }
     if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_CACHED,
         rt->bounded_frame_pool, 0, rt->retained_frames, rt->retained_frame_bytes);
+}
+
+static void call_frame_release(Runtime *rt, Env *env) {
+    if (rt->registered_call_unwind && rt->call_frame_count &&
+        rt->call_frames[rt->call_frame_count - 1].environment == env) return;
+    call_frame_recycle(rt, env);
+}
+
+static void runtime_call_unwind_step(void *opaque, HhyCallUnwindAction action) {
+    Runtime *rt = opaque;
+    RuntimeCallFrame *frame = &rt->call_frames[rt->call_frame_count - 1];
+    switch (action) {
+        case HHY_CALL_UNWIND_ENVIRONMENT:
+            if (frame->environment != NULL) call_frame_recycle(rt, frame->environment);
+            break;
+        case HHY_CALL_UNWIND_CONTRACT:
+            rt->current_contract = frame->contract;
+            rt->source = frame->source;
+            rt->effect_allowed = frame->effect_allowed;
+            break;
+        case HHY_CALL_UNWIND_DEPTH_TRACE:
+            rt->call_depth = frame->call_depth;
+            rt->call_stack_count = frame->trace_count;
+            break;
+        case HHY_CALL_UNWIND_PROFILER:
+            hhy_profiler_leave(rt->profiler, frame->profiler_previous);
+            break;
+        case HHY_CALL_UNWIND_ROOTS:
+            memset(frame, 0, sizeof(*frame));
+            break;
+        case HHY_CALL_UNWIND_ACTION_COUNT: abort();
+    }
+}
+
+static void runtime_call_unwind_to(Runtime *rt, size_t checkpoint, bool resource_jump) {
+    if (!rt->registered_call_unwind) return;
+    if (checkpoint > rt->call_frame_count) abort();
+    HhyCallUnwindEvent event = resource_jump ? HHY_CALL_RESOURCE :
+        rt->cancelled ? HHY_CALL_CANCEL : rt->failed ? HHY_CALL_ERROR : HHY_CALL_RETURN;
+    while (rt->call_frame_count > checkpoint) {
+        if (!hhy_call_unwind_apply(&hhy_runtime_call_unwind, rt, runtime_call_unwind_step)) abort();
+        rt->call_frame_count--;
+        if (rt->profiler != NULL) hhy_profiler_call_unwind(rt->profiler, event, true,
+            rt->call_frame_count, rt->call_frame_capacity * sizeof(*rt->call_frames));
+    }
+}
+
+static size_t runtime_call_frame_push(Runtime *rt, Value callee, Value *arguments) {
+    if (rt->call_frame_count == rt->call_frame_capacity) {
+        size_t capacity = rt->call_frame_capacity ? rt->call_frame_capacity * 2 : 8;
+        if (capacity < rt->call_frame_capacity || capacity > SIZE_MAX / sizeof(RuntimeCallFrame))
+            runtime_memory_limit(rt);
+        RuntimeCallFrame *frames = rt_alloc(rt, capacity * sizeof(*frames));
+        if (rt->call_frame_count) {
+            memcpy(frames, rt->call_frames, rt->call_frame_count * sizeof(*frames));
+            memset(rt->call_frames, 0, rt->call_frame_count * sizeof(*frames));
+        }
+        rt->call_frames = frames; rt->call_frame_capacity = capacity;
+    }
+    size_t index = rt->call_frame_count++;
+    rt->call_frames[index] = (RuntimeCallFrame){
+        .closure_root = callee.kind == V_FUNCTION ? callee.as.function.closure : NULL,
+        .target_root = callee.kind == V_FUNCTION ? callee.as.function.node : NULL,
+        .arguments_root = arguments, .contract = rt->current_contract, .source = rt->source,
+        .profiler_previous = SIZE_MAX, .call_depth = rt->call_depth,
+        .trace_count = (uint32_t)rt->call_stack_count, .effect_allowed = rt->effect_allowed
+    };
+    if (rt->profiler != NULL) hhy_profiler_call_unwind(rt->profiler, HHY_CALL_PUSH, true,
+        rt->call_frame_count, rt->call_frame_capacity * sizeof(*rt->call_frames));
+    return index;
 }
 
 static Binding *env_local_n(Env *env, const char *name, size_t name_length) {
@@ -7190,6 +7286,7 @@ static Value call_value_impl(Runtime *rt, Env *env, const HhyNode *site, Value c
 
 static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee,
                         size_t argc, Value *argv) {
+    size_t frame_index = rt->registered_call_unwind ? runtime_call_frame_push(rt, callee, argv) : 0;
     const char *name = callee.kind == V_FUNCTION ? callee.as.function.builtin : "<call>";
     size_t name_length = name == NULL ? 0 : strlen(name);
     const HhySource *source = rt->source;
@@ -7224,9 +7321,13 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
     };
     size_t previous = rt->profiler == NULL ? SIZE_MAX :
         hhy_profiler_enter_n(rt->profiler, name, name_length, path, line, column);
+    if (rt->registered_call_unwind) rt->call_frames[frame_index].profiler_previous = previous;
     Value result = call_value_impl(rt, env, site, callee, argc, argv);
-    hhy_profiler_leave(rt->profiler, previous);
-    if (pushed) rt->call_stack_count--;
+    if (rt->registered_call_unwind) runtime_call_unwind_to(rt, frame_index, false);
+    else {
+        hhy_profiler_leave(rt->profiler, previous);
+        if (pushed) rt->call_stack_count--;
+    }
     return result;
 }
 
@@ -8214,6 +8315,11 @@ static Value import_module(Runtime *rt, Env *target, const HhyNode *node) {
 }
 
 static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc, char **argv) {
+    const char *call_unwind = getenv("HHY_CALL_FRAME_UNWIND");
+    rt->registered_call_unwind = call_unwind != NULL && strcmp(call_unwind, "1") == 0;
+    if (!hhy_call_unwind_verify(&hhy_runtime_call_unwind)) abort();
+    if (rt->profiler != NULL) hhy_profiler_call_unwind(rt->profiler, HHY_CALL_CONFIGURED,
+        rt->registered_call_unwind, rt->call_frame_count, 0);
     const char *frame_pool = getenv("HHY_CALL_FRAME_POOL");
     rt->bounded_frame_pool = frame_pool != NULL && strcmp(frame_pool, "bounded") == 0;
     if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_CONFIGURED,
@@ -8543,6 +8649,7 @@ HhyRunResult hhy_profile_program(const HhySource *source, const HhyNode *program
         hhy_profiler_leave(rt->profiler, profile_previous);
     }
     rt->memory_jump_ready = false;
+    runtime_call_unwind_to(rt, 0, true);
     if (rt->failed) {
         fprintf(stderr, "%s:%u:%u: runtime error: ", source->path,
                 rt->error_line, rt->error_column);
@@ -8760,6 +8867,7 @@ HhyContext *hhy_context_new_engine(HhyApplication *application,
             runtime_check_error(rt, application->program, "loop control used outside a loop");
     }
     rt->memory_jump_ready = false;
+    runtime_call_unwind_to(rt, 0, true);
     hhy_active_bytecode_chunk = previous_chunk;
     if (rt->failed) {
         runtime_release(rt); curl_global_cleanup(); GC_free(rt); free(context);
@@ -8783,6 +8891,7 @@ typedef struct {
     RuntimeCleanup *cleanups;
     unsigned long long extension_scope;
     const HhyBytecodeChunk *active_chunk;
+    const HhySource *source;
     const HhyCallableContract *contract;
     bool effect_allowed;
     size_t call_depth;
@@ -8804,6 +8913,7 @@ static void runtime_boundary_unwind_step(void *opaque, HhyUnwindAction action) {
             break;
         case HHY_UNWIND_EXECUTION_STATE:
             hhy_active_bytecode_chunk = checkpoint->active_chunk;
+            rt->source = checkpoint->source;
             rt->current_contract = checkpoint->contract;
             rt->effect_allowed = checkpoint->effect_allowed;
             rt->call_depth = checkpoint->call_depth;
@@ -8845,7 +8955,7 @@ HhyEmbedResult hhy_context_call_json(HhyContext *volatile context,
     const RuntimeBoundaryCheckpoint checkpoint = {
         .runtime = rt, .streams = rt->streams, .cleanups = rt->cleanups,
         .extension_scope = hhy_extensions_scope_begin(),
-        .active_chunk = hhy_active_bytecode_chunk, .contract = rt->current_contract,
+        .active_chunk = hhy_active_bytecode_chunk, .source = rt->source, .contract = rt->current_contract,
         .effect_allowed = rt->effect_allowed, .call_depth = rt->call_depth,
         .call_stack_count = rt->call_stack_count
     };
@@ -8862,6 +8972,7 @@ HhyEmbedResult hhy_context_call_json(HhyContext *volatile context,
             result = call_value(rt, context->environment, site, binding->value, argc, argv);
     }
     rt->memory_jump_ready = false;
+    runtime_call_unwind_to(rt, 0, true);
     if (!hhy_runtime_unwind_apply(&hhy_runtime_boundary_unwind,
                                   (void *)&checkpoint, runtime_boundary_unwind_step)) abort();
     json_decref(input);

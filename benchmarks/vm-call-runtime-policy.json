@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "stage": "v1.6.1",
+  "scope": "local call, closure and unwind implementation and verification",
+  "tail_calls": "preserve_frames",
+  "closure_capture": "shared_lexical_environment",
+  "call_plan_version": 1,
+  "exception_region_version": 1,
+  "call_unwind_version": 1,
+  "trace_limit": 128,
+  "default_promotion": "not_admitted",
+  "cross_platform_performance_admission": false,
+  "defaults": {
+    "HHY_BYTECODE_CALL_PLANS": "0",
+    "HHY_BYTECODE_EXCEPTION_TABLES": "0",
+    "HHY_CALL_FRAME_POOL": "legacy",
+    "HHY_CALL_FRAME_UNWIND": "0"
+  },
+  "decisions": {
+    "flattened_upvalues": "retain_existing_model_until_capture_metadata_and_workload_evidence_exist",
+    "machine_stack": "retain_C_call_return_and_host_longjmp",
+    "call_state_unwind": "verified_table_over_registered_scanned_frames",
+    "language_memory_error": "preserve_allocation_free_emergency_error_format",
+    "v1.6.2": "separate_conditional_stage",
+    "v1.7": "not_started"
+  }
+}

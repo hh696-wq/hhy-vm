@@ -1,0 +1,18 @@
+export fn add(a, b) { return a + b }
+export fn exhaust(n) {
+    if n == 0 { return range(0, 1000000) |> stream |> collect }
+    return exhaust(n - 1)
+}
+export fn fail(n) {
+    if n == 0 { throw("failure") }
+    return fail(n - 1)
+}
+export fn recurse(n) { return recurse(n + 1) }
+export fn timed(n) {
+    if n == 0 { while true {} }
+    return timed(n - 1)
+}
+export fn import_failure() {
+    import { value } from "./lib/unwind-memory.hhy"
+    return value
+}

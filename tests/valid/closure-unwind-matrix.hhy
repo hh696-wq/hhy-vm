@@ -1,0 +1,28 @@
+fn identity(ignored, callback) { return callback }
+fn make(seed) {
+    let mut value = seed
+    let read = null |> identity { ignored -> value }
+    let add = null |> identity { delta -> value = value + delta; value }
+    return [read, add]
+}
+let a = make(10)
+let b = make(100)
+print(a[1](2))
+print(a[0](null))
+print(b[1](3))
+print(a[0](null))
+fn even(n, next) { if n == 0 { return true }
+ return next(n - 1, even) }
+fn odd(n, next) { if n == 0 { return false }
+ return next(n - 1, odd) }
+print(even(40, odd))
+print(odd(41, even))
+fn scoped(seed) {
+    let callback = null |> identity { value -> seed + value }
+    try { throw(callback) } catch caught { return caught }
+}
+let survived = scoped(40)
+let garbage = range(0, 10000) |> stream |> collect
+print(survived(2))
+fn delayed(seed) { return [1, 2, 3] |> stream |> map { value -> seed + value } }
+print(delayed(7) |> collect)

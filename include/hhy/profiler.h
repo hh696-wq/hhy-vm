@@ -42,6 +42,12 @@ typedef enum {
 } HhyFramePoolEvent;
 void hhy_profiler_frame_pool(HhyProfiler *profiler, HhyFramePoolEvent event,
     bool bounded, size_t probes, size_t retained, size_t retained_gc_bytes);
+typedef enum {
+    HHY_CALL_CONFIGURED, HHY_CALL_PUSH, HHY_CALL_RETURN, HHY_CALL_ERROR,
+    HHY_CALL_CANCEL, HHY_CALL_RESOURCE
+} HhyCallUnwindEvent;
+void hhy_profiler_call_unwind(HhyProfiler *profiler, HhyCallUnwindEvent event,
+    bool enabled, size_t active, size_t reserved_bytes);
 void hhy_profiler_exception_layout(HhyProfiler *profiler, bool selected);
 void hhy_profiler_call_layout(HhyProfiler *profiler, bool selected);
 void hhy_profiler_stop(HhyProfiler *profiler, size_t heap_current);

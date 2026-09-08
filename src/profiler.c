@@ -48,6 +48,9 @@ typedef struct {
 } DispatchProfile;
 
 struct HhyProfiler {
+    bool call_unwind_enabled;
+    uint64_t unwind_pushed, unwind_returned, unwind_errors, unwind_cancelled, unwind_resources;
+    size_t unwind_active, unwind_peak, unwind_reserved;
     uint64_t frame_allocated, frame_reused, frame_cached, frame_escaped, frame_discarded;
     uint64_t frame_probes;
     size_t frame_retained, frame_retained_bytes, frame_peak, frame_peak_bytes;
@@ -197,6 +200,22 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
 #endif
     }
     return profiler;
+}
+
+void hhy_profiler_call_unwind(HhyProfiler *p, HhyCallUnwindEvent event,
+    bool enabled, size_t active, size_t reserved_bytes) {
+    if (p == NULL) return;
+    switch (event) {
+        case HHY_CALL_CONFIGURED: break;
+        case HHY_CALL_PUSH: p->unwind_pushed++; break;
+        case HHY_CALL_RETURN: p->unwind_returned++; break;
+        case HHY_CALL_ERROR: p->unwind_errors++; break;
+        case HHY_CALL_CANCEL: p->unwind_cancelled++; break;
+        case HHY_CALL_RESOURCE: p->unwind_resources++; break;
+    }
+    p->call_unwind_enabled = enabled; p->unwind_active = active;
+    if (active > p->unwind_peak) p->unwind_peak = active;
+    p->unwind_reserved = reserved_bytes;
 }
 
 void hhy_profiler_frame_pool(HhyProfiler *p, HhyFramePoolEvent event,
@@ -481,6 +500,13 @@ static void print_json(HhyProfiler *p, FILE *out) {
             p->frame_allocated, p->frame_reused, p->frame_cached, p->frame_escaped,
             p->frame_discarded, p->frame_probes, p->frame_retained, p->frame_retained_bytes,
             p->frame_peak, p->frame_peak_bytes);
+    fprintf(out, ",\n  \"call_unwind\": {\"schema_version\": 1, \"table_version\": 1, \"enabled\": %s, "
+            "\"pushed\": %" PRIu64 ", \"returned\": %" PRIu64 ", \"errors\": %" PRIu64
+            ", \"cancelled\": %" PRIu64 ", \"resources\": %" PRIu64
+            ", \"active\": %zu, \"peak_active\": %zu, \"reserved_bytes\": %zu}",
+            p->call_unwind_enabled ? "true" : "false", p->unwind_pushed, p->unwind_returned,
+            p->unwind_errors, p->unwind_cancelled, p->unwind_resources,
+            p->unwind_active, p->unwind_peak, p->unwind_reserved);
     print_dispatch_json(p, out);
     fputs("\n}\n", out);
 }

@@ -25,3 +25,22 @@ bool hhy_runtime_unwind_apply(const HhyUnwindTable *table, void *state,
     for (uint32_t i = 0; i < table->count; i++) step(state, table->actions[i]);
     return true;
 }
+
+const HhyCallUnwindTable hhy_runtime_call_unwind = {
+    .version = HHY_CALL_UNWIND_VERSION, .count = HHY_CALL_UNWIND_ACTION_COUNT,
+    .actions = {HHY_CALL_UNWIND_ENVIRONMENT, HHY_CALL_UNWIND_CONTRACT,
+        HHY_CALL_UNWIND_DEPTH_TRACE, HHY_CALL_UNWIND_PROFILER, HHY_CALL_UNWIND_ROOTS}
+};
+bool hhy_call_unwind_verify(const HhyCallUnwindTable *table) {
+    if (table == NULL || table->version != HHY_CALL_UNWIND_VERSION ||
+        table->count != HHY_CALL_UNWIND_ACTION_COUNT) return false;
+    for (uint32_t i = 0; i < table->count; i++)
+        if (table->actions[i] != (HhyCallUnwindAction)i) return false;
+    return true;
+}
+bool hhy_call_unwind_apply(const HhyCallUnwindTable *table, void *state,
+    void (*step)(void *, HhyCallUnwindAction)) {
+    if (!hhy_call_unwind_verify(table) || step == NULL) return false;
+    for (uint32_t i = 0; i < table->count; i++) step(state, table->actions[i]);
+    return true;
+}
