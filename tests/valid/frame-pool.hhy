@@ -1,0 +1,22 @@
+fn descend(n) {
+    if n == 0 { return 0 }
+    return 1 + descend(n - 1)
+}
+print(descend(128))
+print(descend(128))
+fn fail(n) {
+    if n == 0 { throw("deep") }
+    return fail(n - 1)
+}
+try { fail(96) } catch err { print(err) }
+print(descend(2))
+fn counter(seed) {
+    let mut current = seed
+    fn step(n) { current = current + n; return current }
+    return step
+}
+let first = counter(10)
+let second = counter(100)
+print(first(1))
+print(second(2))
+print(first(1))

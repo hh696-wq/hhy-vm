@@ -48,6 +48,10 @@ typedef struct {
 } DispatchProfile;
 
 struct HhyProfiler {
+    uint64_t frame_allocated, frame_reused, frame_cached, frame_escaped, frame_discarded;
+    uint64_t frame_probes;
+    size_t frame_retained, frame_retained_bytes, frame_peak, frame_peak_bytes;
+    bool frame_bounded;
     uint64_t exception_layout_selected;
     uint64_t exception_layout_generic;
     uint64_t call_layout_selected;
@@ -193,6 +197,23 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
 #endif
     }
     return profiler;
+}
+
+void hhy_profiler_frame_pool(HhyProfiler *p, HhyFramePoolEvent event,
+    bool bounded, size_t probes, size_t retained, size_t retained_gc_bytes) {
+    if (p == NULL) return;
+    switch (event) {
+        case HHY_FRAME_CONFIGURED: break;
+        case HHY_FRAME_ALLOCATED: p->frame_allocated++; break;
+        case HHY_FRAME_REUSED: p->frame_reused++; break;
+        case HHY_FRAME_CACHED: p->frame_cached++; break;
+        case HHY_FRAME_ESCAPED: p->frame_escaped++; break;
+        case HHY_FRAME_DISCARDED: p->frame_discarded++; break;
+    }
+    p->frame_bounded = bounded; p->frame_probes += probes;
+    p->frame_retained = retained; p->frame_retained_bytes = retained_gc_bytes;
+    if (retained > p->frame_peak) p->frame_peak = retained;
+    if (retained_gc_bytes > p->frame_peak_bytes) p->frame_peak_bytes = retained_gc_bytes;
 }
 
 void hhy_profiler_exception_layout(HhyProfiler *profiler, bool selected) {
@@ -452,6 +473,14 @@ static void print_json(HhyProfiler *p, FILE *out) {
     fprintf(out, ",\n  \"exception_layout\": {\"schema_version\": 1, \"table_version\": %u, "
             "\"selected_regions\": %" PRIu64 ", \"generic_regions\": %" PRIu64 "}",
             HHY_BYTECODE_EXCEPTION_VERSION, p->exception_layout_selected, p->exception_layout_generic);
+    fprintf(out, ",\n  \"frame_pool\": {\"schema_version\": 1, \"bounded\": %s, "
+            "\"allocated\": %" PRIu64 ", \"reused\": %" PRIu64 ", \"cached\": %" PRIu64
+            ", \"escaped\": %" PRIu64 ", \"discarded\": %" PRIu64 ", \"probes\": %" PRIu64
+            ", \"retained\": %zu, \"retained_gc_bytes\": %zu, \"peak_retained\": %zu, "
+            "\"peak_retained_gc_bytes\": %zu}", p->frame_bounded ? "true" : "false",
+            p->frame_allocated, p->frame_reused, p->frame_cached, p->frame_escaped,
+            p->frame_discarded, p->frame_probes, p->frame_retained, p->frame_retained_bytes,
+            p->frame_peak, p->frame_peak_bytes);
     print_dispatch_json(p, out);
     fputs("\n}\n", out);
 }

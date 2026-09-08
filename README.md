@@ -303,6 +303,21 @@ Compiler 为 `try/catch` 和 `attempt` 生成 exception region v1，记录所属
 表不改变错误传播、GC roots、stack trace 或宿主内存配额跳转，不实现原生调用栈替换；
 默认启用仍需真实性能及跨平台证据。
 
+调用环境帧池可用 `HHY_CALL_FRAME_POOL=bounded` 启用有界分桶实验，默认使用原有链表：
+
+```sh
+HHY_CALL_FRAME_POOL=bounded ./build/hhy profile --heap --format json --output frames.json tests/valid/frame-pool.hhy
+```
+
+开关在 Runtime/Context 初始化读取；设为 `legacy` 回到原路径。分桶按现有容量分类，
+不向上取整分配；空闲缓存最多保留 64 个帧、64 KiB GC 分配容量，超预算帧解除缓存引用后交给 GC。
+已逃逸的闭包环境不进入缓存；保留捕获、异常、递归上限和 stack trace 语义。
+Profiler `frame_pool` 展示 allocated/reused/cached/escaped/discarded、查找 probes、
+当前及峰值 retained/retained_gc_bytes。字节数包含帧的 GC 分配和独立扩容数组，
+不包含活动帧/逃逸环境，不等于总 Heap 或 RSS 上限。
+`scripts/evaluate-frame-pool.py --baseline-binary <基线hhy路径>` 输出时间与保留容量对照。
+此实验不替换原生调用栈展开，默认启用仍需真实负载及跨平台证据。
+
 ## 进程扩展与签名 Registry
 
 本地开发安装仍会展示 capability，安装后和每次加载前都会

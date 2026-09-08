@@ -244,6 +244,9 @@ typedef struct {
 } RuntimeStackFrame;
 
 #define HHY_RUNTIME_STACK_TRACE_LIMIT 128u
+#define HHY_FRAME_POOL_BUCKETS 9u
+#define HHY_FRAME_POOL_MAX_COUNT 64u
+#define HHY_FRAME_POOL_MAX_BYTES (64u * 1024u)
 
 struct Runtime {
     const HhySource *source;
@@ -257,6 +260,9 @@ struct Runtime {
     uint32_t error_column;
     Env *core;
     Env *free_call_frames;
+    Env *frame_buckets[HHY_FRAME_POOL_BUCKETS];
+    size_t retained_frames, retained_frame_bytes;
+    bool bounded_frame_pool;
     Module *modules;
     bool dry_run;
     bool effect_allowed;
@@ -887,26 +893,88 @@ static void env_mark_escaped(Env *env) {
     for (; env != NULL && !env->escaped; env = env->parent) env->escaped = true;
 }
 
+/* Bucket 0 holds zero-slot frames; later buckets use floor(log2(capacity)).
+   The last bucket includes all larger capacities. Individual frames retain
+   their exact allocation size; no rounding changes managed-memory quotas. */
+static size_t frame_bucket(size_t capacity) {
+    size_t bucket = 0;
+    while (capacity && bucket + 1 < HHY_FRAME_POOL_BUCKETS) {
+        bucket++; capacity >>= 1;
+    }
+    return bucket;
+}
+
+static size_t frame_gc_bytes(Env *env) {
+    return GC_size(env) + (env->items != NULL && env->items != (Binding *)(env + 1)
+        ? GC_size(env->items) : 0);
+}
+
 static Env *call_frame_acquire(Runtime *rt, Env *parent, size_t capacity) {
     Env **link = &rt->free_call_frames;
-    while (*link != NULL && (*link)->capacity < capacity) link = &(*link)->free_next;
+    size_t probes = 0;
+    if (rt->bounded_frame_pool) {
+        for (size_t bucket = frame_bucket(capacity); bucket < HHY_FRAME_POOL_BUCKETS; bucket++) {
+            link = &rt->frame_buckets[bucket];
+            while (*link != NULL) {
+                probes++;
+                if ((*link)->capacity >= capacity) break;
+                link = &(*link)->free_next;
+            }
+            if (*link != NULL) break;
+        }
+    } else {
+        while (*link != NULL) {
+            if (rt->profiler != NULL) probes++;
+            if ((*link)->capacity >= capacity) break;
+            link = &(*link)->free_next;
+        }
+    }
     Env *env = *link;
-    if (env == NULL) return env_new_with_capacity(rt, parent, capacity);
+    if (env == NULL) {
+        env = env_new_with_capacity(rt, parent, capacity);
+        if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_ALLOCATED,
+            rt->bounded_frame_pool, probes, rt->retained_frames, rt->retained_frame_bytes);
+        return env;
+    }
     *link = env->free_next;
+    if (rt->bounded_frame_pool || rt->profiler != NULL) {
+        rt->retained_frames--; rt->retained_frame_bytes -= frame_gc_bytes(env);
+    }
     env->parent = parent;
     env->count = 0;
     env->escaped = false;
     env->free_next = NULL;
+    if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_REUSED,
+        rt->bounded_frame_pool, probes, rt->retained_frames, rt->retained_frame_bytes);
     return env;
 }
 
 static void call_frame_release(Runtime *rt, Env *env) {
-    if (env->escaped) return;
+    if (env->escaped) {
+        if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_ESCAPED,
+            rt->bounded_frame_pool, 0, rt->retained_frames, rt->retained_frame_bytes);
+        return;
+    }
     if (env->items != NULL) memset(env->items, 0, env->capacity * sizeof(*env->items));
     env->parent = NULL;
     env->count = 0;
-    env->free_next = rt->free_call_frames;
-    rt->free_call_frames = env;
+    env->free_next = NULL;
+    size_t bytes = rt->bounded_frame_pool || rt->profiler != NULL ? frame_gc_bytes(env) : 0;
+    if (rt->bounded_frame_pool && (rt->retained_frames >= HHY_FRAME_POOL_MAX_COUNT ||
+        bytes > HHY_FRAME_POOL_MAX_BYTES - rt->retained_frame_bytes)) {
+        if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_DISCARDED,
+            true, 0, rt->retained_frames, rt->retained_frame_bytes);
+        return; /* Unlinked frames become collectible; escaped frames never enter here. */
+    }
+    Env **head = rt->bounded_frame_pool ? &rt->frame_buckets[frame_bucket(env->capacity)]
+        : &rt->free_call_frames;
+    env->free_next = *head;
+    *head = env;
+    if (rt->bounded_frame_pool || rt->profiler != NULL) {
+        rt->retained_frames++; rt->retained_frame_bytes += bytes;
+    }
+    if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_CACHED,
+        rt->bounded_frame_pool, 0, rt->retained_frames, rt->retained_frame_bytes);
 }
 
 static Binding *env_local_n(Env *env, const char *name, size_t name_length) {
@@ -8113,6 +8181,10 @@ static Value import_module(Runtime *rt, Env *target, const HhyNode *node) {
 }
 
 static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc, char **argv) {
+    const char *frame_pool = getenv("HHY_CALL_FRAME_POOL");
+    rt->bounded_frame_pool = frame_pool != NULL && strcmp(frame_pool, "bounded") == 0;
+    if (rt->profiler != NULL) hhy_profiler_frame_pool(rt->profiler, HHY_FRAME_CONFIGURED,
+        rt->bounded_frame_pool, 0, rt->retained_frames, rt->retained_frame_bytes);
     const char *exception_tables = getenv("HHY_BYTECODE_EXCEPTION_TABLES");
     rt->exception_tables = exception_tables != NULL && strcmp(exception_tables, "1") == 0;
     Env *global = env_new(rt, NULL);
