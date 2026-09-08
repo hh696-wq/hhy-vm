@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "stage": "v1.7.0-v1.7.3",
-  "status": "implementation_and_local_validation_complete_cross_platform_actions_pending",
+  "status": "implementation_validation_and_release_complete_default_admission_rejected",
   "local_implementation_complete": true,
   "local_validation_complete": true,
   "default_admitted": false,
@@ -100,16 +100,21 @@
     "typed_register_cap_per_plan": 64
   },
   "platform_evidence": {
-    "macos_arm64": "release_debug_asan_ubsan_fuzz_six_projects_and_paired_budgets_passed_with_runtime_admission_rejections",
-    "linux_arm64": "not_run",
-    "linux_x86_64": "not_run",
-    "windows": "not_run"
+    "macos_arm64": "ci_and_release_passed_paired_budgets_recorded_default_runtime_admission_rejected",
+    "linux_arm64": "ci_and_release_passed_paired_budgets_recorded_default_runtime_admission_rejected",
+    "linux_x86_64": "ci_and_release_passed_paired_budgets_recorded_default_runtime_admission_rejected",
+    "windows": "ci_and_release_passed_paired_budgets_recorded_default_runtime_admission_rejected"
   },
   "release": {
     "version_changed": true,
     "actions_requested": true,
-    "tag_created": false,
-    "release_created": false
+    "tag_created": true,
+    "release_created": true,
+    "version": "1.7.0",
+    "tag_commit": "8fb0b8f71892ec281256027530f065d7de5921af",
+    "ci_url": "https://github.com/hh696-wq/hhy-vm/actions/runs/34197497786",
+    "release_actions_url": "https://github.com/hh696-wq/hhy-vm/actions/runs/34199886300",
+    "url": "https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0"
   },
   "validation": {
     "execution_paths_per_build": 1668,
@@ -237,5 +242,6 @@
         "typed_storage_cap": true
       }
     }
-  ]
+  ],
+  "cross_platform_validation_complete": true
 }

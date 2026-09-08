@@ -1,8 +1,8 @@
 class Hhy < Formula
   desc "Flow-first scripting language for system automation"
   homepage "https://hhylang.dev"
-  url "https://github.com/hh696-wq/hhy-vm/releases/download/v1.4.3/hhy-1.4.3-darwin-arm64.tar.gz"
-  sha256 "73d7d15998198437c3865393af51783e426832ea9e32293de85e11d5df599721"
+  url "https://github.com/hh696-wq/hhy-vm/releases/download/v1.7.0/hhy-1.7.0-darwin-arm64.tar.gz"
+  sha256 "6a2f6288957a27a08d18621053dcf735f803bd37245d57a5edb2ad91892683e2"
   license "Apache-2.0"
 
   depends_on arch: :arm64

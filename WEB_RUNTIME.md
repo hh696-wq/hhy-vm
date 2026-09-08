@@ -1,6 +1,6 @@
 # HHY Web Runtime
 
-HHY v1.5.0 retains the v1.4 Web release train and adds Database 1.0.0 host integration. Applications use the HHY Runtime version;
+HHY v1.7.0 retains the v1.4 Web release train and Database 1.0.0 host integration introduced in v1.5.0. The opt-in compiler preserves the existing Web and extension contracts. Applications use the HHY Runtime version;
 there is no separate `Web 0.x` version line.
 
 | HHY version | Web stage | Capability boundary |

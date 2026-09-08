@@ -4,7 +4,7 @@
 高层使用版本化、非 SSA 的结构化 HIR；符合条件的函数进一步产生整数寄存器 MIR（`HhyTypedPlan`）。MIR 当前覆盖有界直线表达式，其余语法由结构化 Bytecode 执行。
 `HHY_COMPILER=ir` 启用整程序编译链；原 AST 引擎与直接 Bytecode 编译器保留为独立对照。
 默认仍使用直接 Bytecode 编译器。默认准入需要各平台自己的编译成本、代码尺寸、真实运行和资源证据。
-`VERSION` 为 1.7.0。发布前必须完成本地测试和 GitHub Actions 跨平台验收。
+`VERSION` 为 1.7.0。本地测试、四平台 CI 与发行验收已通过，[v1.7.0 已发布](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0)。下列四个子阶段统一随该版本交付；真实负载收益尚未满足默认启用门槛。
 
 ## 四个子阶段的交付边界
 

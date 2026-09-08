@@ -1,6 +1,6 @@
 # HHY 扩展
 
-HHY v1.5.0 使用隔离的 Process Extension。每个扩展位于独立子目录，通过
+HHY v1.7.0 使用隔离的 Process Extension。每个扩展位于独立子目录，通过
 `hhy.toml` 声明包名、可执行文件、协议版本和最小 capability；扩展不会接触
 HHY Runtime 私有的 C Value 内存布局。
 
@@ -11,7 +11,7 @@ HHY Runtime 私有的 C Value 内存布局。
 
 | 目录 | 命名空间 | 用途 | 状态 |
 | --- | --- | --- | --- |
-| [`database`](database/) | `database.*` | DB 1.0.0：MySQL/PostgreSQL 池、远程 TLS、事务、游标与精确类型 | 要求 HHY 1.5.0；macOS/Linux |
+| [`database`](database/) | `database.*` | DB 1.0.0：MySQL/PostgreSQL 池、远程 TLS、事务、游标与精确类型 | 最低 HHY 1.5.0，已验证兼容 1.7.0；macOS/Linux |
 | [`html`](html/) | `html.*` | HTML5 容错解析、CSS Selector 与结构化字段抽取 | 可安装使用 |
 | [`sample`](sample/) | `sample.*` | Protocol v1 握手、注册、调用和错误传播测试 | 参考扩展 |
 
