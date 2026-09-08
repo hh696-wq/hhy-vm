@@ -318,6 +318,11 @@ Profiler `frame_pool` 展示 allocated/reused/cached/escaped/discarded、查找 
 `scripts/evaluate-frame-pool.py --baseline-binary <基线hhy路径>` 输出时间与保留容量对照。
 此实验不替换原生调用栈展开，默认启用仍需真实负载及跨平台证据。
 
+原子输出在写入、flush 或 fsync 失败后仍会关闭文件；临时文件在 `fdopen` 前登记原生描述符和路径，
+即使构造资源错误时耗尽 managed memory，也会由边界清理关闭并删除。
+此清理用于原子写入/复制、Stream 保存、HTTP 下载和上传临时文件；失败时原目标保持不变。
+`tests/check-file-unwind.py` 使用 OS 文件大小限制及内存/文件配额组合验证恢复。
+
 ## 进程扩展与签名 Registry
 
 本地开发安装仍会展示 capability，安装后和每次加载前都会

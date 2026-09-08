@@ -121,11 +121,18 @@ build/hhy-embed-unwind-test: tests/embed_unwind.c $(LIB_OBJECTS)
 build/hhy-embed-unwind-debug: tests/embed_unwind.c $(filter-out build/debug/main.o,$(DEBUG_OBJECTS))
 	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) $(LDFLAGS) tests/embed_unwind.c $(filter-out build/debug/main.o,$(DEBUG_OBJECTS)) $(LDLIBS) -o $@
 
+build/hhy-file-unwind-test: tests/runtime_file_unwind.c $(LIB_OBJECTS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) tests/runtime_file_unwind.c $(filter-out build/release/runtime.o,$(LIB_OBJECTS)) $(LDLIBS) -o $@
+
+build/hhy-file-unwind-debug: tests/runtime_file_unwind.c $(filter-out build/debug/main.o,$(DEBUG_OBJECTS))
+	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) $(LDFLAGS) tests/runtime_file_unwind.c $(filter-out build/debug/main.o build/debug/runtime.o,$(DEBUG_OBJECTS)) $(LDLIBS) -o $@
+
 embed-test: $(EMBED_TEST_TARGET)
 	$(EMBED_TEST_TARGET)
 
-test: $(TARGET) extensions bytecode-test embed-test build/hhy-dispatch-test build/hhy-unwind-test build/hhy-embed-unwind-test
+test: $(TARGET) extensions bytecode-test embed-test build/hhy-dispatch-test build/hhy-unwind-test build/hhy-embed-unwind-test build/hhy-file-unwind-test
 	build/hhy-unwind-test
+	python3 tests/check-file-unwind.py
 	python3 tests/check-embed-unwind.py
 	python3 tests/check-dispatch-boundaries.py build/hhy-dispatch-test
 	sh tests/run.sh $(TARGET)
@@ -136,7 +143,8 @@ test-bytecode: $(TARGET) extensions bytecode-test
 workload-test: $(TARGET) extensions
 	python3 scripts/run-bytecode-workloads.py --binary $(TARGET)
 
-test-debug: $(DEBUG_TARGET) extensions bytecode-test build/hhy-embed-unwind-debug
+test-debug: $(DEBUG_TARGET) extensions bytecode-test build/hhy-embed-unwind-debug build/hhy-file-unwind-debug
+	python3 tests/check-file-unwind.py --binary build/hhy-file-unwind-debug --output build/file-unwind-debug.json
 	python3 tests/check-embed-unwind.py --binary build/hhy-embed-unwind-debug --output build/embed-unwind-debug.json
 	HHY_SKIP_GC_STRESS=1 sh tests/run.sh $(DEBUG_TARGET)
 

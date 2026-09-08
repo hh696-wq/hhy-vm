@@ -81,6 +81,7 @@ typedef struct Runtime Runtime;
 typedef struct RuntimeCleanup RuntimeCleanup;
 struct RuntimeCleanup {
     FILE *file;
+    int descriptor;
     char *temporary_path;
     RuntimeCleanup *next;
 };
@@ -3300,6 +3301,7 @@ static bool ensure_parent_directories(Runtime *rt, const HhyNode *site, const ch
 static RuntimeCleanup *runtime_register_temporary(Runtime *rt, FILE *file, char *path) {
     RuntimeCleanup *cleanup = hhy_alloc(sizeof(*cleanup));
     cleanup->file = file;
+    cleanup->descriptor = -1;
     cleanup->temporary_path = path;
     cleanup->next = rt->cleanups;
     rt->cleanups = cleanup;
@@ -3311,6 +3313,25 @@ static void runtime_unregister_temporary(Runtime *rt, RuntimeCleanup *cleanup) {
     while (*link != NULL && *link != cleanup) link = &(*link)->next;
     if (*link == cleanup) *link = cleanup->next;
     free(cleanup);
+}
+
+/* Own the raw descriptor and path before runtime_fdopen can construct a
+   managed quota error. On ordinary failure ownership returns to the caller;
+   on longjmp the boundary cleanup still owns both resources. */
+static FILE *runtime_adopt_temporary(Runtime *rt, const HhyNode *site,
+    int descriptor, char *path, RuntimeCleanup **registered) {
+    RuntimeCleanup *cleanup = runtime_register_temporary(rt, NULL, path);
+    cleanup->descriptor = descriptor;
+    FILE *file = runtime_fdopen(rt, site, descriptor, "wb");
+    if (file == NULL) {
+        runtime_unregister_temporary(rt, cleanup);
+        *registered = NULL;
+        return NULL;
+    }
+    cleanup->descriptor = -1;
+    cleanup->file = file;
+    *registered = cleanup;
+    return file;
 }
 
 static int atomic_rename(const char *source, const char *target, bool overwrite) {
@@ -3342,14 +3363,19 @@ static bool write_bytes_atomic(Runtime *rt, const HhyNode *site,
     if (descriptor < 0) {
         free(temporary); runtime_io_error(rt, site, "cannot create temporary output file"); return false;
     }
-    FILE *file = runtime_fdopen(rt, site, descriptor, "wb");
+    RuntimeCleanup *cleanup = NULL;
+    FILE *file = runtime_adopt_temporary(rt, site, descriptor, temporary, &cleanup);
     if (file == NULL) {
         close(descriptor); unlink(temporary); free(temporary);
         if (!rt->failed) runtime_io_error(rt, site, "cannot open temporary output file");
         return false;
     }
-    bool ok = fwrite(data, 1, length, file) == length && fflush(file) == 0 &&
-              fsync(descriptor) == 0 && runtime_fclose(rt, file) == 0;
+    bool ok = fwrite(data, 1, length, file) == length;
+    if (ok && fflush(file) != 0) ok = false;
+    if (ok && fsync(descriptor) != 0) ok = false;
+    runtime_unregister_temporary(rt, cleanup);
+    /* Closing is mandatory even when write/flush/fsync already failed. */
+    if (runtime_fclose(rt, file) != 0) ok = false;
     if (ok) ok = atomic_rename(temporary, path, options.overwrite) == 0;
     if (!ok) {
         unlink(temporary); free(temporary);
@@ -3388,13 +3414,13 @@ static bool write_string_stream_atomic(Runtime *rt, const HhyNode *site, Value i
         runtime_io_error(rt, site, "cannot create temporary output file");
         return false;
     }
-    FILE *file = runtime_fdopen(rt, site, descriptor, "wb");
+    RuntimeCleanup *cleanup = NULL;
+    FILE *file = runtime_adopt_temporary(rt, site, descriptor, temporary, &cleanup);
     if (file == NULL) {
         close(descriptor); unlink(temporary); free(temporary); stream_close(input.as.stream);
         if (!rt->failed) runtime_io_error(rt, site, "cannot open temporary output file");
         return false;
     }
-    RuntimeCleanup *cleanup = runtime_register_temporary(rt, file, temporary);
     bool ok = true;
     Value item;
     while (stream_next(rt, site, input.as.stream, &item)) {
@@ -3433,15 +3459,19 @@ static bool copy_file_atomic(Runtime *rt, const HhyNode *site,
     }
     FILE *input = runtime_fopen(rt, site, source, "rb");
     if (input == NULL) { if (!rt->failed) runtime_io_error(rt, site, "cannot open copy source"); return false; }
+    RuntimeCleanup *input_cleanup = runtime_register_temporary(rt, input, NULL);
     size_t target_length = strlen(target);
     char *temporary = hhy_alloc(target_length + 18);
     snprintf(temporary, target_length + 18, "%s.hhy-tmp-XXXXXX", target);
     int descriptor = mkstemp(temporary);
     if (descriptor < 0) {
+        runtime_unregister_temporary(rt, input_cleanup);
         runtime_fclose(rt, input); free(temporary); runtime_io_error(rt, site, "cannot create copy target"); return false;
     }
-    FILE *output = runtime_fdopen(rt, site, descriptor, "wb");
+    RuntimeCleanup *output_cleanup = NULL;
+    FILE *output = runtime_adopt_temporary(rt, site, descriptor, temporary, &output_cleanup);
     if (output == NULL) {
+        runtime_unregister_temporary(rt, input_cleanup);
         runtime_fclose(rt, input); close(descriptor); unlink(temporary); free(temporary);
         if (!rt->failed) runtime_io_error(rt, site, "cannot open copy target");
         return false;
@@ -3454,7 +3484,10 @@ static bool copy_file_atomic(Runtime *rt, const HhyNode *site,
     }
     if (ferror(input)) ok = false;
     if (fflush(output) != 0 || fsync(descriptor) != 0) ok = false;
-    if (runtime_fclose(rt, input) != 0 || runtime_fclose(rt, output) != 0) ok = false;
+    runtime_unregister_temporary(rt, input_cleanup);
+    runtime_unregister_temporary(rt, output_cleanup);
+    if (runtime_fclose(rt, input) != 0) ok = false;
+    if (runtime_fclose(rt, output) != 0) ok = false;
     if (ok) ok = atomic_rename(temporary, target, overwrite) == 0;
     if (!ok) {
         unlink(temporary); free(temporary);
@@ -4504,13 +4537,12 @@ static Value http_send(Runtime *rt, const HhyNode *site, Value request, Value ou
                 free(temporary); temporary = NULL;
                 runtime_io_error(rt, site, "cannot create HTTP output file"); return null_value();
             }
-            file_sink.file = runtime_fdopen(rt, site, file_descriptor, "wb");
+            file_sink.file = runtime_adopt_temporary(rt, site, file_descriptor, temporary, &file_cleanup);
             if (file_sink.file == NULL) {
                 close(file_descriptor); unlink(temporary); free(temporary); temporary = NULL;
                 if (!rt->failed) runtime_io_error(rt, site, "cannot open HTTP output file");
                 return null_value();
             }
-            file_cleanup = runtime_register_temporary(rt, file_sink.file, temporary);
         }
         CURL *curl = curl_easy_init();
         if (curl == NULL) {
@@ -5248,10 +5280,10 @@ static Value web_multipart(Runtime *rt, const HhyNode *site, Value request, Valu
             }
             int descriptor = mkstemp(temporary);
             if (descriptor < 0) { runtime_io_error(rt, site, "cannot create upload temporary file"); return null_value(); }
-            FILE *file = runtime_fdopen(rt, site, descriptor, "wb");
-            if (file == NULL) { close(descriptor); unlink(temporary); return null_value(); }
             char *owned_path = hhy_strndup(temporary, strlen(temporary));
-            RuntimeCleanup *cleanup = runtime_register_temporary(rt, file, owned_path);
+            RuntimeCleanup *cleanup = NULL;
+            FILE *file = runtime_adopt_temporary(rt, site, descriptor, owned_path, &cleanup);
+            if (file == NULL) { close(descriptor); unlink(temporary); free(owned_path); return null_value(); }
             bool written = part_length == 0 || fwrite(part_data, 1, part_length, file) == part_length;
             if (runtime_fclose(rt, file) != 0) written = false;
             cleanup->file = NULL;
@@ -5520,6 +5552,7 @@ static void runtime_cleanup_to(Runtime *rt, RuntimeCleanup *checkpoint) {
         RuntimeCleanup *cleanup = rt->cleanups;
         rt->cleanups = cleanup->next;
         if (cleanup->file != NULL) runtime_fclose(rt, cleanup->file);
+        if (cleanup->descriptor >= 0) close(cleanup->descriptor);
         if (cleanup->temporary_path != NULL) unlink(cleanup->temporary_path);
         free(cleanup->temporary_path); free(cleanup);
     }
@@ -8308,6 +8341,7 @@ static void runtime_release(HHY_BORROWED Runtime *rt) {
         RuntimeCleanup *cleanup = rt->cleanups;
         rt->cleanups = cleanup->next;
         if (cleanup->file != NULL) runtime_fclose(rt, cleanup->file);
+        if (cleanup->descriptor >= 0) close(cleanup->descriptor);
         if (cleanup->temporary_path != NULL) unlink(cleanup->temporary_path);
         free(cleanup->temporary_path);
         free(cleanup);
