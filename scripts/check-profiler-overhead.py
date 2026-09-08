@@ -20,28 +20,32 @@ args = parser.parse_args()
 source = "tests/valid/bytecode-specialization-profile.hhy"
 
 
-def measure(command: list[str], expected: str) -> list[float]:
-    samples: list[float] = []
-    for iteration in range(args.iterations + 2):
-        started = time.perf_counter_ns()
-        completed = subprocess.run(command, text=True, capture_output=True, check=False)
-        elapsed_ms = (time.perf_counter_ns() - started) / 1_000_000
-        if completed.returncode != 0 or completed.stdout != expected:
-            raise SystemExit(f"benchmark command failed: {' '.join(command)}\n{completed.stderr}")
-        if iteration >= 2:
-            samples.append(elapsed_ms)
-    return samples
+def measure(command: list[str], expected: str) -> float:
+    started = time.perf_counter_ns()
+    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    elapsed_ms = (time.perf_counter_ns() - started) / 1_000_000
+    if completed.returncode != 0 or completed.stdout != expected:
+        raise SystemExit(f"benchmark command failed: {' '.join(command)}\n{completed.stderr}")
+    return elapsed_ms
 
 
 expected = "142858\n"
 with tempfile.TemporaryDirectory(prefix="hhy-profiler-overhead-") as temporary:
     profile_path = Path(temporary) / "profile.json"
-    ordinary_samples = measure([args.binary, "run", source], expected)
-    profiled_samples = measure(
-        [args.binary, "profile", "--cpu", "--format", "json", "--output",
-         str(profile_path), source],
-        expected,
-    )
+    commands = {
+        "ordinary": [args.binary, "run", source],
+        "profiled": [args.binary, "profile", "--cpu", "--format", "json", "--output",
+                     str(profile_path), source],
+    }
+    samples = {mode: [] for mode in commands}
+    # Alternate pair order so host drift does not systematically favor one mode.
+    for iteration in range(args.iterations + 2):
+        order = ("ordinary", "profiled") if iteration % 2 == 0 else ("profiled", "ordinary")
+        for mode in order:
+            elapsed = measure(commands[mode], expected)
+            if iteration >= 2:
+                samples[mode].append(elapsed)
+    ordinary_samples, profiled_samples = samples["ordinary"], samples["profiled"]
     profile = json.loads(profile_path.read_text(encoding="utf-8"))
     if not profile.get("optimization_decisions") or not all(
         decision.get("selected") for decision in profile["optimization_decisions"]
@@ -57,6 +61,10 @@ report = {
     "schema_version": 1,
     "workload": source,
     "iterations": args.iterations,
+    "sampling": "alternating_pairs",
+    "warmups_per_mode": 2,
+    "ordinary_samples_ms": ordinary_samples,
+    "profiled_samples_ms": profiled_samples,
     "ordinary_median_ms": round(ordinary_median, 6),
     "profiled_median_ms": round(profiled_median, 6),
     "overhead_ratio": round(ratio, 6),

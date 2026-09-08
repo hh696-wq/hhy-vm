@@ -37,6 +37,7 @@ jobs:
           npm run package:vscode --prefix editors
 
       - name: Upload performance baseline
+        if: ${{ always() && hashFiles('build/benchmarks/baseline.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: hhy-performance-baseline-${{ github.sha }}
@@ -45,6 +46,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Bytecode engine decision
+        if: ${{ always() && hashFiles('build/benchmarks/engine-comparison.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: hhy-bytecode-engine-decision-${{ github.sha }}

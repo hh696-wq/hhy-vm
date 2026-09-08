@@ -1,5 +1,6 @@
 /* Standalone diagnostic process. No collector hooks enter the production CLI. */
 #include "../src/runtime.c"
+#include <sys/resource.h>
 #define PROBE_SAMPLES 4096u
 static struct {
     pid_t owner;
