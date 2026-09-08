@@ -7,13 +7,14 @@ import subprocess
 import sys
 import tempfile
 
+# Bounded completion oracle; the million-item fixture remains in the timeout-cancellation suite.
 binary = str(Path(sys.argv[1] if len(sys.argv) > 1 else 'build/hhy').resolve())
 fixture = 'tests/valid/exception-regions.hhy'
 cases = [
     (fixture, [], 0),
     ('tests/valid/call-unwind.hhy', [], 0),
     ('tests/valid/stack-trace.hhy', [], 0),
-    ('tests/valid/bytecode-specialization-cancel.hhy', [], 0),
+    ('tests/valid/bytecode-specialization-distinct.hhy', [], 0),
     ('tests/invalid-runtime/recursion-limit.hhy', ['--limit', 'max_recursion=8'], 1),
     ('tests/acceptance/embed-init-memory.hhy', ['--limit', 'max_memory=256kib'], 1),
 ]

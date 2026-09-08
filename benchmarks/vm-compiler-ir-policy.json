@@ -115,7 +115,7 @@
     "execution_paths_per_build": 1668,
     "pass_combinations": 64,
     "combination_programs": 16,
-    "compile_fixtures": 104,
+    "compile_fixtures": 105,
     "typed_ir_mutations_per_build": 10000,
     "fuzz_smoke_inputs": 1000,
     "real_projects": 6,

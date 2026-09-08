@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 
+# Bounded completion oracle; the million-item fixture remains in the timeout-cancellation suite.
 binary = str(Path(sys.argv[1] if len(sys.argv) > 1 else 'build/hhy').resolve())
 with tempfile.TemporaryDirectory(prefix='hhy-dispatch-') as directory:
     report = Path(directory) / 'profile.json'
@@ -14,16 +15,16 @@ with tempfile.TemporaryDirectory(prefix='hhy-dispatch-') as directory:
     tiny.write_text('print(1)\n')
     sources = [tiny, Path('benchmarks/opcode-loop.hhy'),
                Path('tests/valid/bytecode-specialization-fallback.hhy'),
-               Path('tests/valid/bytecode-specialization-cancel.hhy'),
+               Path('tests/valid/bytecode-specialization-distinct.hhy'),
                Path('tests/invalid-runtime/bytecode-specialization-div-zero.hhy'),
                Path('tests/invalid-runtime/bytecode-specialization-overflow.hhy')]
     for source in sources:
-        oracle = subprocess.run([binary, 'run', '--engine', 'ast', str(source)], capture_output=True)
+        oracle = subprocess.run([binary, 'run', '--engine', 'ast', str(source)], capture_output=True, timeout=60)
         for engine, gate in [('ast', '1'), ('bytecode', '0'), ('bytecode', '1')]:
             env = {**os.environ, 'HHY_PROFILE_DISPATCH': gate}
             run = subprocess.run([binary, 'profile', '--engine', engine, '--cpu', '--heap',
                                   '--format', 'json', '--output', str(report), str(source)],
-                                 env=env, capture_output=True)
+                                 env=env, capture_output=True, timeout=60)
             assert (run.returncode, run.stdout, run.stderr) == (oracle.returncode, oracle.stdout, oracle.stderr), (source, engine, gate, run.stderr)
             data = json.loads(report.read_text())['dispatch_profile']
             enabled = engine == 'bytecode' and gate == '1'
@@ -41,4 +42,4 @@ with tempfile.TemporaryDirectory(prefix='hhy-dispatch-') as directory:
                     assert sum(v for k, v in counts.items() if len(k) == length) == 6-length
                 expected = {tuple(names[i:i+length]): 1 for length in (1, 2, 3) for i in range(len(names)-length+1)}
                 assert counts == expected, counts
-print('dispatch profile: exact counts, opt-out, AST, fallback, cancellation and errors passed')
+print('dispatch profile: exact counts, opt-out, AST, fallback and errors passed')

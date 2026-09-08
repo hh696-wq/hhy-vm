@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 
+# Bounded completion oracle; the million-item fixture remains in the timeout-cancellation suite.
 binary = str(Path(sys.argv[1] if len(sys.argv) > 1 else 'build/hhy').resolve())
 CASES = [
     ('tests/valid/call-layout.hhy', []),
@@ -14,7 +15,7 @@ CASES = [
     ('tests/valid/frame-slots-escape.hhy', []),
     ('tests/valid/stack-trace.hhy', []),
     ('tests/valid/bytecode-specialization-fallback.hhy', []),
-    ('tests/valid/bytecode-specialization-cancel.hhy', []),
+    ('tests/valid/bytecode-specialization-distinct.hhy', []),
     ('tests/valid/exit-from-function.hhy', []),
     ('tests/invalid-runtime/recursion-limit.hhy', ['--limit', 'max_recursion=8']),
     ('tests/invalid-runtime/bytecode-specialization-overflow.hhy', []),
@@ -23,7 +24,7 @@ CASES = [
 with tempfile.TemporaryDirectory(prefix='hhy-call-layout-') as temporary:
     report = Path(temporary) / 'profile.json'
     for source, options in CASES:
-        oracle = subprocess.run([binary, 'run', '--engine', 'ast', *options, source], capture_output=True)
+        oracle = subprocess.run([binary, 'run', '--engine', 'ast', *options, source], capture_output=True, timeout=60)
         expected_status = 7 if source.endswith('exit-from-function.hhy') else (1 if '/invalid-runtime/' in source else 0)
         assert oracle.returncode == expected_status, (source, oracle.stderr)
         if source.endswith('/call-layout.hhy'):
@@ -37,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix='hhy-call-layout-') as temporary:
                 if mode == 'profile':
                     command += ['--cpu', '--heap', '--format', 'json', '--output', str(report)]
                 report.unlink(missing_ok=True)
-                run = subprocess.run([*command, source], env=env, capture_output=True)
+                run = subprocess.run([*command, source], env=env, capture_output=True, timeout=60)
                 assert (run.returncode, run.stdout, run.stderr) == (oracle.returncode, oracle.stdout, oracle.stderr), (source, gate, mode, run.stderr)
                 if mode == 'profile':
                     assert report.exists(), (source, gate, run.stderr)
@@ -50,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='hhy-call-layout-') as temporary:
     tiny = Path(temporary) / 'closure.hhy'
     tiny.write_text('fn identity(ignored, callback) { return callback }\nlet closure = null |> identity { value -> value + 1 }\nprint(closure(2))\n')
     subprocess.run([binary, 'profile', '--engine', 'bytecode', '--format', 'json', '--output', str(report), str(tiny)],
-                   env={**os.environ, 'HHY_BYTECODE_CALL_PLANS': '1'}, check=True, capture_output=True)
+                   env={**os.environ, 'HHY_BYTECODE_CALL_PLANS': '1'}, check=True, capture_output=True, timeout=60)
     layout = json.loads(report.read_text())['call_layout']
     assert layout['selected_calls'] == 2 and layout['generic_calls'] == 0, layout
     for gate in ('0', '1'):
@@ -64,4 +65,4 @@ with tempfile.TemporaryDirectory(prefix='hhy-call-layout-') as temporary:
     assert metrics['call_plan_version'] == 1
     assert metrics['call_plans'] == sum(line.startswith('call_plan source=') for line in dump.splitlines())
     assert metrics['call_plan_bytes'] > 0
-print('call layout: AST/legacy/plan, profiler, captures, recursion, errors and cancellation passed')
+print('call layout: AST/legacy/plan, profiler, captures, recursion and errors passed')
