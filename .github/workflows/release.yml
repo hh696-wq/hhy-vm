@@ -243,6 +243,9 @@ jobs:
       - name: Checkout tagged source
         uses: actions/checkout@v7
 
+      - name: Verify release identity guards
+        run: python3 tests/check-release-publishing.py
+
       - name: Download verified assets
         uses: actions/download-artifact@v8
         with:
@@ -272,6 +275,15 @@ jobs:
             tag_option="--target $GITHUB_SHA"
           fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [ "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = false ]; then
+              git fetch --quiet --depth=1 --no-tags origin "refs/tags/$RELEASE_TAG"
+              if ! git diff --quiet FETCH_HEAD HEAD -- src include VERSION Makefile extensions scripts install.sh; then
+                echo "Published Runtime source differs; bump VERSION instead of replacing assets" >&2
+                exit 1
+              fi
+              echo "$RELEASE_TAG is already published with identical implementation; retaining its assets"
+              exit 0
+            fi
             gh release upload "$RELEASE_TAG" release-assets/* --clobber
             gh release edit "$RELEASE_TAG" \
               --title "HHY Language $version" \
@@ -298,6 +310,15 @@ jobs:
           database_version=$(python3 -c 'import tomllib; print(tomllib.load(open("extensions/database/hhy.toml", "rb"))["package"]["version"])')
           database_tag="database-v$database_version"
           if gh release view "$database_tag" >/dev/null 2>&1; then
+            if [ "$(gh release view "$database_tag" --json isDraft --jq .isDraft)" = false ]; then
+              git fetch --quiet --depth=1 --no-tags origin "refs/tags/$database_tag"
+              if [ "$(git rev-parse FETCH_HEAD:extensions/database)" != "$(git rev-parse HEAD:extensions/database)" ]; then
+                echo "Published database source differs; bump its independent version" >&2
+                exit 1
+              fi
+              echo "$database_tag is already published with identical extension source; retaining its assets"
+              exit 0
+            fi
             existing_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$database_tag" --jq .object.sha)
             test "$existing_sha" = "$GITHUB_SHA"
             gh release upload "$database_tag" database-release-assets/* --clobber
