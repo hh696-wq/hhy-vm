@@ -102,10 +102,15 @@ $(EMBED_TEST_TARGET): tests/embed_runtime.c $(filter-out build/release/main.o,$(
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) tests/embed_runtime.c $(filter-out build/release/main.o,$(OBJECTS)) $(LDLIBS) -o $@
 
+build/hhy-dispatch-test: tests/dispatch_profile.c src/profiler.c src/bytecode.c src/common.c include/hhy/profiler.h include/hhy/bytecode.h
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dispatch_profile.c src/profiler.c src/bytecode.c src/common.c -o $@
+
 embed-test: $(EMBED_TEST_TARGET)
 	$(EMBED_TEST_TARGET)
 
-test: $(TARGET) extensions bytecode-test embed-test
+test: $(TARGET) extensions bytecode-test embed-test build/hhy-dispatch-test
+	python3 tests/check-dispatch-boundaries.py build/hhy-dispatch-test
 	sh tests/run.sh $(TARGET)
 
 test-bytecode: $(TARGET) extensions bytecode-test

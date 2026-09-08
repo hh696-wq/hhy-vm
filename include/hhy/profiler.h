@@ -28,6 +28,14 @@ typedef struct {
 
 HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
                                 const char *source_path, size_t heap_baseline);
+typedef enum {
+    HHY_PROFILE_DISPATCH_GENERIC,
+    HHY_PROFILE_DISPATCH_ARGUMENT_ATTEMPT,
+    HHY_PROFILE_DISPATCH_DOMAIN_COUNT
+} HhyProfileDispatchDomain;
+
+/* Counts recursive VM switch entries, not adjacent fusible instructions. */
+void hhy_profiler_dispatch(HhyProfiler *profiler, unsigned opcode, HhyProfileDispatchDomain domain);
 void hhy_profiler_stop(HhyProfiler *profiler, size_t heap_current);
 void hhy_profiler_free(HhyProfiler *profiler);
 

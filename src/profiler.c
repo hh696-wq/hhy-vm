@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "hhy/profiler.h"
+#include "hhy/bytecode.h"
 
 #include <inttypes.h>
 #include <signal.h>
@@ -37,7 +38,18 @@ typedef struct {
 
 #define HHY_PROFILE_MAX_OPTIMIZATION_DECISIONS 1024u
 
+typedef struct {
+    uint64_t singles[HHY_OP_COUNT];
+    uint64_t pairs[HHY_OP_COUNT][HHY_OP_COUNT];
+    uint64_t triples[HHY_OP_COUNT][HHY_OP_COUNT][HHY_OP_COUNT];
+    uint64_t total;
+    unsigned previous, before_previous, history;
+    HhyProfileDispatchDomain domain;
+} DispatchProfile;
+
 struct HhyProfiler {
+    DispatchProfile *dispatch;
+    const char *dispatch_status;
     HhyProfileOptions options;
     char *source_path;
     char *engine;
@@ -146,6 +158,13 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
     if (profiler->source_path == NULL || profiler->engine == NULL) {
         free(profiler->source_path); free(profiler->engine); free(profiler); return NULL;
     }
+    const char *dispatch = getenv("HHY_PROFILE_DISPATCH");
+    profiler->dispatch_status = "disabled";
+    if (dispatch != NULL && strcmp(dispatch, "1") == 0 &&
+        strcmp(profiler->engine, "bytecode") == 0) {
+        profiler->dispatch = calloc(1, sizeof(*profiler->dispatch));
+        profiler->dispatch_status = profiler->dispatch ? "enabled" : "allocation_failed";
+    }
     profiler->heap_baseline = heap_baseline;
     profiler->current_entry = -1;
     clock_gettime(CLOCK_MONOTONIC, &profiler->wall_started);
@@ -170,6 +189,22 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
 #endif
     }
     return profiler;
+}
+
+void hhy_profiler_dispatch(HhyProfiler *profiler, unsigned opcode, HhyProfileDispatchDomain domain) {
+    if (profiler == NULL || profiler->dispatch == NULL || opcode >= HHY_OP_COUNT ||
+        domain < 0 || domain >= HHY_PROFILE_DISPATCH_DOMAIN_COUNT) return;
+    DispatchProfile *d = profiler->dispatch;
+    /* Never infer a transition between generic and speculative argument paths. */
+    if (d->domain != domain) d->history = 0;
+    d->domain = domain;
+    d->singles[opcode]++;
+    d->total++;
+    if (d->history >= 1) d->pairs[d->previous][opcode]++;
+    if (d->history >= 2) d->triples[d->before_previous][d->previous][opcode]++;
+    d->before_previous = d->previous;
+    d->previous = opcode;
+    if (d->history < 2) d->history++;
 }
 
 size_t hhy_profiler_enter(HhyProfiler *profiler, const char *name,
@@ -318,6 +353,34 @@ static void json_string(FILE *out, const char *text) {
     fputc('"', out);
 }
 
+static void print_dispatch_json(HhyProfiler *p, FILE *out) {
+    fprintf(out, ",\n  \"dispatch_profile\": {\"schema_version\": 1, \"status\": \"%s\", "
+            "\"scope\": \"recursive_switch_entries_including_fast_path_attempts\", "
+            "\"excludes\": [\"stream_kernel_instructions\", \"builtin_internals\"], "
+            "\"transitions_are_fusion_candidates\": false, \"storage_bytes\": %zu, "
+            "\"total\": %" PRIu64 ", \"sequences\": [",
+            p->dispatch_status, p->dispatch ? sizeof(*p->dispatch) : 0,
+            p->dispatch ? p->dispatch->total : 0);
+    bool comma = false;
+    if (p->dispatch != NULL) {
+        for (unsigned length = 1; length <= 3; length++)
+            for (unsigned a = 0; a < HHY_OP_COUNT; a++)
+                for (unsigned b = 0; b < (length > 1 ? HHY_OP_COUNT : 1); b++)
+                    for (unsigned c = 0; c < (length > 2 ? HHY_OP_COUNT : 1); c++) {
+                        uint64_t count = length == 1 ? p->dispatch->singles[a] :
+                            length == 2 ? p->dispatch->pairs[a][b] : p->dispatch->triples[a][b][c];
+                        if (!count) continue;
+                        fprintf(out, "%s{\"opcodes\": [", comma ? "," : "");
+                        json_string(out, hhy_opcode_name((HhyOpcode)a));
+                        if (length > 1) { fputs(",", out); json_string(out, hhy_opcode_name((HhyOpcode)b)); }
+                        if (length > 2) { fputs(",", out); json_string(out, hhy_opcode_name((HhyOpcode)c)); }
+                        fprintf(out, "], \"count\": %" PRIu64 "}", count);
+                        comma = true;
+                    }
+    }
+    fputs("]}", out);
+}
+
 static void print_json(HhyProfiler *p, FILE *out) {
     fputs("{\n  \"schema_version\": 2,\n  \"source\": ", out); json_string(out, p->source_path);
     fputs(",\n  \"engine\": ", out); json_string(out, p->engine);
@@ -365,8 +428,10 @@ static void print_json(HhyProfiler *p, FILE *out) {
         }
         fputs("]}", out);
     }
-    fprintf(out, "%s,\n  \"optimization_decisions_dropped\": %zu\n}\n",
+    fprintf(out, "%s,\n  \"optimization_decisions_dropped\": %zu",
             p->decision_count ? "\n  ]" : "]", p->decisions_dropped);
+    print_dispatch_json(p, out);
+    fputs("\n}\n", out);
 }
 
 static void print_bytes(FILE *out, uint64_t bytes) {
@@ -380,6 +445,9 @@ static void print_bytes(FILE *out, uint64_t bytes) {
 static void print_text(HhyProfiler *p, FILE *out) {
     fprintf(out, "HHY profile: %s\n\nSummary\n", p->source_path);
     fprintf(out, "  Engine           %s\n", p->engine);
+    if (p->dispatch != NULL)
+        fprintf(out, "  VM switch entries %" PRIu64 " (pair/triple details: --format json)\n",
+                p->dispatch->total);
     fprintf(out, "  Wall time        %.3f s\n  CPU time         %.3f s\n", p->wall_seconds, p->cpu_seconds);
     fprintf(out, "  CPU utilization  %.1f%%\n", p->wall_seconds > 0 ? p->cpu_seconds / p->wall_seconds * 100.0 : 0.0);
     if (p->options.cpu) fprintf(out, "  CPU samples      %d\n", (int)p->total_samples);
@@ -472,5 +540,6 @@ void hhy_profiler_free(HhyProfiler *profiler) {
         }
     }
     free(profiler->decisions); free(profiler->entries);
+    free(profiler->dispatch);
     free(profiler->source_path); free(profiler->engine); free(profiler);
 }

@@ -28,6 +28,7 @@ fail() {
 
 sh tests/check-bytecode-specialization.sh "$HHY_BIN"
 python3 tests/check-bytecode-cache-governance.py "$HHY_BIN"
+python3 tests/check-dispatch-profile.py "$HHY_BIN"
 
 process_snapshot_available=0
 socket_bind_available=0

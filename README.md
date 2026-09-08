@@ -261,6 +261,19 @@ CPU 数据以 1ms 进程 CPU 时间采样，阻塞等待不会被算作 CPU 热�
 没有足够样本。Heap 数据统计 HHY 托管内存的累计申请、观察峰值和 GC 后占用，
 不包含扩展进程以及 libcurl 等原生库自行管理的内存。
 
+本地开发版提供可选 VM 转移画像：
+
+```sh
+HHY_PROFILE_DISPATCH=1 ./build/hhy profile --cpu --format json --output dispatch.json benchmarks/opcode-loop.hhy
+python3 scripts/evaluate-vm-dispatch.py --iterations 9
+```
+
+默认关闭；仅 `HHY_PROFILE_DISPATCH=1` 且使用 Bytecode profiler 时启用。
+JSON 的 `dispatch_profile`（独立 schema 1）记录 opcode 单项、pair/triple 次数及原生统计表字节数。
+这些是递归 switch 入口序列，包含快速参数求值尝试，排除 Stream kernel 与 builtin 内部指令；
+不同执行路径之间重置转移历史。它们不是可直接融合的相邻指令，也不能证明纯 dispatch 耗时。
+评估工具保存原始配对样本和候选频率排序，当前不准入 superinstruction。
+
 ## 进程扩展与签名 Registry
 
 本地开发安装仍会展示 capability，安装后和每次加载前都会

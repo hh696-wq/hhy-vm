@@ -7110,6 +7110,7 @@ static bool bytecode_eval_argument_expression(Runtime *rt, BytecodeCursor node,
                                               uint32_t parameter_constant, Value argument,
                                               Value *result) {
     HhyInstruction instruction = node.chunk->code[node.instruction];
+    if (rt->profiler != NULL) hhy_profiler_dispatch(rt->profiler, instruction.opcode, HHY_PROFILE_DISPATCH_ARGUMENT_ATTEMPT);
     switch (instruction.opcode) {
         case HHY_OP_IDENTIFIER:
             if (instruction.constant != parameter_constant) return false;
@@ -7202,6 +7203,8 @@ static Value bytecode_eval_call(Runtime *rt, Env *env, BytecodeCursor node, Valu
 
 static Value bytecode_eval(Runtime *rt, Env *env, BytecodeCursor node) {
     if (rt->failed) return null_value();
+    if (rt->profiler != NULL)
+        hhy_profiler_dispatch(rt->profiler, node.chunk->code[node.instruction].opcode, HHY_PROFILE_DISPATCH_GENERIC);
     HhyNode site = bytecode_site(node);
     switch (node.chunk->code[node.instruction].opcode) {
         case HHY_OP_LITERAL: return literal(rt, &site);
@@ -7474,6 +7477,8 @@ static Value bytecode_import_module(Runtime *rt, Env *target, BytecodeCursor nod
 
 static Value bytecode_exec(Runtime *rt, Env *env, BytecodeCursor node) {
     if (rt->failed) return null_value();
+    if (rt->profiler != NULL)
+        hhy_profiler_dispatch(rt->profiler, node.chunk->code[node.instruction].opcode, HHY_PROFILE_DISPATCH_GENERIC);
     HhyNode site = bytecode_site(node);
     switch (node.chunk->code[node.instruction].opcode) {
         case HHY_OP_PROGRAM: return bytecode_exec_contents(rt, env, node);
