@@ -21,7 +21,7 @@
     "machine_stack": "retain_C_call_return_and_host_longjmp",
     "call_state_unwind": "verified_table_over_registered_scanned_frames",
     "language_memory_error": "preserve_allocation_free_emergency_error_format",
-    "v1.6.2": "separate_conditional_stage",
+    "v1.6.2": "local_evaluation_complete_default_not_admitted",
     "v1.7": "not_started"
   }
 }

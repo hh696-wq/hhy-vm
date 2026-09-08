@@ -50,6 +50,8 @@ void hhy_profiler_call_unwind(HhyProfiler *profiler, HhyCallUnwindEvent event,
     bool enabled, size_t active, size_t reserved_bytes);
 void hhy_profiler_exception_layout(HhyProfiler *profiler, bool selected);
 void hhy_profiler_call_layout(HhyProfiler *profiler, bool selected);
+struct HhyLookupProfile;
+void hhy_profiler_lookup_report(HhyProfiler *, const struct HhyLookupProfile *);
 void hhy_profiler_stop(HhyProfiler *profiler, size_t heap_current);
 void hhy_profiler_free(HhyProfiler *profiler);
 

@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "hhy/profiler.h"
 #include "hhy/bytecode.h"
+#include "runtime_lookup.h"
 
 #include <inttypes.h>
 #include <signal.h>
@@ -48,6 +49,7 @@ typedef struct {
 } DispatchProfile;
 
 struct HhyProfiler {
+    const HhyLookupProfile *lookup; /* Borrowed until stop, before Runtime teardown. */
     bool call_unwind_enabled;
     uint64_t unwind_pushed, unwind_returned, unwind_errors, unwind_cancelled, unwind_resources;
     size_t unwind_active, unwind_peak, unwind_reserved;
@@ -200,6 +202,10 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
 #endif
     }
     return profiler;
+}
+
+void hhy_profiler_lookup_report(HhyProfiler *p, const HhyLookupProfile *lookup) {
+    if (p != NULL) p->lookup = lookup;
 }
 
 void hhy_profiler_call_unwind(HhyProfiler *p, HhyCallUnwindEvent event,
@@ -507,6 +513,7 @@ static void print_json(HhyProfiler *p, FILE *out) {
             p->call_unwind_enabled ? "true" : "false", p->unwind_pushed, p->unwind_returned,
             p->unwind_errors, p->unwind_cancelled, p->unwind_resources,
             p->unwind_active, p->unwind_peak, p->unwind_reserved);
+    hhy_lookup_json(p->lookup, out);
     print_dispatch_json(p, out);
     fputs("\n}\n", out);
 }

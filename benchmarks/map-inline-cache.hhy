@@ -1,0 +1,6 @@
+# Synthetic stable slot in a hash-indexed Map. Not a real-workload admission.
+fn field(row) { return row.value }
+let row = {a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, value: 9}
+let mut total = 0
+for i in range(0, 100000) { total = total + field(row) }
+print(total)

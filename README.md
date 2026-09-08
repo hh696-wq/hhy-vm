@@ -323,6 +323,10 @@ Profiler `frame_pool` 展示 allocated/reused/cached/escaped/discarded、查找 
 此清理用于原子写入/复制、Stream 保存、HTTP 下载和上传临时文件；失败时原目标保持不变。
 `tests/check-file-unwind.py` 使用 OS 文件大小限制及内存/文件配额组合验证恢复。
 
+Inline cache 本地评估工具使用 `HHY_PROFILE_LOOKUPS=1` 输出有界访问反馈；
+`HHY_MAP_INLINE_CACHE=1` 开启逐次校验当前键的 Map slot 实验，两者默认关闭。
+画像、失配回退、准入边界和复现命令见 [VM_INLINE_CACHE.md](VM_INLINE_CACHE.md)。
+
 调用记录展开实验用 `HHY_CALL_FRAME_UNWIND=1` 开启，默认关闭。正常返回、Error、取消与
 宿主配额跳转后，版本化动作表恢复 Env、contract/effect、depth/trace 与 profiler，并清零退出帧的 roots。
 Profiler `call_unwind` 展示退出分类、活动数与登记数组字节；机器执行仍使用 C 调用/返回及已有 longjmp。

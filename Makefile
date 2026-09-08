@@ -107,9 +107,9 @@ $(EMBED_TEST_TARGET): tests/embed_runtime.c $(filter-out build/release/main.o,$(
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) tests/embed_runtime.c $(filter-out build/release/main.o,$(OBJECTS)) $(LDLIBS) -o $@
 
-build/hhy-dispatch-test: tests/dispatch_profile.c src/profiler.c src/bytecode.c src/common.c include/hhy/profiler.h include/hhy/bytecode.h
+build/hhy-dispatch-test: tests/dispatch_profile.c src/profiler.c src/runtime_lookup.c src/bytecode.c src/common.c include/hhy/profiler.h include/hhy/bytecode.h src/runtime_lookup.h
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dispatch_profile.c src/profiler.c src/bytecode.c src/common.c -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/dispatch_profile.c src/profiler.c src/runtime_lookup.c src/bytecode.c src/common.c -o $@
 
 build/hhy-unwind-test: tests/runtime_unwind.c src/runtime_unwind.c src/runtime_unwind.h
 	@mkdir -p build

@@ -6,6 +6,7 @@
 #include "bytecode_runtime.h"
 #include "runtime_ownership.h"
 #include "runtime_unwind.h"
+#include "runtime_lookup.h"
 #include "hhy/contracts.h"
 #include "hhy/extensions.h"
 #include "hhy/parser.h"
@@ -266,6 +267,7 @@ _Static_assert(sizeof(RuntimeCallFrame) <= 72, "call records must remain compact
 #define HHY_FRAME_POOL_MAX_BYTES (64u * 1024u)
 
 struct Runtime {
+    HhyLookupProfile *lookup;
     const HhySource *source;
     HhyExecutionEngine engine;
     bool failed;
@@ -1093,13 +1095,18 @@ static Binding *env_find_n(Env *env, const char *name, size_t name_length) {
     return NULL;
 }
 
-static Binding *env_find_node(Env *env, const HhyNode *node) {
+static Binding *env_find_node(Runtime *rt, Env *env, const HhyNode *node) {
+    HhyLookupProfile *p = rt->lookup && rt->lookup->feedback_enabled ? rt->lookup : NULL;
+    HhyLookupSite *observed = p ? hhy_lookup_site(p, 0, (uintptr_t)rt->source, node->token.line, node->token.column, rt->source ? rt->source->path : NULL) : NULL;
     if (node->local_slot_resolved) {
         Env *scope = env;
         for (size_t depth = 0; scope != NULL && depth < node->local_env_depth; depth++)
             scope = scope->parent;
-        if (scope != NULL && node->local_binding_slot < scope->count)
+        if (scope != NULL && node->local_binding_slot < scope->count) {
+            if (p) p->resolved++;
+            if (observed) hhy_lookup_observe(observed, ((uint64_t)node->local_env_depth << 32) | node->local_binding_slot);
             return &scope->items[node->local_binding_slot];
+        }
     }
     HhyNode *mutable_node = (HhyNode *)node;
     if (node->binding_cache_valid) {
@@ -1109,8 +1116,11 @@ static Binding *env_find_node(Env *env, const HhyNode *node) {
         if (scope != NULL && node->cached_binding_slot < scope->count) {
             Binding *binding = &scope->items[node->cached_binding_slot];
             if (binding->name_length == node->token.length &&
-                memcmp(binding->name, node->token.start, node->token.length) == 0)
+                memcmp(binding->name, node->token.start, node->token.length) == 0) {
+                if (p) p->binding_hit++;
+                if (observed) hhy_lookup_observe(observed, ((uint64_t)node->cached_env_depth << 32) | node->cached_binding_slot);
                 return binding;
+            }
         }
         mutable_node->binding_cache_valid = false;
     }
@@ -1123,10 +1133,14 @@ static Binding *env_find_node(Env *env, const HhyNode *node) {
                 mutable_node->cached_env_depth = depth;
                 mutable_node->cached_binding_slot = slot;
                 mutable_node->binding_cache_valid = true;
+                if (p) p->binding_search++;
+                if (observed) hhy_lookup_observe(observed, ((uint64_t)depth << 32) | slot);
                 return binding;
             }
         }
     }
+    if (p) p->binding_absent++;
+    if (observed) hhy_lookup_observe(observed, UINT64_MAX);
     return NULL;
 }
 
@@ -1838,7 +1852,7 @@ static void map_build_index(Runtime *rt, MapStorage *map) {
     }
 }
 
-static bool map_lookup_n(Value map, const char *key, size_t key_length, Value *out) {
+static bool map_lookup_slot_n(Value map, const char *key, size_t key_length, Value *out, size_t *found) {
     if (!record_kind(map.kind))
         return false;
     if (map.as.map->index_magic == UINT64_C(0x4848594d41504958)) {
@@ -1847,6 +1861,7 @@ static bool map_lookup_n(Value map, const char *key, size_t key_length, Value *o
             size_t i = map.as.map->slots[slot] - 1;
             if (map.as.map->key_lengths[i] == key_length &&
                 memcmp(map.as.map->keys[i], key, key_length) == 0) {
+                if (found != NULL) *found = i;
                 *out = map.as.map->values[i];
                 return true;
             }
@@ -1857,11 +1872,16 @@ static bool map_lookup_n(Value map, const char *key, size_t key_length, Value *o
     for (size_t i = 0; i < map.as.map->count; i++) {
         if (map.as.map->key_lengths[i] == key_length &&
             memcmp(map.as.map->keys[i], key, key_length) == 0) {
-            *out = map.as.map->values[i];
+            if (found != NULL) *found = i;
+                *out = map.as.map->values[i];
             return true;
         }
     }
     return false;
+}
+
+static bool map_lookup_n(Value map, const char *key, size_t key_length, Value *out) {
+    return map_lookup_slot_n(map, key, key_length, out, NULL);
 }
 
 static Value map_get_n(Value map, const char *key, size_t key_length) {
@@ -1871,6 +1891,43 @@ static Value map_get_n(Value map, const char *key, size_t key_length) {
 }
 
 static Value map_get(Value map, const char *key) { return map_get_n(map, key, strlen(key)); }
+
+/* Cache only a slot hint. Validate the current key in the current Map on every
+   hit; never cache a Value, Map pointer, shape or mutable Binding address. */
+static Value map_get_site(Runtime *rt, const HhyNode *site, Value map,
+    const char *key, size_t length) {
+    HhyLookupProfile *p = rt->lookup;
+    if (p == NULL) return map_get_n(map, key, length);
+    HhyLookupSite *s = hhy_lookup_site(p, 2, (uintptr_t)rt->source,
+        site->token.line, site->token.column, rt->source ? rt->source->path : NULL);
+    bool hit = s && !s->megamorphic && s->slot_valid && s->slot < map.as.map->count &&
+        map.as.map->key_lengths[s->slot] == length &&
+        memcmp(map.as.map->keys[s->slot], key, length) == 0;
+    if (hit) {
+        p->map_hit++;
+        if (p->cache_enabled) {
+            p->map_cached++; hhy_lookup_observe(s, s->slot);
+            return map.as.map->values[s->slot];
+        }
+    } else {
+        p->map_miss++;
+        if (s && s->megamorphic) p->map_mega++;
+        else if (s && s->slot_valid) {
+            p->map_guard++;
+            if (++s->invalidations >= 4) s->megamorphic = true;
+        } else p->map_cold++;
+    }
+    p->map_generic++;
+    Value result = null_value(); size_t slot = SIZE_MAX;
+    bool found = map_lookup_slot_n(map, key, length, &result, &slot);
+    if (!found) p->map_missing++;
+    if (s) {
+        hhy_lookup_observe(s, slot);
+        s->slot = slot; s->slot_valid = found;
+    }
+    return result;
+}
+
 
 static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee,
                         size_t argc, Value *argv);
@@ -7286,6 +7343,19 @@ static Value call_value_impl(Runtime *rt, Env *env, const HhyNode *site, Value c
 
 static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee,
                         size_t argc, Value *argv) {
+    if (rt->lookup && rt->lookup->feedback_enabled) {
+        uint64_t target = (uint64_t)callee.kind;
+        if (callee.kind == V_FUNCTION) {
+            const Function *f = &callee.as.function;
+            if (f->builtin) target = hash_key_bytes(f->builtin, strlen(f->builtin));
+            else if (f->is_bytecode) {
+                const BytecodeFunctionTarget *b = (const BytecodeFunctionTarget *)f->node;
+                target = (uint64_t)(uintptr_t)b->chunk ^ ((uint64_t)b->instruction << 32);
+            } else target = (uint64_t)(uintptr_t)f->node;
+        }
+        hhy_lookup_observe(hhy_lookup_site(rt->lookup, 1, (uintptr_t)rt->source,
+            site->token.line, site->token.column, rt->source ? rt->source->path : NULL), target);
+    }
     size_t frame_index = rt->registered_call_unwind ? runtime_call_frame_push(rt, callee, argv) : 0;
     const char *name = callee.kind == V_FUNCTION ? callee.as.function.builtin : "<call>";
     size_t name_length = name == NULL ? 0 : strlen(name);
@@ -7458,13 +7528,14 @@ static Value bytecode_eval(Runtime *rt, Env *env, BytecodeCursor node) {
     switch (node.chunk->code[node.instruction].opcode) {
         case HHY_OP_LITERAL: return literal(rt, &site);
         case HHY_OP_IDENTIFIER: {
-            Binding *binding = env_find_node(env, &site);
+            Binding *binding = env_find_node(rt, env, &site);
             if (binding != NULL) return binding->value;
             char *name = token_text(rt, site.token);
             if (strcmp(name, "processes") == 0) return builtin(rt, env, &site, "processes", 0, NULL);
             if (hhy_contract_lookup(name) == NULL) {
                 runtime_check_error(rt, &site, "use of undeclared name"); return null_value();
             }
+            if (rt->lookup && rt->lookup->feedback_enabled) rt->lookup->builtin_lookups++;
             Value value = {.kind = V_FUNCTION}; value.as.function.builtin = name; return value;
         }
         case HHY_OP_LIST: {
@@ -7522,7 +7593,7 @@ static Value bytecode_eval(Runtime *rt, Env *env, BytecodeCursor node) {
             if (!record_kind(object.kind)) {
                 runtime_type_error(rt, &site, "member access expects Map or system object"); return null_value();
             }
-            return map_get(object, key);
+            return map_get_site(rt, &site, object, key, site.token.length);
         }
         case HHY_OP_INDEX: {
             Value object = bytecode_eval(rt, env, bytecode_child_cursor(node, 0));
@@ -7546,7 +7617,7 @@ static Value bytecode_eval(Runtime *rt, Env *env, BytecodeCursor node) {
                 return string_n(rt, object.as.string + byte, width);
             }
             if (record_kind(object.kind) && index.kind == V_STRING)
-                return map_get_n(object, index.as.string, index.string_length);
+                return map_get_site(rt, &site, object, index.as.string, index.string_length);
             runtime_type_error(rt, &site, "invalid index operation"); return null_value();
         }
         case HHY_OP_UNARY: {
@@ -7609,7 +7680,7 @@ static Value bytecode_eval(Runtime *rt, Env *env, BytecodeCursor node) {
             if (target_cursor.chunk->code[target_cursor.instruction].opcode != HHY_OP_IDENTIFIER) {
                 runtime_check_error(rt, &site, "assignment target must be a variable"); return null_value();
             }
-            Binding *binding = env_find_node(env, &target);
+            Binding *binding = env_find_node(rt, env, &target);
             if (binding == NULL) { runtime_check_error(rt, &site, "assignment to undeclared variable"); return null_value(); }
             if (!binding->mutable) { runtime_check_error(rt, &site, "cannot assign to immutable binding"); return null_value(); }
             binding->value = bytecode_eval(rt, env, bytecode_child_cursor(node, 1)); return binding->value;
@@ -7841,7 +7912,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
     switch (node->kind) {
         case HHY_N_LITERAL: return literal(rt, node);
         case HHY_N_IDENTIFIER: {
-            Binding *binding = env_find_node(env, node);
+            Binding *binding = env_find_node(rt, env, node);
             if (binding != NULL) return binding->value;
             char *name = token_text(rt, node->token);
             if (strcmp(name, "processes") == 0)
@@ -7850,6 +7921,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
                 runtime_check_error(rt, node, "use of undeclared name");
                 return null_value();
             }
+            if (rt->lookup && rt->lookup->feedback_enabled) rt->lookup->builtin_lookups++;
             Value value = {.kind = V_FUNCTION}; value.as.function.builtin = name; return value;
         }
         case HHY_N_LIST: {
@@ -7910,7 +7982,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
             if (!record_kind(object.kind)) {
                 runtime_type_error(rt, node, "member access expects Map or system object"); return null_value();
             }
-            return map_get(object, key);
+            return map_get_site(rt, node, object, key, node->token.length);
         }
         case HHY_N_INDEX: {
             Value object = eval(rt, env, node->children[0]); Value index = eval(rt, env, node->children[1]);
@@ -7936,7 +8008,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
                 return string_n(rt, object.as.string + byte, width);
             }
             if (record_kind(object.kind) && index.kind == V_STRING)
-                return map_get_n(object, index.as.string, index.string_length);
+                return map_get_site(rt, node, object, index.as.string, index.string_length);
             runtime_type_error(rt, node, "invalid index operation"); return null_value();
         }
         case HHY_N_UNARY: {
@@ -8005,7 +8077,7 @@ static Value eval(Runtime *rt, Env *env, const HhyNode *node) {
         case HHY_N_ASSIGN: {
             const HhyNode *target = node->children[0];
             if (target->kind != HHY_N_IDENTIFIER) { runtime_check_error(rt, node, "assignment target must be a variable"); return null_value(); }
-            Binding *binding = env_find_node(env, target);
+            Binding *binding = env_find_node(rt, env, target);
             if (binding == NULL) { runtime_check_error(rt, node, "assignment to undeclared variable"); return null_value(); }
             if (!binding->mutable) { runtime_check_error(rt, node, "cannot assign to immutable binding"); return null_value(); }
             binding->value = eval(rt, env, node->children[1]); return binding->value;
@@ -8315,6 +8387,15 @@ static Value import_module(Runtime *rt, Env *target, const HhyNode *node) {
 }
 
 static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc, char **argv) {
+    const char *cache = getenv("HHY_MAP_INLINE_CACHE");
+    const char *feedback = getenv("HHY_PROFILE_LOOKUPS");
+    bool cache_on = cache && strcmp(cache, "1") == 0;
+    bool feedback_on = rt->profiler && feedback && strcmp(feedback, "1") == 0;
+    if (cache_on || feedback_on) {
+        rt->lookup = rt_alloc_atomic(rt, sizeof(*rt->lookup));
+        rt->lookup->cache_enabled = cache_on; rt->lookup->feedback_enabled = feedback_on;
+        hhy_profiler_lookup_report(rt->profiler, rt->lookup);
+    }
     const char *call_unwind = getenv("HHY_CALL_FRAME_UNWIND");
     rt->registered_call_unwind = call_unwind != NULL && strcmp(call_unwind, "1") == 0;
     if (!hhy_call_unwind_verify(&hhy_runtime_call_unwind)) abort();

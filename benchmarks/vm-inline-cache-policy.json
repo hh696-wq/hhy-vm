@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "stage": "v1.6.2",
+  "scope": "local conditional evaluation and reversible Map slot-hint experiment",
+  "map_cache_default": false,
+  "lookup_feedback_default": false,
+  "sites_per_domain": 64,
+  "targets_per_site": 4,
+  "map_guard_failure_limit": 4,
+  "cached_managed_pointers": false,
+  "invalidation": "validate_current_map_slot_key_length_and_bytes_on_every_hit",
+  "overflow": "generic_lookup_without_growth",
+  "global_builtin": "retain_existing_slot_depth_name_validation_and_builtin_resolution",
+  "call_target": "observe_code_target_stability_without_skipping_callable_or_contract_checks",
+  "polymorphic_cache": "not_admitted",
+  "hidden_shapes": "not_admitted",
+  "cross_platform_admission": false,
+  "universal_no_benefit_claim": false
+}

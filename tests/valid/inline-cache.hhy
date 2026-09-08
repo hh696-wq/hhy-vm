@@ -1,0 +1,19 @@
+fn field(row) { return row.value }
+fn indexed(row, key) { return row[key] }
+let rows = [{value: 1, other: 10}, {other: 20, value: 2}, {value: 3}, {missing: 4}]
+for repeat in range(0, 3) {
+ for row in rows { print(field(row)) }
+}
+let record = {a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, value: 9}
+for repeat in range(0, 3) {
+ for key in ["a", "b", "c", "d", "e", "absent", "value"] { print(indexed(record, key)) }
+}
+print(indexed({"a\0b": 42, a: 7}, "a\0b"))
+print(indexed({"a\0b": 42, a: 7}, "a"))
+fn add(x) { return x + 1 }
+fn sub(x) { return x - 1 }
+fn invoke(callback, x) { return callback(x) }
+for callback in [add, sub, add, sub] { print(invoke(callback, 10)) }
+fn make(value) { return {value: value} }
+let garbage = range(0, 1000) |> stream |> collect
+for i in range(0, 10) { print(field(make(i))) }

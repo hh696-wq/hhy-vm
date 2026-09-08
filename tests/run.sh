@@ -33,6 +33,7 @@ python3 tests/check-call-layout.py "$HHY_BIN"
 python3 tests/check-exception-regions.py "$HHY_BIN"
 python3 tests/check-frame-pool.py "$HHY_BIN"
 python3 tests/check-call-unwind.py "$HHY_BIN"
+python3 tests/check-inline-cache.py "$HHY_BIN"
 
 process_snapshot_available=0
 socket_bind_available=0
