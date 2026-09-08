@@ -323,6 +323,10 @@ Profiler `frame_pool` 展示 allocated/reused/cached/escaped/discarded、查找 
 此清理用于原子写入/复制、Stream 保存、HTTP 下载和上传临时文件；失败时原目标保持不变。
 `tests/check-file-unwind.py` 使用 OS 文件大小限制及内存/文件配额组合验证恢复。
 
+GC 与调度专项使用独立 `build/hhy-resource-probe` 采集分配、暂停和保留量，
+不向默认 Runtime 安装 collector hook。测量命令、覆盖范围与条件决策见
+[VM_GC_SCHEDULER.md](VM_GC_SCHEDULER.md)。
+
 Inline cache 本地评估工具使用 `HHY_PROFILE_LOOKUPS=1` 输出有界访问反馈；
 `HHY_MAP_INLINE_CACHE=1` 开启逐次校验当前键的 Map slot 实验，两者默认关闭。
 画像、失配回退、准入边界和复现命令见 [VM_INLINE_CACHE.md](VM_INLINE_CACHE.md)。

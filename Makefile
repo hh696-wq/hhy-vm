@@ -255,3 +255,14 @@ clean:
 .PHONY: test-vm-call-policy
 test-vm-call-policy: $(TARGET)
 	python3 scripts/check-vm-call-runtime-policy.py $(TARGET)
+
+# Isolated process owns the Boehm event hook; production binaries are unchanged.
+build/hhy-resource-probe: tests/runtime_resource_probe.c $(LIB_OBJECTS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) tests/runtime_resource_probe.c $(filter-out build/release/runtime.o,$(LIB_OBJECTS)) $(LDLIBS) -o $@
+
+build/hhy-resource-probe-debug: tests/runtime_resource_probe.c $(filter-out build/debug/main.o,$(DEBUG_OBJECTS))
+	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) $(LDFLAGS) tests/runtime_resource_probe.c $(filter-out build/debug/main.o build/debug/runtime.o,$(DEBUG_OBJECTS)) $(LDLIBS) -o $@
+
+.PHONY: test-runtime-resources
+test-runtime-resources: $(TARGET) build/hhy-resource-probe
+	python3 tests/check-runtime-resources.py

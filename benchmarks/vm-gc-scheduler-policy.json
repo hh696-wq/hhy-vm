@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "stage": "v1.6.3",
+  "scope": "local observation, requirement audit and conditional architecture decision",
+  "collector": "retain_existing_conservative_boehm",
+  "precise_roots": "not_admitted_without_root_lifetime_and_production_budget_evidence",
+  "generational_or_incremental": "not_admitted",
+  "promotion_bytes": null,
+  "write_barrier_cost_ns": null,
+  "production_pause_budget_ns": null,
+  "scheduler": "retain_bounded_ordered_process_parallelism",
+  "production_concurrency_sla": null,
+  "default_process_limit": 16,
+  "default_parallelism_limit": 16,
+  "new_async_runtime": false,
+  "new_cancellation_model": false,
+  "new_error_model": false,
+  "diagnostic_hook_in_production": false,
+  "diagnostic_pause_sample_limit": 4096,
+  "cross_platform_admitted": false,
+  "retention_follow_up": "review_closed_stream_and_escaped_environment_roots_before_changing_collector",
+  "worst_case_latency_claim": "observed_sample_maximum_only_no_hard_realtime_bound"
+}

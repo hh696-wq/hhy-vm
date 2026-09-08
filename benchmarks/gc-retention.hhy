@@ -1,0 +1,12 @@
+# Synthetic retained and temporary allocation pressure; not a production budget.
+fn churn(seed) {
+    let values = range(0, 10000) |> stream |> map { n -> {value: n + seed, label: "retained"} } |> collect
+    return values[9999].value
+}
+let retained = range(0, 20000) |> stream |> collect
+fn total() {
+    let mut sum = 0
+    for i in range(0, 20) { sum = sum + churn(i) }
+    return sum
+}
+print(total(), length(retained))
