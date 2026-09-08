@@ -323,6 +323,10 @@ Profiler `frame_pool` 展示 allocated/reused/cached/escaped/discarded、查找 
 此清理用于原子写入/复制、Stream 保存、HTTP 下载和上传临时文件；失败时原目标保持不变。
 `tests/check-file-unwind.py` 使用 OS 文件大小限制及内存/文件配额组合验证恢复。
 
+Compiler IR 研究原型位于 `compiler/`，可用 `make test-compiler-ir` 验证。
+当前仅覆盖单基本块闭合整数表达式，未接入 Runtime；范围与后续准入见
+[COMPILER_IR.md](COMPILER_IR.md)。
+
 GC 与调度专项使用独立 `build/hhy-resource-probe` 采集分配、暂停和保留量，
 不向默认 Runtime 安装 collector hook。测量命令、覆盖范围与条件决策见
 [VM_GC_SCHEDULER.md](VM_GC_SCHEDULER.md)。

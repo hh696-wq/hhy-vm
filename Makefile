@@ -266,3 +266,22 @@ build/hhy-resource-probe-debug: tests/runtime_resource_probe.c $(filter-out buil
 .PHONY: test-runtime-resources
 test-runtime-resources: $(TARGET) build/hhy-resource-probe
 	python3 tests/check-runtime-resources.py
+
+# Research IR is deliberately excluded from production SOURCES and Runtime.
+IR_PROBE_SOURCES := compiler/ir_probe.c compiler/ir.c src/ast.c src/lexer.c src/parser.c src/common.c
+build/hhy-ir-probe: $(IR_PROBE_SOURCES) compiler/ir.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(IR_PROBE_SOURCES) $(LDLIBS) -o $@
+
+build/hhy-ir-probe-debug: $(IR_PROBE_SOURCES) compiler/ir.h
+	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) $(LDFLAGS) $(IR_PROBE_SOURCES) $(LDLIBS) -o $@
+
+build/hhy-ir-test: tests/compiler_ir.c compiler/ir.c compiler/ir.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/compiler_ir.c compiler/ir.c -o $@
+
+build/hhy-ir-test-debug: tests/compiler_ir.c compiler/ir.c compiler/ir.h
+	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) tests/compiler_ir.c compiler/ir.c -o $@
+
+.PHONY: test-compiler-ir
+test-compiler-ir: $(TARGET) build/hhy-ir-probe build/hhy-ir-test
+	build/hhy-ir-test
+	python3 tests/check-compiler-ir.py
