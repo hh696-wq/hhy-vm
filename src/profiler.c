@@ -48,6 +48,8 @@ typedef struct {
 } DispatchProfile;
 
 struct HhyProfiler {
+    uint64_t call_layout_selected;
+    uint64_t call_layout_generic;
     DispatchProfile *dispatch;
     const char *dispatch_status;
     HhyProfileOptions options;
@@ -189,6 +191,12 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
 #endif
     }
     return profiler;
+}
+
+void hhy_profiler_call_layout(HhyProfiler *profiler, bool selected) {
+    if (profiler == NULL) return;
+    if (selected) profiler->call_layout_selected++;
+    else profiler->call_layout_generic++;
 }
 
 void hhy_profiler_dispatch(HhyProfiler *profiler, unsigned opcode, HhyProfileDispatchDomain domain) {
@@ -430,6 +438,9 @@ static void print_json(HhyProfiler *p, FILE *out) {
     }
     fprintf(out, "%s,\n  \"optimization_decisions_dropped\": %zu",
             p->decision_count ? "\n  ]" : "]", p->decisions_dropped);
+    fprintf(out, ",\n  \"call_layout\": {\"schema_version\": 1, \"plan_version\": %u, "
+            "\"selected_calls\": %" PRIu64 ", \"generic_calls\": %" PRIu64 "}",
+            HHY_BYTECODE_CALL_PLAN_VERSION, p->call_layout_selected, p->call_layout_generic);
     print_dispatch_json(p, out);
     fputs("\n}\n", out);
 }

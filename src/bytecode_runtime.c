@@ -33,7 +33,11 @@ HhyBytecodeResult hhy_bytecode_runtime_prepare(const HhyNode *program,
             prepared->chunk.code[0].opcode = HHY_OP_COUNT;
         else if (strcmp(fault_injection, "missing-halt") == 0 && prepared->chunk.count > 0)
             prepared->chunk.count--;
-        else if (strcmp(fault_injection, "invalid-opcode") != 0 &&
+        else if (strcmp(fault_injection, "invalid-call-plan") == 0) {
+            if (prepared->chunk.call_plan_count > 0)
+                prepared->chunk.call_plans[0].first_body = UINT32_MAX;
+            else result = boundary_error("call plan fault requires a callable");
+        } else if (strcmp(fault_injection, "invalid-opcode") != 0 &&
                  strcmp(fault_injection, "missing-halt") != 0)
             result = boundary_error("unknown Bytecode fault injection");
     }

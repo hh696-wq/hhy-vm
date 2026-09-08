@@ -36,6 +36,7 @@ typedef enum {
 
 /* Counts recursive VM switch entries, not adjacent fusible instructions. */
 void hhy_profiler_dispatch(HhyProfiler *profiler, unsigned opcode, HhyProfileDispatchDomain domain);
+void hhy_profiler_call_layout(HhyProfiler *profiler, bool selected);
 void hhy_profiler_stop(HhyProfiler *profiler, size_t heap_current);
 void hhy_profiler_free(HhyProfiler *profiler);
 

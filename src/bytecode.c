@@ -29,6 +29,7 @@ void hhy_bytecode_chunk_free(HhyBytecodeChunk *chunk) {
     free(chunk->constants);
     free(chunk->code);
     free(chunk->stream_kernels);
+    free(chunk->call_plans);
     hhy_bytecode_chunk_init(chunk);
 }
 
@@ -75,6 +76,100 @@ bool hhy_bytecode_child(const HhyBytecodeChunk *chunk, size_t parent,
         return false;
     *child = cursor;
     return true;
+}
+
+/* The table is sorted by source instruction; targets borrow verified entries. */
+const HhyBytecodeCallPlan *hhy_bytecode_call_plan(const HhyBytecodeChunk *chunk,
+                                                 size_t source_instruction) {
+    if (chunk == NULL) return NULL;
+    size_t low = 0, high = chunk->call_plan_count;
+    while (low < high) {
+        size_t middle = low + (high - low) / 2;
+        size_t current = chunk->call_plans[middle].source_instruction;
+        if (current < source_instruction) low = middle + 1;
+        else high = middle;
+    }
+    return low < chunk->call_plan_count &&
+        chunk->call_plans[low].source_instruction == source_instruction
+        ? &chunk->call_plans[low] : NULL;
+}
+
+/* Derive only layout: no evaluation, effect removal or tail-call rewriting. */
+static bool call_layout(const HhyBytecodeChunk *chunk, size_t source,
+                         HhyBytecodeCallPlan *plan) {
+    if (source >= chunk->count) return false;
+    HhyInstruction instruction = chunk->code[source];
+    bool function = instruction.opcode == HHY_OP_FN_DECL;
+    if (!function && instruction.opcode != HHY_OP_CLOSURE) return false;
+    *plan = (HhyBytecodeCallPlan){
+        .version = HHY_BYTECODE_CALL_PLAN_VERSION,
+        .source_instruction = (uint32_t)source,
+        .first_parameter = HHY_BYTECODE_NO_INSTRUCTION,
+        .first_body = HHY_BYTECODE_NO_INSTRUCTION
+    };
+    size_t cursor = source + 1;
+    if (function) {
+        if (instruction.child_count < 2 || cursor >= chunk->count ||
+            chunk->code[cursor].opcode != HHY_OP_IDENTIFIER ||
+            chunk->code[cursor].subtree_size != 1) return false;
+        cursor++;
+        plan->parameter_count = instruction.child_count - 2;
+        if (plan->parameter_count) plan->first_parameter = (uint32_t)cursor;
+        for (uint32_t i = 0; i < plan->parameter_count; i++, cursor++)
+            if (cursor >= chunk->count || chunk->code[cursor].opcode != HHY_OP_IDENTIFIER ||
+                chunk->code[cursor].subtree_size != 1) return false;
+        plan->body_count = 1;
+    } else {
+        plan->parameter_count = 1;
+        plan->body_count = instruction.child_count;
+        if (instruction.child_count && cursor < chunk->count &&
+            chunk->code[cursor].opcode == HHY_OP_IDENTIFIER) {
+            if (chunk->code[cursor].subtree_size != 1) return false;
+            plan->first_parameter = (uint32_t)cursor++;
+            plan->body_count--;
+        }
+    }
+    if (plan->body_count) {
+        if (cursor >= chunk->count) return false;
+        plan->first_body = (uint32_t)cursor;
+        for (uint32_t i = 0; i < plan->body_count; i++) {
+            if (cursor >= chunk->count || chunk->code[cursor].subtree_size == 0 ||
+                chunk->code[cursor].subtree_size > chunk->count - cursor) return false;
+            cursor += chunk->code[cursor].subtree_size;
+        }
+    }
+    if (cursor != source + instruction.subtree_size) return false;
+    plan->frame_capacity = instruction.frame_slot_count > plan->parameter_count
+        ? instruction.frame_slot_count : plan->parameter_count;
+    return true;
+}
+
+static void compile_call_plans(HhyBytecodeChunk *chunk) {
+    size_t count = 0;
+    HhyBytecodeCallPlan plan;
+    for (size_t i = 0; i < chunk->count; i++)
+        if (call_layout(chunk, i, &plan)) count++;
+    if (!count) return;
+    chunk->call_plans = hhy_alloc(count * sizeof(*chunk->call_plans));
+    for (size_t i = 0; i < chunk->count; i++)
+        if (call_layout(chunk, i, &plan)) chunk->call_plans[chunk->call_plan_count++] = plan;
+}
+
+static HhyBytecodeResult verify_call_plans(const HhyBytecodeChunk *chunk) {
+    if (chunk->call_plan_count > chunk->count ||
+        (chunk->call_plan_count && chunk->call_plans == NULL))
+        return result(false, 0, "invalid call plan storage");
+    for (size_t i = 0; i < chunk->call_plan_count; i++) {
+        const HhyBytecodeCallPlan *p = &chunk->call_plans[i];
+        HhyBytecodeCallPlan expected;
+        if ((i && chunk->call_plans[i - 1].source_instruction >= p->source_instruction) ||
+            !call_layout(chunk, p->source_instruction, &expected) ||
+            p->version != expected.version || p->parameter_count != expected.parameter_count ||
+            p->first_parameter != expected.first_parameter || p->first_body != expected.first_body ||
+            p->body_count != expected.body_count || p->frame_capacity != expected.frame_capacity)
+            return result(false, p->source_instruction, "invalid call plan layout or version");
+    }
+    return result(true, 0, NULL);
 }
 
 static HhyOpcode opcode_for_node(HhyNodeKind kind) {
@@ -256,6 +351,7 @@ HhyBytecodeResult hhy_bytecode_compile(const HhyNode *program, HhyBytecodeChunk 
         .constant = HHY_BYTECODE_NO_CONSTANT, .child_count = 0,
         .subtree_size = 1, .line = line, .column = column
     };
+    compile_call_plans(chunk);
     return hhy_bytecode_verify(chunk);
 }
 
@@ -409,6 +505,8 @@ HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk) {
         return result(false, cursor, "root must be followed by a canonical HALT");
     if (cursor + 1 != chunk->count)
         return result(false, cursor + 1, "instructions follow HALT");
+    HhyBytecodeResult calls = verify_call_plans(chunk);
+    if (!calls.ok) return calls;
     for (size_t i = 0; i < chunk->stream_kernel_count; i++) {
         HhyBytecodeResult kernel = verify_stream_kernel(chunk, i);
         if (!kernel.ok) return kernel;
@@ -479,6 +577,15 @@ void hhy_bytecode_disassemble(const HhyBytecodeChunk *chunk, FILE *output) {
                     "stream_kernels %zu version=%u\n",
             chunk->constant_count, chunk->count, chunk->stream_kernel_count,
             HHY_STREAM_KERNEL_VERSION);
+    fprintf(output, "call_plans %zu version=%u\n", chunk->call_plan_count,
+            HHY_BYTECODE_CALL_PLAN_VERSION);
+    for (size_t i = 0; i < chunk->call_plan_count; i++) {
+        const HhyBytecodeCallPlan *p = &chunk->call_plans[i];
+        fprintf(output, "call_plan source=%u parameters=%u first_parameter=%u "
+                "first_body=%u bodies=%u frame_capacity=%u\n", p->source_instruction,
+                p->parameter_count, p->first_parameter, p->first_body, p->body_count,
+                p->frame_capacity);
+    }
     for (size_t i = 0; i < chunk->count; i++) {
         HhyInstruction instruction = chunk->code[i];
         fprintf(output, "%04zu %-13s children=%u subtree=%u", i,

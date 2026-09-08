@@ -288,6 +288,10 @@ static int process_file(const char *path, Command command, bool quiet_success,
                             compile_started, compile_finished),
                         "verify_prepare_ns", (json_int_t)elapsed_nanoseconds(
                             compile_finished, prepare_finished));
+                    json_object_set_new(metrics, "call_plan_version", json_integer(HHY_BYTECODE_CALL_PLAN_VERSION));
+                    json_object_set_new(metrics, "call_plans", json_integer((json_int_t)chunk.call_plan_count));
+                    json_object_set_new(metrics, "call_plan_bytes", json_integer(
+                        (json_int_t)(chunk.call_plan_count * sizeof(*chunk.call_plans))));
                     json_dumpf(metrics, stdout, JSON_SORT_KEYS);
                     fputc('\n', stdout);
                     json_decref(metrics);

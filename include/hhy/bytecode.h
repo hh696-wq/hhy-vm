@@ -90,7 +90,22 @@ typedef struct {
     HhyStreamKernelInstruction instructions[HHY_STREAM_KERNEL_MAX_INSTRUCTIONS];
 } HhyStreamKernel;
 
+#define HHY_BYTECODE_CALL_PLAN_VERSION 1u
+#define HHY_BYTECODE_NO_INSTRUCTION UINT32_MAX
+
 typedef struct {
+    uint32_t version;
+    uint32_t source_instruction;
+    uint32_t parameter_count;
+    uint32_t first_parameter;
+    uint32_t first_body;
+    uint32_t body_count;
+    uint32_t frame_capacity;
+} HhyBytecodeCallPlan;
+
+typedef struct {
+    HhyBytecodeCallPlan *call_plans;
+    size_t call_plan_count;
     HhyInstruction *code;
     size_t count;
     size_t capacity;
@@ -128,6 +143,8 @@ const char *hhy_opcode_name(HhyOpcode opcode);
 const char *hhy_stream_kernel_opcode_name(HhyStreamKernelOpcode opcode);
 const HhyStreamKernel *hhy_bytecode_stream_kernel(const HhyBytecodeChunk *chunk,
                                                   size_t source_instruction);
+const HhyBytecodeCallPlan *hhy_bytecode_call_plan(const HhyBytecodeChunk *chunk,
+                                                 size_t source_instruction);
 bool hhy_bytecode_child(const HhyBytecodeChunk *chunk, size_t parent,
                         uint32_t child_index, size_t *child);
 

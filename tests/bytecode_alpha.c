@@ -74,7 +74,67 @@ static void expect_failure(HhyBytecodeChunk *chunk, const char *fragment) {
     if (verified.ok || strstr(verified.message, fragment) == NULL) fail(fragment);
 }
 
+static void test_call_plans(void) {
+    HhyBytecodeChunk chunk;
+    hhy_bytecode_chunk_init(&chunk);
+    chunk.count = chunk.capacity = 7;
+    chunk.code = hhy_alloc(chunk.count * sizeof(*chunk.code));
+    for (size_t i = 0; i < chunk.count; i++)
+        chunk.code[i] = (HhyInstruction){.opcode = HHY_OP_IDENTIFIER,
+            .token_kind = HHY_T_EOF, .constant = HHY_BYTECODE_NO_CONSTANT,
+            .subtree_size = 1, .line = 1, .column = 1};
+    chunk.code[0].opcode = HHY_OP_PROGRAM;
+    chunk.code[0].child_count = 1;
+    chunk.code[0].subtree_size = 6;
+    chunk.code[1].opcode = HHY_OP_FN_DECL;
+    chunk.code[1].child_count = 4;
+    chunk.code[1].subtree_size = 5;
+    chunk.code[5].opcode = HHY_OP_BLOCK;
+    chunk.code[6].opcode = HHY_OP_HALT;
+    chunk.call_plans = hhy_alloc(2 * sizeof(*chunk.call_plans));
+    chunk.call_plan_count = 1;
+    HhyBytecodeCallPlan valid = {.version = HHY_BYTECODE_CALL_PLAN_VERSION,
+        .source_instruction = 1, .parameter_count = 2, .first_parameter = 3,
+        .first_body = 5, .body_count = 1, .frame_capacity = 2};
+    chunk.call_plans[0] = valid;
+    if (!hhy_bytecode_verify(&chunk).ok) fail("valid call layout rejected");
+    if (hhy_bytecode_call_plan(&chunk, 1) != chunk.call_plans ||
+        hhy_bytecode_call_plan(&chunk, 2) != NULL || hhy_bytecode_call_plan(NULL, 0) != NULL)
+        fail("call plan lookup failed");
+#define CORRUPT_CALL_FIELD(field, value) do { \
+    chunk.call_plans[0].field = (value); \
+    expect_failure(&chunk, "call plan"); \
+    chunk.call_plans[0] = valid; \
+} while (0)
+    CORRUPT_CALL_FIELD(version, 0);
+    CORRUPT_CALL_FIELD(source_instruction, UINT32_MAX);
+    CORRUPT_CALL_FIELD(source_instruction, 0);
+    CORRUPT_CALL_FIELD(parameter_count, 1);
+    CORRUPT_CALL_FIELD(first_parameter, 4);
+    CORRUPT_CALL_FIELD(first_body, 4);
+    CORRUPT_CALL_FIELD(body_count, 0);
+    CORRUPT_CALL_FIELD(frame_capacity, UINT32_MAX);
+#undef CORRUPT_CALL_FIELD
+    chunk.call_plans[1] = valid;
+    chunk.call_plan_count = 2;
+    expect_failure(&chunk, "call plan");
+    chunk.call_plan_count = chunk.count + 1;
+    expect_failure(&chunk, "call plan storage");
+    chunk.call_plan_count = 1;
+    HhyBytecodeCallPlan *storage = chunk.call_plans;
+    chunk.call_plans = NULL;
+    expect_failure(&chunk, "call plan storage");
+    chunk.call_plans = storage;
+    chunk.code[3].opcode = HHY_OP_LITERAL;
+    expect_failure(&chunk, "call plan");
+    chunk.code[3].opcode = HHY_OP_IDENTIFIER;
+    chunk.call_plan_count = 0;
+    if (!hhy_bytecode_verify(&chunk).ok) fail("optional call metadata cannot fall back");
+    hhy_bytecode_chunk_free(&chunk);
+}
+
 int main(void) {
+    test_call_plans();
     HhyBytecodeChunk chunk = minimal_chunk();
     if (!hhy_bytecode_verify(&chunk).ok) fail("minimal chunk was rejected");
 

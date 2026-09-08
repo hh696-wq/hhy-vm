@@ -44,7 +44,7 @@ do
     compare_case "$source"
 done
 
-compare_case tests/invalid-runtime/recursion-limit.hhy --limit recursion=8
+compare_case tests/invalid-runtime/recursion-limit.hhy --limit max_recursion=8
 
 for fault in invalid-opcode missing-halt
 do

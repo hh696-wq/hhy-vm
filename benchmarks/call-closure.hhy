@@ -1,0 +1,9 @@
+# Synthetic captured-closure fallback stress; no Stream fusion.
+fn identity(ignored, callback) { return callback }
+let offset = 3
+let callback = null |> identity { value -> value + offset }
+let mut total = 0
+for item in range(0, 100000) {
+    total = total + callback(item)
+}
+print(total)

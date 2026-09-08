@@ -1,0 +1,31 @@
+fn identity(ignored, value) { return value }
+fn sum(a, b, c, d) {
+    return a + b + c + d
+}
+fn recurse(n) {
+    if n == 0 { return 0 }
+    return 1 + recurse(n - 1)
+}
+fn make_pair(seed) {
+    let mut current = seed
+    let increment = null |> identity { step -> current = current + step; current }
+    let read = null |> identity { ignored -> current }
+    return [increment, read]
+}
+let pair = make_pair(10)
+print(pair[0](2))
+print(pair[1](null))
+print(sum(1, 2, 3, 4))
+print(recurse(32))
+let explicit = null |> identity { value -> value + 2 }
+let implicit = null |> identity { it + 3 }
+print(explicit(4))
+print(implicit(4))
+let fallback = null |> identity { value -> value + sum(1, 2, 3, 4) }
+print(fallback(5))
+try {
+    [sum][0](1)
+} catch err {
+    print(err.kind)
+}
+print(sum(4, 3, 2, 1))

@@ -1,0 +1,20 @@
+fn identity(ignored, callback) { return callback }
+fn descend(n) {
+    if n == 0 { return 1 / 0 }
+    return descend(n - 1)
+}
+fn healthy(value) { return value + 1 }
+let failing = null |> identity { value -> descend(value) }
+try {
+    failing(3)
+} catch err {
+    print(err.kind)
+    print(err.stack)
+}
+print(healthy(41))
+let empty = null |> identity {}
+let empty_explicit = null |> identity { value -> }
+print(empty(1))
+print(empty_explicit(1))
+let returned = null |> identity { value -> return value + 1; throw("unreachable") }
+print(returned(8))

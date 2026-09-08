@@ -274,6 +274,20 @@ JSON 的 `dispatch_profile`（独立 schema 1）记录 opcode 单项、pair/trip
 不同执行路径之间重置转移历史。它们不是可直接融合的相邻指令，也不能证明纯 dispatch 耗时。
 评估工具保存原始配对样本和候选频率排序，当前不准入 superinstruction。
 
+调用布局实验路径同样默认关闭：
+
+```sh
+HHY_BYTECODE_CALL_PLANS=1 ./build/hhy run benchmarks/call-arguments.hhy
+HHY_BYTECODE_CALL_PLANS=1 ./build/hhy profile --heap --format json --output calls.json tests/valid/call-layout.hhy
+```
+
+Compiler 生成版本化 `call_plan`，Verifier 校验参数、函数体和 frame capacity 后，
+Runtime 才能直接定位调用布局；设置 `HHY_BYTECODE_CALL_PLANS=0` 可回到原路径。
+`hhy bytecode` 展示计划，`hhy bytecode --metrics` 记录计划数量及原生字节数；
+Profiler 的 `call_layout` 记录 Bytecode 新旧路径调用次数（不含 builtin 和直接执行的 Stream kernel）。
+此实验保留捕获、GC roots、递归上限与 stack trace；不消除尾调用、不改变 unwind 机制。
+默认启用仍需真实负载和跨平台收益证据。
+
 ## 进程扩展与签名 Registry
 
 本地开发安装仍会展示 capability，安装后和每次加载前都会

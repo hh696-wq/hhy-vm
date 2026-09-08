@@ -112,12 +112,16 @@ typedef struct {
 
 typedef struct {
     const HhyBytecodeChunk *chunk;
-    size_t instruction;
-    size_t fast_expression;
+    uint32_t instruction;
+    uint32_t fast_expression;
     uint32_t parameter_constant;
     const HhyStreamKernel *stream_kernel;
+    const HhyBytecodeCallPlan *call_plan;
     bool has_fast_argument_expression;
 } BytecodeFunctionTarget;
+
+_Static_assert(HHY_BYTECODE_MAX_INSTRUCTIONS < UINT32_MAX,
+               "verified call target indices must fit in uint32_t");
 
 typedef enum {
     BYTECODE_SPECIALIZATION_SELECTED = 0,
@@ -4633,16 +4637,23 @@ static Value call_function(Runtime *rt, const HhyNode *site, Value callee,
         const BytecodeFunctionTarget *target = (const BytecodeFunctionTarget *)callee.as.function.node;
         BytecodeCursor function = {.chunk = target->chunk, .instruction = target->instruction};
         HhyNode function_site = bytecode_site(function);
-        size_t param_count = function_site.child_count - 2;
+        const HhyBytecodeCallPlan *plan = target->call_plan;
+        if (rt->profiler != NULL) hhy_profiler_call_layout(rt->profiler, plan != NULL);
+        size_t param_count = plan ? plan->parameter_count : function_site.child_count - 2;
         if (argc != param_count) { runtime_type_error(rt, site, "wrong number of function arguments"); return null_value(); }
         Env *call_env = call_frame_acquire(rt, callee.as.function.closure,
-                                           function_site.frame_slot_count > param_count
-                                               ? function_site.frame_slot_count : param_count);
+                                           plan ? plan->frame_capacity :
+                                           (function_site.frame_slot_count > param_count
+                                               ? function_site.frame_slot_count : param_count));
         for (size_t i = 0; i < param_count; i++) {
-            HhyNode parameter = bytecode_site(bytecode_child_cursor(function, (uint32_t)i + 1));
+            BytecodeCursor parameter_cursor = plan
+                ? (BytecodeCursor){target->chunk, plan->first_parameter + i}
+                : bytecode_child_cursor(function, (uint32_t)i + 1);
+            HhyNode parameter = bytecode_site(parameter_cursor);
             env_define_token(rt, call_env, site, parameter.token, argv[i], false);
         }
-        BytecodeCursor body = bytecode_child_cursor(function, function_site.child_count - 1);
+        BytecodeCursor body = plan ? (BytecodeCursor){target->chunk, plan->first_body}
+            : bytecode_child_cursor(function, function_site.child_count - 1);
         Value result = body.chunk->code[body.instruction].opcode == HHY_OP_BLOCK
             ? bytecode_exec_contents(rt, call_env, body)
             : bytecode_exec(rt, call_env, body);
@@ -4671,6 +4682,8 @@ static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
                           size_t argc, Value *argv) {
     if (callee.as.function.is_bytecode) {
         const BytecodeFunctionTarget *target = (const BytecodeFunctionTarget *)callee.as.function.node;
+        const HhyBytecodeCallPlan *plan = target->call_plan;
+        if (rt->profiler != NULL) hhy_profiler_call_layout(rt->profiler, plan != NULL);
         if (target->has_fast_argument_expression) {
             if (argc != 1) { runtime_type_error(rt, site, "closure requires one argument"); return null_value(); }
             Value result;
@@ -4681,10 +4694,11 @@ static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
         }
         BytecodeCursor closure = {.chunk = target->chunk, .instruction = target->instruction};
         HhyNode closure_site = bytecode_site(closure);
-        bool explicit_param = closure_site.child_count > 0 &&
-            closure.chunk->code[bytecode_child_cursor(closure, 0).instruction].opcode == HHY_OP_IDENTIFIER;
+        bool explicit_param = plan ? plan->first_parameter != HHY_BYTECODE_NO_INSTRUCTION :
+            (closure_site.child_count > 0 &&
+             closure.chunk->code[bytecode_child_cursor(closure, 0).instruction].opcode == HHY_OP_IDENTIFIER);
         if (argc != 1) { runtime_type_error(rt, site, "closure requires one argument"); return null_value(); }
-        if (explicit_param && closure_site.child_count == 2) {
+        if (plan == NULL && explicit_param && closure_site.child_count == 2) {
             BytecodeCursor parameter_cursor = bytecode_child_cursor(closure, 0);
             BytecodeCursor body = bytecode_child_cursor(closure, 1);
             if (body.chunk->code[body.instruction].opcode == HHY_OP_EXPR_STMT) {
@@ -4696,17 +4710,28 @@ static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
             }
         }
         Env *call_env = call_frame_acquire(rt, callee.as.function.closure,
-                                           closure_site.frame_slot_count > 1
-                                               ? closure_site.frame_slot_count : 1);
+                                           plan ? plan->frame_capacity :
+                                           (closure_site.frame_slot_count > 1
+                                               ? closure_site.frame_slot_count : 1));
         size_t body_start = 0;
         if (explicit_param) {
-            HhyNode parameter = bytecode_site(bytecode_child_cursor(closure, 0));
+            HhyNode parameter = bytecode_site(plan
+                ? (BytecodeCursor){target->chunk, plan->first_parameter}
+                : bytecode_child_cursor(closure, 0));
             env_define_token(rt, call_env, site, parameter.token, argv[0], false);
             body_start = 1;
         } else env_define(rt, call_env, site, "it", argv[0], false);
         Value result = null_value();
-        for (size_t i = body_start; i < closure_site.child_count && !rt->failed && rt->signal == SIGNAL_NONE; i++)
-            result = bytecode_exec(rt, call_env, bytecode_child_cursor(closure, (uint32_t)i));
+        if (plan != NULL) {
+            BytecodeCursor body = {target->chunk, plan->first_body};
+            for (uint32_t i = 0; i < plan->body_count && !rt->failed && rt->signal == SIGNAL_NONE; i++) {
+                result = bytecode_exec(rt, call_env, body);
+                body.instruction += body.chunk->code[body.instruction].subtree_size;
+            }
+        } else {
+            for (size_t i = body_start; i < closure_site.child_count && !rt->failed && rt->signal == SIGNAL_NONE; i++)
+                result = bytecode_exec(rt, call_env, bytecode_child_cursor(closure, (uint32_t)i));
+        }
         if (rt->signal == SIGNAL_RETURN) { result = rt->signal_value; rt->signal = SIGNAL_NONE; }
         call_frame_release(rt, call_env);
         return result;
@@ -7089,14 +7114,18 @@ static Value call_value(Runtime *rt, Env *env, const HhyNode *site, Value callee
 static BytecodeFunctionTarget *bytecode_function_target(Runtime *rt, BytecodeCursor cursor) {
     BytecodeFunctionTarget *target = rt_alloc(rt, sizeof(*target));
     target->chunk = cursor.chunk;
-    target->instruction = cursor.instruction;
+    target->instruction = (uint32_t)cursor.instruction;
+    /* Experimental admission gate: default stays on the established layout path. */
+    const char *call_plans = getenv("HHY_BYTECODE_CALL_PLANS");
+    if (call_plans != NULL && strcmp(call_plans, "1") == 0)
+        target->call_plan = hhy_bytecode_call_plan(cursor.chunk, cursor.instruction);
     HhyInstruction instruction = cursor.chunk->code[cursor.instruction];
     if (instruction.opcode == HHY_OP_CLOSURE && instruction.child_count == 2) {
         BytecodeCursor parameter = bytecode_child_cursor(cursor, 0);
         BytecodeCursor body = bytecode_child_cursor(cursor, 1);
         if (parameter.chunk->code[parameter.instruction].opcode == HHY_OP_IDENTIFIER &&
             body.chunk->code[body.instruction].opcode == HHY_OP_EXPR_STMT) {
-            target->fast_expression = bytecode_child_cursor(body, 0).instruction;
+            target->fast_expression = (uint32_t)bytecode_child_cursor(body, 0).instruction;
             target->parameter_constant = parameter.chunk->code[parameter.instruction].constant;
             target->has_fast_argument_expression = true;
             target->stream_kernel = hhy_bytecode_stream_kernel(cursor.chunk,
