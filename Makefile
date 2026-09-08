@@ -280,15 +280,19 @@ test-runtime-resources: $(TARGET) build/hhy-resource-probe
 # Research IR is deliberately excluded from production SOURCES and Runtime.
 IR_PROBE_SOURCES := compiler/ir_probe.c compiler/ir.c src/ast.c src/lexer.c src/parser.c src/common.c
 build/hhy-ir-probe: $(IR_PROBE_SOURCES) compiler/ir.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $(IR_PROBE_SOURCES) $(LDLIBS) -o $@
 
 build/hhy-ir-probe-debug: $(IR_PROBE_SOURCES) compiler/ir.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) $(LDFLAGS) $(IR_PROBE_SOURCES) $(LDLIBS) -o $@
 
 build/hhy-ir-test: tests/compiler_ir.c compiler/ir.c compiler/ir.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/compiler_ir.c compiler/ir.c -o $@
 
 build/hhy-ir-test-debug: tests/compiler_ir.c compiler/ir.c compiler/ir.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) tests/compiler_ir.c compiler/ir.c -o $@
 
 .PHONY: test-compiler-ir
@@ -298,12 +302,15 @@ test-compiler-ir: $(TARGET) build/hhy-ir-probe build/hhy-ir-test
 
 COMPILER_TEST_SOURCES := src/compiler.c src/bytecode.c src/typed_plan.c src/ast.c src/resolver.c src/lexer.c src/parser.c src/common.c
 build/hhy-compiler-probe: compiler/program_probe.c $(COMPILER_TEST_SOURCES) include/hhy/compiler.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) compiler/program_probe.c $(COMPILER_TEST_SOURCES) -o $@
 
 build/hhy-compiler-test: tests/compiler_program.c $(COMPILER_TEST_SOURCES) include/hhy/compiler.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/compiler_program.c $(COMPILER_TEST_SOURCES) -o $@
 
 build/hhy-compiler-test-debug: tests/compiler_program.c $(COMPILER_TEST_SOURCES) include/hhy/compiler.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) tests/compiler_program.c $(COMPILER_TEST_SOURCES) -o $@
 
 .PHONY: test-compiler
@@ -315,7 +322,9 @@ test-compiler: build/hhy-typed-test $(TARGET) build/hhy-compiler-probe build/hhy
 	python3 tests/check-compiler-observability.py $(TARGET)
 
 build/hhy-typed-test: tests/typed_plan.c $(COMPILER_TEST_SOURCES) include/hhy/typed_plan.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/typed_plan.c $(COMPILER_TEST_SOURCES) -o $@
 
 build/hhy-typed-test-debug: tests/typed_plan.c $(COMPILER_TEST_SOURCES) include/hhy/typed_plan.h
+	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(DEBUG_CFLAGS) tests/typed_plan.c $(COMPILER_TEST_SOURCES) -o $@
