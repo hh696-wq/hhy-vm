@@ -50,6 +50,7 @@ HHY 1.7.0 的真实命令输出；版本、作者、许可证、官网和联系�
 ```sh
 hhy script.hhy [args...]
 hhy run script.hhy [args...]
+hhy run --engine ast|bytecode script.hhy [args...]
 hhy repl
 hhy check script.hhy...
 hhy fmt script.hhy...
@@ -64,15 +65,35 @@ hhy serve app.hhy [args...]
 hhy serve --dev app.hhy [args...]
 hhy serve --engine ast|bytecode --limit max_memory=256mib app.hhy -- [args...]
 hhy profile script.hhy [args...]
+hhy profile --engine ast|bytecode script.hhy [args...]
 hhy profile --cpu script.hhy
 hhy profile --heap --format json --output profile.json script.hhy
+hhy check --format json script.hhy...
+hhy contracts --format json
+hhy install [--yes] [--dry-run] [--upgrade] [--locked] [--offline] [--lockfile FILE] [--cache DIR] [--registry DIR --trust-root FILE] <package-or-path>
+hhy lock [--lockfile FILE] --registry DIR --trust-root FILE <package>
+hhy fetch --locked [--lockfile FILE] [--cache DIR] --registry DIR --trust-root FILE
+hhy rollback <package>
+hhy doctor extensions [--lockfile FILE] [--cache DIR]
+hhy list
+hhy remove <package>
 hhy --version
+hhy -V
 hhy --help
+hhy -h
 ```
 
 
 | 命令 | 用途 |
 | --- | --- |
+| hhy contracts --format json | 导出 callable 契约 |
+| hhy install | 安装扩展或按选项升级 |
+| hhy lock | 解析依赖并写入锁文件 |
+| hhy fetch --locked | 缓存锁定依赖 |
+| hhy rollback | 恢复上一已验证扩展版本 |
+| hhy doctor extensions | 核验锁文件、缓存与安装 |
+| hhy list / hhy remove | 列出或移除扩展 |
+| hhy check --format json | 输出 JSON 诊断 |
 | hhy run | 使用默认 Bytecode 引擎运行脚本并传递 args |
 | hhy run --engine ast\|bytecode | 显式选择 AST 回退或 Bytecode 引擎 |
 | hhy serve | 运行常驻 Web 应用；应用通过 web.listen 配置地址、端口和 Worker |
@@ -224,7 +245,86 @@ v1.7.0 的 run、profile 与脚本简写默认使用 Bytecode；可用 --engine 
 {% endhint %}
 
 
-## 20.8 Runtime 资源限制
+## 20.8 开启 HIR / 整数 MIR
+
+这些是环境变量，不是 hhy 子命令。以下命令用于 macOS/Linux 的 sh、bash、zsh；一次性前缀只影响该条命令。已安装使用 hhy，源码工作区替换为 ./build/hhy。请先保存下面文件。
+
+
+**optimizer-demo.hhy**
+
+```hhy
+fn calculate(x) { return x * 2 + 1 }
+fn first(x) { return [x + 1, x * 2][0] }
+for i in 0..32 {
+    calculate(i)
+    first(i)
+}
+print(calculate(20))
+print(first(40))
+
+```
+
+
+```sh
+# HIR only
+HHY_COMPILER=ir hhy run --engine bytecode optimizer-demo.hhy
+
+# Integer MIR only (direct compiler)
+HHY_FEEDBACK_SPECIALIZATION=1 hhy run --engine bytecode optimizer-demo.hhy
+
+# HIR + integer MIR + local List scalar replacement
+HHY_COMPILER=ir HHY_FEEDBACK_SPECIALIZATION=1 HHY_SCALAR_REPLACEMENT=1 hhy run --engine bytecode optimizer-demo.hhy
+```
+
+
+{% hint style="info" %}
+预期输出两行 41。循环用于积累参数反馈；设置开关不代表每个函数都会特化。只支持有界直线整数表达式；捕获、动态调用或其他不支持的形态回退通用路径。HIR 与 MIR 可独立开启，标量替换须同时开启 MIR。
+{% endhint %}
+
+
+```sh
+# HIR report goes to stderr
+HHY_COMPILER=ir HHY_COMPILER_REPORT=1 hhy bytecode --metrics optimizer-demo.hhy
+
+# Runtime hits and deoptimizations go to profile.json
+HHY_COMPILER=ir HHY_FEEDBACK_SPECIALIZATION=1 HHY_SCALAR_REPLACEMENT=1 hhy profile --engine bytecode --heap --format json --output profile.json optimizer-demo.hhy
+```
+
+
+确认 HIR：stderr 报告 compiler 为 structured-ir，查看 passes、size_fallback。确认 MIR：Bytecode metrics 的 typed_plans 表示已生成计划；profile.json 的 typed_specialization.enabled、sites[].hits 表示开启和实际命中，scalar_reservations 表示标量预约。2026-09-08 本例实测两个函数各 26 hits、List 函数 26 scalar_reservations；计时依机器变化。
+
+
+```sh
+# Disable individual HIR passes; HIR remains enabled
+HHY_COMPILER=ir HHY_COMPILER_DISABLE=fold,dce hhy run optimizer-demo.hhy
+
+# Disable every HIR pass; HIR remains enabled
+HHY_COMPILER=ir HHY_COMPILER_DISABLE=all hhy run optimizer-demo.hhy
+
+# Restore the default compiler and disable MIR/scalar replacement (macOS/Linux)
+unset HHY_COMPILER HHY_COMPILER_DISABLE HHY_COMPILER_REPORT HHY_FEEDBACK_SPECIALIZATION HHY_SCALAR_REPLACEMENT
+hhy run --engine bytecode optimizer-demo.hhy
+```
+
+
+{% hint style="info" %}
+HHY_COMPILER_DISABLE=all 只关闭 HIR pass，不关闭 HIR 编译链，也不关闭 MIR。HHY_FEEDBACK_SPECIALIZATION=0、HHY_SCALAR_REPLACEMENT=0 可独立关闭对应 Runtime 优化。--engine ast 用于独立 AST 回退。
+{% endhint %}
+
+
+Windows PowerShell 使用以下环境变量语法；完成后移除变量恢复默认。
+
+
+```text
+$env:HHY_COMPILER="ir"
+$env:HHY_FEEDBACK_SPECIALIZATION="1"
+$env:HHY_SCALAR_REPLACEMENT="1"
+hhy run --engine bytecode optimizer-demo.hhy
+Remove-Item Env:HHY_COMPILER, Env:HHY_FEEDBACK_SPECIALIZATION, Env:HHY_SCALAR_REPLACEMENT
+```
+
+
+## 20.9 Runtime 资源限制
 
 run 的 --limit NAME=VALUE 可以重复出现。大小必须带 b/kb/mb/gb/kib/mib/gib，时间必须带 ns/us/ms/s/min/h，计数值不带单位。
 
@@ -246,7 +346,7 @@ hhy run --limit max_runtime=30s --limit max_memory=256mib script.hhy
 | max_runtime | 0（CLI 默认不设总时限） |
 
 
-## 20.9 稳定退出码
+## 20.10 稳定退出码
 
 ```text
 0  成功

@@ -50,6 +50,7 @@ From an official archive, run ./bin/hhy --version in the extracted directory. Af
 ```sh
 hhy script.hhy [args...]
 hhy run script.hhy [args...]
+hhy run --engine ast|bytecode script.hhy [args...]
 hhy repl
 hhy check script.hhy...
 hhy fmt script.hhy...
@@ -64,15 +65,35 @@ hhy serve app.hhy [args...]
 hhy serve --dev app.hhy [args...]
 hhy serve --engine ast|bytecode --limit max_memory=256mib app.hhy -- [args...]
 hhy profile script.hhy [args...]
+hhy profile --engine ast|bytecode script.hhy [args...]
 hhy profile --cpu script.hhy
 hhy profile --heap --format json --output profile.json script.hhy
+hhy check --format json script.hhy...
+hhy contracts --format json
+hhy install [--yes] [--dry-run] [--upgrade] [--locked] [--offline] [--lockfile FILE] [--cache DIR] [--registry DIR --trust-root FILE] <package-or-path>
+hhy lock [--lockfile FILE] --registry DIR --trust-root FILE <package>
+hhy fetch --locked [--lockfile FILE] [--cache DIR] --registry DIR --trust-root FILE
+hhy rollback <package>
+hhy doctor extensions [--lockfile FILE] [--cache DIR]
+hhy list
+hhy remove <package>
 hhy --version
+hhy -V
 hhy --help
+hhy -h
 ```
 
 
 | Command | Purpose |
 | --- | --- |
+| hhy contracts --format json | Export callable contracts |
+| hhy install | Install or upgrade extensions |
+| hhy lock | Resolve dependencies and write lockfile |
+| hhy fetch --locked | Cache locked dependencies |
+| hhy rollback | Restore the previous verified extension |
+| hhy doctor extensions | Verify lockfile, cache and installed extensions |
+| hhy list / hhy remove | List or remove extensions |
+| hhy check --format json | Emit JSON diagnostics |
 | hhy run | Run a script and pass args |
 | hhy run --engine ast\|bytecode | Select the AST fallback or Bytecode engine explicitly |
 | hhy serve | Run a persistent Web application configured by web.listen |
@@ -223,7 +244,86 @@ v1.7.0 defaults run, profile, and script shorthand to Bytecode. Use --engine ast
 {% endhint %}
 
 
-## 20.8 Runtime resource limits
+## 20.8 Enable HIR / integer MIR
+
+These are environment variables, not hhy subcommands. The commands below use macOS/Linux sh, bash or zsh; a prefix affects only that invocation. Use hhy after installation, or ./build/hhy in a source checkout. Save this file first.
+
+
+**optimizer-demo.hhy**
+
+```hhy
+fn calculate(x) { return x * 2 + 1 }
+fn first(x) { return [x + 1, x * 2][0] }
+for i in 0..32 {
+    calculate(i)
+    first(i)
+}
+print(calculate(20))
+print(first(40))
+
+```
+
+
+```sh
+# HIR only
+HHY_COMPILER=ir hhy run --engine bytecode optimizer-demo.hhy
+
+# Integer MIR only (direct compiler)
+HHY_FEEDBACK_SPECIALIZATION=1 hhy run --engine bytecode optimizer-demo.hhy
+
+# HIR + integer MIR + local List scalar replacement
+HHY_COMPILER=ir HHY_FEEDBACK_SPECIALIZATION=1 HHY_SCALAR_REPLACEMENT=1 hhy run --engine bytecode optimizer-demo.hhy
+```
+
+
+{% hint style="info" %}
+Expected output: two lines of 41. The loop accumulates feedback; enabling a flag does not specialize every function. Only bounded straight-line integer expressions qualify; captures, dynamic calls and unsupported shapes use the generic path. HIR and MIR are independent; scalar replacement also requires MIR.
+{% endhint %}
+
+
+```sh
+# HIR report goes to stderr
+HHY_COMPILER=ir HHY_COMPILER_REPORT=1 hhy bytecode --metrics optimizer-demo.hhy
+
+# Runtime hits and deoptimizations go to profile.json
+HHY_COMPILER=ir HHY_FEEDBACK_SPECIALIZATION=1 HHY_SCALAR_REPLACEMENT=1 hhy profile --engine bytecode --heap --format json --output profile.json optimizer-demo.hhy
+```
+
+
+For HIR, the stderr report has compiler=structured-ir; inspect passes and size_fallback. For MIR, typed_plans in Bytecode metrics counts compiled plans; typed_specialization.enabled and sites[].hits in profile.json show enablement and actual hits. scalar_reservations counts scalar reservations. On 2026-09-08, this example produced 26 hits per function and 26 scalar reservations for the List function; timings vary by host.
+
+
+```sh
+# Disable individual HIR passes; HIR remains enabled
+HHY_COMPILER=ir HHY_COMPILER_DISABLE=fold,dce hhy run optimizer-demo.hhy
+
+# Disable every HIR pass; HIR remains enabled
+HHY_COMPILER=ir HHY_COMPILER_DISABLE=all hhy run optimizer-demo.hhy
+
+# Restore the default compiler and disable MIR/scalar replacement (macOS/Linux)
+unset HHY_COMPILER HHY_COMPILER_DISABLE HHY_COMPILER_REPORT HHY_FEEDBACK_SPECIALIZATION HHY_SCALAR_REPLACEMENT
+hhy run --engine bytecode optimizer-demo.hhy
+```
+
+
+{% hint style="info" %}
+HHY_COMPILER_DISABLE=all disables HIR passes, not the HIR compiler or MIR. HHY_FEEDBACK_SPECIALIZATION=0 and HHY_SCALAR_REPLACEMENT=0 disable their Runtime optimizations. --engine ast selects the independent AST fallback.
+{% endhint %}
+
+
+In Windows PowerShell, use this environment-variable syntax; remove the variables afterward to restore defaults.
+
+
+```text
+$env:HHY_COMPILER="ir"
+$env:HHY_FEEDBACK_SPECIALIZATION="1"
+$env:HHY_SCALAR_REPLACEMENT="1"
+hhy run --engine bytecode optimizer-demo.hhy
+Remove-Item Env:HHY_COMPILER, Env:HHY_FEEDBACK_SPECIALIZATION, Env:HHY_SCALAR_REPLACEMENT
+```
+
+
+## 20.9 Runtime resource limits
 
 The run command accepts repeatable --limit NAME=VALUE options. Sizes require b/kb/mb/gb/kib/mib/gib, durations require ns/us/ms/s/min/h, and counts have no unit.
 
@@ -245,7 +345,7 @@ hhy run --limit max_runtime=30s --limit max_memory=256mib script.hhy
 | max_runtime | 0 (no total CLI limit) |
 
 
-## 20.9 Stable exit codes
+## 20.10 Stable exit codes
 
 ```text
 0  success
