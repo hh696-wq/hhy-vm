@@ -162,29 +162,41 @@ hhy profile --heap --format json --output profile.json examples/09-profile-algor
 
 
 ```console
-$ hhy profile examples/09-profile-algorithms.hhy -- fibonacci 20
+$ hhy profile --engine bytecode examples/09-profile-algorithms.hhy -- fibonacci 20
 HHY profile: examples/09-profile-algorithms.hhy
 
 Summary
-  Wall time        0.006 s
-  CPU time         0.004 s
-  CPU utilization  64.5%
-  CPU samples      2
-  Heap peak        755.9 KiB
-  Heap after GC    4.0 KiB
-  Allocated        523.9 KiB
-  Allocations      11107
+  Engine           bytecode
+  Wall time        0.013 s
+  CPU time         0.008 s
+  CPU utilization  58.8%
+  CPU samples      4
+  Heap peak        1.8 MiB
+  Heap after GC    92.0 KiB
+  Allocated        1.7 MiB
+  Allocations      33040
 
 CPU hotspots
   CPU%    Samples      Calls  Function
-  100.0%        2      21891  fibonacci  examples/09-profile-algorithms.hhy:5:1
+   75.0%        3      21891  fibonacci  examples/09-profile-algorithms.hhy:5:1
+   25.0%        1          1  print  examples/09-profile-algorithms.hhy:18:6
+    0.0%        0          1  <bytecode-top-level>  examples/09-profile-algorithms.hhy:1:1
+    0.0%        0          1  length  examples/09-profile-algorithms.hhy:12:10
+    0.0%        0          1  to_int  examples/09-profile-algorithms.hhy:17:19
+  Note: fewer than 10 CPU samples; use a larger workload for stable results.
 
 Allocation hotspots
   Bytes          Objects  Function
-  515.6 KiB        10966  fibonacci  examples/09-profile-algorithms.hhy:5:1
+  1.7 MiB            32856  fibonacci  examples/09-profile-algorithms.hhy:5:1
+  11.6 KiB              184  <bytecode-top-level>  examples/09-profile-algorithms.hhy:1:1
 
 fibonacci 6765
 ```
+
+
+{% hint style="info" %}
+HHY 1.7.0 · 2026-09-08 · macOS arm64 · single local run; fewer than 10 CPU samples, so timings and CPU percentages vary between runs. Default compiler settings; no opt-in optimization flags.
+{% endhint %}
 
 
 {% hint style="info" %}
@@ -203,7 +215,7 @@ View the interactive diagram for this section on [hhylang.dev](https://hhylang.d
 
 
 {% hint style="info" %}
-v1.3.5 defaults run, profile, and script shorthand to Bytecode. Use --engine ast or HHY_ENGINE=ast for immediate rollback. The measured ratios are 0.6805 for the 1M CPU workload, 0.9258 for short scripts, and 0.9976 for JSON/I/O; all machine-readable gates pass.
+v1.7.0 defaults run, profile, and script shorthand to Bytecode. Use --engine ast or HHY_ENGINE=ast for immediate rollback. Engine and top-level labels identify the actual execution path.
 {% endhint %}
 
 

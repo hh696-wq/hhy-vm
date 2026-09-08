@@ -20,7 +20,63 @@ v1.7.0 implementation
 Released capabilities and limits
 
 
-## 26.2 Release summary
+## 26.2 1.7.0 measured results and release evidence
+
+One local macOS arm64 run on 2026-09-08 with HHY 1.7.0 and default compiler settings. The raw profiler output follows. Only four CPU samples were collected; short-run timings and hotspot percentages vary and do not establish a speedup.
+
+
+```console
+$ hhy profile --engine bytecode examples/09-profile-algorithms.hhy -- fibonacci 20
+HHY profile: examples/09-profile-algorithms.hhy
+
+Summary
+  Engine           bytecode
+  Wall time        0.013 s
+  CPU time         0.008 s
+  CPU utilization  58.8%
+  CPU samples      4
+  Heap peak        1.8 MiB
+  Heap after GC    92.0 KiB
+  Allocated        1.7 MiB
+  Allocations      33040
+
+CPU hotspots
+  CPU%    Samples      Calls  Function
+   75.0%        3      21891  fibonacci  examples/09-profile-algorithms.hhy:5:1
+   25.0%        1          1  print  examples/09-profile-algorithms.hhy:18:6
+    0.0%        0          1  <bytecode-top-level>  examples/09-profile-algorithms.hhy:1:1
+    0.0%        0          1  length  examples/09-profile-algorithms.hhy:12:10
+    0.0%        0          1  to_int  examples/09-profile-algorithms.hhy:17:19
+  Note: fewer than 10 CPU samples; use a larger workload for stable results.
+
+Allocation hotspots
+  Bytes          Objects  Function
+  1.7 MiB            32856  fibonacci  examples/09-profile-algorithms.hhy:5:1
+  11.6 KiB              184  <bytecode-top-level>  examples/09-profile-algorithms.hhy:1:1
+
+fibonacci 6765
+```
+
+
+| Platform | Integer MIR / baseline | Local List / baseline |
+| --- | --- | --- |
+| linux-arm64 | 0.7624× | 0.7495× |
+| linux-x86_64 | 0.7067× | 0.6738× |
+| macos-arm64 | 0.8392× | 0.8553× |
+| windows-x86_64 | 0.8478× | 0.8326× |
+
+
+{% hint style="info" %}
+Four-platform results come from release commit 8fb0b8f, CI 34197497786, with 15 interleaved pairs each. Both synthetic workloads pass their budgets; real core/json/closure workloads miss the 5% benefit gate, so optimizations stay opt-in. Scalar replacement retains GC/quota reservations. Older measurements below retain their historical scope.
+{% endhint %}
+
+
+[View 1.7.0 CI and raw performance artifacts](https://github.com/hh696-wq/hhy-vm/actions/runs/34197497786)
+
+8fb0b8f · 2026-09-08
+
+
+## 26.3 Release summary
 
 {% hint style="info" %}
 As of 2026-09-08, HHY v1.7.0 delivers Database 1.0.0 and scoped resources alongside the complete Web Runtime: embedding, HTTP/1.1, Router, middleware, uploads, streaming, SSE, multiple workers, and observability. v1.4.0–v1.4.2 are capability milestones shipped together in v1.4.3. Bytecode remains default; AST remains the semantic oracle and explicit fallback.
@@ -35,7 +91,7 @@ As of 2026-09-08, HHY v1.7.0 delivers Database 1.0.0 and scoped resources alongs
 | Engineering governance | Are changes auditable? | Four-platform CI, layered gates, version consistency, and release evidence form a closed loop |
 
 
-## 26.3 Data at a glance
+## 26.4 Data at a glance
 
 | Signal | Result | Evidence basis |
 | --- | --- | --- |
@@ -49,7 +105,7 @@ As of 2026-09-08, HHY v1.7.0 delivers Database 1.0.0 and scoped resources alongs
 | Complete practical projects | 6 | AST/Bytecode end-to-end acceptance with stable exit status |
 
 
-## 26.4 v1.5.0 / Database 1.0.0 release acceptance
+## 26.5 v1.5.0 / Database 1.0.0 release acceptance
 
 Released 2026-09-07. Dual-database/engine, TLS, scope cleanup, cancellation, CMS database lifecycle and cross-platform release gates pass. Local million-row streaming and five-minute-per-backend sustained reports are available. RDS and 24-hour soak validation remain pending.
 
@@ -64,7 +120,7 @@ HHY 1.5.0 · Database 1.0.0
 HHY 1.5.0 · Database 1.0.0
 
 
-## 26.5 v1.4.3 Web Runtime and release verification
+## 26.6 v1.4.3 Web Runtime and release verification
 
 | Check | Result | Measurement scope |
 | --- | --- | --- |
@@ -85,7 +141,7 @@ This section cites v1.4.3 release-validation records, not a new benchmark run on
 Site-hosted release notes with test scale, results, and capability boundaries.
 
 
-## 26.6 Current capability boundaries
+## 26.7 Current capability boundaries
 
 | Area | Current boundary |
 | --- | --- |
@@ -95,7 +151,7 @@ Site-hosted release notes with test scale, results, and capability boundaries.
 | Native integration | C embedding uses opaque handles and a JSON ABI; it does not expose Runtime internals or a third-party Native Extension ABI |
 
 
-## 26.7 Overall baseline and compatibility
+## 26.8 Overall baseline and compatibility
 
 | Baseline | Stable commitment | Verification |
 | --- | --- | --- |
@@ -109,7 +165,7 @@ Site-hosted release notes with test scale, results, and capability boundaries.
 The current formal baseline is v1.7.0. Bytecode is default; the AST evaluator remains the semantic oracle and is selectable through --engine ast or HHY_ENGINE=ast. Compiler-produced Stream Kernels must pass their independent Verifier; dynamic and unknown shapes fall back losslessly to general Bytecode.
 
 
-## 26.8 v1.2.2 release and extension status
+## 26.9 v1.2.2 release and extension status
 
 | Capability | Current state | Acceptance result |
 | --- | --- | --- |
@@ -130,7 +186,7 @@ The v1.2.2 release contains macOS arm64, Linux x86_64, Linux arm64, and Windows 
 Download all four platform archives and checksums and read the release notes.
 
 
-## 26.9 v1.3.7–v1.3.10 Bytecode hardening
+## 26.10 v1.3.7–v1.3.10 Bytecode hardening
 
 | Version | Core delivery | Verified conclusion |
 | --- | --- | --- |
@@ -150,7 +206,7 @@ Each version completed implementation, Release/Debug tests, sanitizers, fuzzing,
 Four platform archives, per-asset SHA-256, SHA256SUMS, and Web Runtime release notes.
 
 
-## 26.10 Historical performance baseline · v1.3.10
+## 26.11 Historical performance baseline · v1.3.10
 
 Final v1.3.10 CI evidence comes from commit 4ddc8c3 on GitHub Actions Ubuntu 24.04: schema-2 paired/interleaved engine benchmarks plus independent Profiler and cache-decision artifacts. Ratios are Bytecode/AST wall time; lower than one means Bytecode is faster.
 
@@ -177,7 +233,7 @@ The joint cache threshold is compile+verify ≥ 1 ms and ≥ 20% of cold-run wal
 {% endhint %}
 
 
-## 26.11 v1.3.10 six-runtime same-machine rerun
+## 26.12 v1.3.10 six-runtime same-machine rerun
 
 Rerun on 2026-09-01 on macOS 26.6.2 arm64 with HHY 1.3.10, PHP 8.5.10, Go 1.27.0, Python 3.14.7, Lua 5.5.1, and OpenJDK 26.0.2.1. The fixed task maps, filters, stable-distincts, materializes, and counts one million integers; all six implementations validate output 333334. After two warmups, two independent rounds use seven deterministically shuffled and interleaved fresh processes per runtime. Wall time includes process startup; Go and Java are precompiled and compile time is excluded.
 
@@ -206,7 +262,7 @@ This is one CPU/materialization workload, not a general language ranking. Each i
 {% endhint %}
 
 
-## 26.12 Governance conclusion and watch list
+## 26.13 Governance conclusion and watch list
 
 - Overall status: v1.7.0 / DB 1.0.0 passed local, CI and cross-platform release gates; real RDS and 24-hour soak validation remain pending.
 - Web conclusion: embedding, HTTP, Router, middleware, uploads, Stream/SSE, multi-worker serving, and observability ship together.

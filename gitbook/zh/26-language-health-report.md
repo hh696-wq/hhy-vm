@@ -20,7 +20,63 @@ v1.7.0 实施说明
 已发布能力与边界
 
 
-## 26.2 发布摘要
+## 26.2 1.7.0 最新实测与发布证据
+
+2026-09-08 本地 macOS arm64，HHY 1.7.0，默认编译配置，单次 profiler 原始输出如下。仅 4 个 CPU 样本，短任务热点比例和计时会波动，不用于判定性能提升。
+
+
+```console
+$ hhy profile --engine bytecode examples/09-profile-algorithms.hhy -- fibonacci 20
+HHY profile: examples/09-profile-algorithms.hhy
+
+Summary
+  Engine           bytecode
+  Wall time        0.013 s
+  CPU time         0.008 s
+  CPU utilization  58.8%
+  CPU samples      4
+  Heap peak        1.8 MiB
+  Heap after GC    92.0 KiB
+  Allocated        1.7 MiB
+  Allocations      33040
+
+CPU hotspots
+  CPU%    Samples      Calls  Function
+   75.0%        3      21891  fibonacci  examples/09-profile-algorithms.hhy:5:1
+   25.0%        1          1  print  examples/09-profile-algorithms.hhy:18:6
+    0.0%        0          1  <bytecode-top-level>  examples/09-profile-algorithms.hhy:1:1
+    0.0%        0          1  length  examples/09-profile-algorithms.hhy:12:10
+    0.0%        0          1  to_int  examples/09-profile-algorithms.hhy:17:19
+  Note: fewer than 10 CPU samples; use a larger workload for stable results.
+
+Allocation hotspots
+  Bytes          Objects  Function
+  1.7 MiB            32856  fibonacci  examples/09-profile-algorithms.hhy:5:1
+  11.6 KiB              184  <bytecode-top-level>  examples/09-profile-algorithms.hhy:1:1
+
+fibonacci 6765
+```
+
+
+| 平台 | 整数 MIR / 基线 | 局部 List / 基线 |
+| --- | --- | --- |
+| linux-arm64 | 0.7624× | 0.7495× |
+| linux-x86_64 | 0.7067× | 0.6738× |
+| macos-arm64 | 0.8392× | 0.8553× |
+| windows-x86_64 | 0.8478× | 0.8326× |
+
+
+{% hint style="info" %}
+四平台数据来自发布提交 8fb0b8f 的 CI 34197497786，各 15 对交错样本。表中两个合成负载通过预算；core/json/closure 真实负载未达到 5% 收益门槛，优化仍默认关闭。标量替换保留原始 GC/配额预约。下方旧版本实测保留历史口径。
+{% endhint %}
+
+
+[查看 1.7.0 CI 与原始性能 artifacts](https://github.com/hh696-wq/hhy-vm/actions/runs/34197497786)
+
+8fb0b8f · 2026-09-08
+
+
+## 26.3 发布摘要
 
 {% hint style="info" %}
 截至 2026-09-08，HHY v1.7.0 已发布 Database 1.0.0 与资源作用域集成，并保留完整 Web Runtime：可嵌入 Runtime、HTTP/1.1、Router、Middleware、上传、流式响应、SSE、多 Worker 与可观测性。v1.4.0–v1.4.2 是能力里程碑，统一由 v1.4.3 正式发行。Bytecode 保持默认，AST 保留为语义 oracle 和显式回退。
@@ -35,7 +91,7 @@ v1.7.0 实施说明
 | 工程治理 | 变化是否可审计 | 四平台 CI、真实 workload、分层门禁、版本一致性和发行证据形成闭环 |
 
 
-## 26.3 本期数据概览
+## 26.4 本期数据概览
 
 | 数据项 | 结果 | 证据口径 |
 | --- | --- | --- |
@@ -49,7 +105,7 @@ v1.7.0 实施说明
 | 完整实战项目 | 6 个 | AST/Bytecode 端到端 acceptance 与稳定退出码 |
 
 
-## 26.4 v1.5.0 / Database 1.0.0 发布验收
+## 26.5 v1.5.0 / Database 1.0.0 发布验收
 
 2026-09-07 发布。双数据库、双引擎、TLS、作用域清理、取消、CMS 安装数据库流程与跨平台发行门禁通过；本地百万行流式及每库 5 分钟持续测试报告可查。RDS 和 24 小时长稳仍待验证。
 
@@ -64,7 +120,7 @@ HHY 1.5.0 · Database 1.0.0
 HHY 1.5.0 · Database 1.0.0
 
 
-## 26.5 v1.4.3 Web Runtime 与发布验证
+## 26.6 v1.4.3 Web Runtime 与发布验证
 
 | 验证项 | 结果 | 测量范围 |
 | --- | --- | --- |
@@ -85,7 +141,7 @@ HHY 1.5.0 · Database 1.0.0
 本站保存的发行说明，包含测试规模、结果与能力边界。
 
 
-## 26.6 当前能力边界
+## 26.7 当前能力边界
 
 | 范围 | 当前边界 |
 | --- | --- |
@@ -95,7 +151,7 @@ HHY 1.5.0 · Database 1.0.0
 | 原生集成 | C Embedding 使用 opaque 句柄和 JSON ABI；不等于开放 Runtime 内部结构或第三方 Native Extension ABI |
 
 
-## 26.7 总体基线与兼容性
+## 26.8 总体基线与兼容性
 
 | 基线 | 稳定承诺 | 验证方式 |
 | --- | --- | --- |
@@ -109,7 +165,7 @@ HHY 1.5.0 · Database 1.0.0
 当前正式基线为 v1.7.0。Bytecode 是默认引擎，AST evaluator 继续作为语义 oracle，可通过 --engine ast 或 HHY_ENGINE=ast 显式使用。Compiler 产生的 Stream Kernel 必须独立通过 Verifier；动态或未知形状无损回退通用 Bytecode。
 
 
-## 26.8 v1.2.2 发行与扩展状态
+## 26.9 v1.2.2 发行与扩展状态
 
 | 能力 | 当前状态 | 验收结果 |
 | --- | --- | --- |
@@ -130,7 +186,7 @@ v1.2.2 正式 Release 已包含 macOS arm64、Linux x86_64、Linux arm64、Windo
 下载四平台归档、校验文件并查看完整发行说明。
 
 
-## 26.9 v1.3.7–v1.3.10 Bytecode 加固状态
+## 26.10 v1.3.7–v1.3.10 Bytecode 加固状态
 
 | 版本 | 核心交付 | 已验证结论 |
 | --- | --- | --- |
@@ -150,7 +206,7 @@ v1.2.2 正式 Release 已包含 macOS arm64、Linux x86_64、Linux arm64、Windo
 包含四平台归档、逐包 SHA-256、SHA256SUMS 与 Web Runtime 发行说明。
 
 
-## 26.10 历史性能基线 · v1.3.10
+## 26.11 历史性能基线 · v1.3.10
 
 最终 v1.3.10 CI 数据来自提交 4ddc8c3、GitHub Actions Ubuntu 24.04 的 schema-2 paired/interleaved benchmark 和独立 Profiler/缓存决策 artifact。数值是 Bytecode/AST 墙钟比；小于 1 表示 Bytecode 更快。
 
@@ -177,7 +233,7 @@ v1.2.2 正式 Release 已包含 macOS arm64、Linux x86_64、Linux arm64、Windo
 {% endhint %}
 
 
-## 26.11 v1.3.10 六语言同机重测
+## 26.12 v1.3.10 六语言同机重测
 
 2026-09-01 在 macOS 26.6.2 arm64 上重新实测 HHY 1.3.10、PHP 8.5.10、Go 1.27.0、Python 3.14.7、Lua 5.5.1 和 OpenJDK 26.0.2.1。固定任务为 range(0, 1,000,000) → 乘 2 → 保留可被 3 整除的值 → 稳定去重 → 物化 → 计数；六种实现都验证输出 333334。每种语言先预热 2 次，再做两轮独立测量；每轮 7 个 fresh process，固定种子随机交错运行，墙钟包含进程启动；Go 与 Java 预先编译，编译时间不计入。
 
@@ -206,7 +262,7 @@ v1.2.2 正式 Release 已包含 macOS arm64、Linux x86_64、Linux arm64、Windo
 {% endhint %}
 
 
-## 26.12 治理结论与后续观察
+## 26.13 治理结论与后续观察
 
 - 总体状态：v1.7.0 / DB 1.0.0 已通过本地、CI 与跨平台发行验收；RDS 实机和 24 小时长稳仍待补验。
 - Web 结论：可嵌入 Runtime、HTTP、Router、Middleware、上传、Stream/SSE、多 Worker 与可观测性一次性交付。

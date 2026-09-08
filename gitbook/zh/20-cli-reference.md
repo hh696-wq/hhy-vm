@@ -168,26 +168,36 @@ HHY profile: examples/09-profile-algorithms.hhy
 
 Summary
   Engine           bytecode
-  Wall time        0.008 s
-  CPU time         0.005 s
-  CPU utilization  70.3%
-  CPU samples      3
+  Wall time        0.013 s
+  CPU time         0.008 s
+  CPU utilization  58.8%
+  CPU samples      4
   Heap peak        1.8 MiB
-  Heap after GC    84.0 KiB
+  Heap after GC    92.0 KiB
   Allocated        1.7 MiB
-  Allocations      33007
+  Allocations      33040
 
 CPU hotspots
   CPU%    Samples      Calls  Function
-  100.0%        3      21891  fibonacci  examples/09-profile-algorithms.hhy:5:1
+   75.0%        3      21891  fibonacci  examples/09-profile-algorithms.hhy:5:1
+   25.0%        1          1  print  examples/09-profile-algorithms.hhy:18:6
     0.0%        0          1  <bytecode-top-level>  examples/09-profile-algorithms.hhy:1:1
+    0.0%        0          1  length  examples/09-profile-algorithms.hhy:12:10
+    0.0%        0          1  to_int  examples/09-profile-algorithms.hhy:17:19
+  Note: fewer than 10 CPU samples; use a larger workload for stable results.
 
 Allocation hotspots
   Bytes          Objects  Function
   1.7 MiB            32856  fibonacci  examples/09-profile-algorithms.hhy:5:1
+  11.6 KiB              184  <bytecode-top-level>  examples/09-profile-algorithms.hhy:1:1
 
 fibonacci 6765
 ```
+
+
+{% hint style="info" %}
+HHY 1.7.0 · 2026-09-08 · macOS arm64 · 本地单次实测；CPU 样本少于 10 个，计时和热点占比会波动。使用默认编译配置，未启用可选优化。
+{% endhint %}
 
 
 {% hint style="info" %}
