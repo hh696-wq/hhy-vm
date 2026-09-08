@@ -9,7 +9,7 @@
 
   [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [60–90s terminal demo](docs/TERMINAL_DEMO.md) · [Website](https://hhylang.dev) · [Specification (English)](docs/HHY_V1.en.md) · [中文规范](docs/HHY_V1.md)
 
-  [![Version](https://img.shields.io/badge/version-1.5.0-0969da)](VERSION)
+  [![Version](https://img.shields.io/badge/version-1.7.0-0969da)](VERSION)
   [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
   [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
 </div>
@@ -84,7 +84,7 @@ Database 扩展提供显式授权的远程 MySQL/PostgreSQL、TLS、有界连接
 
 ## 快速开始
 
-当前版本是 **V1.5.0**（`1.5.0`），正式支持 macOS arm64、Linux arm64 和
+当前版本是 **V1.7.0**（`1.7.0`），正式支持 macOS arm64、Linux arm64 和
 Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
 
 ### 一键安装（推荐）
@@ -207,8 +207,8 @@ HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语�
 保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
 
 ```sh
-tar -xzf hhy-1.5.0-PLATFORM-ARCH.tar.gz
-cd hhy-1.5.0-PLATFORM-ARCH
+tar -xzf hhy-1.7.0-PLATFORM-ARCH.tar.gz
+cd hhy-1.7.0-PLATFORM-ARCH
 ./bin/hhy --version
 ./bin/hhy run examples/07-language-basics.hhy
 ```

@@ -267,6 +267,7 @@ _Static_assert(sizeof(RuntimeCallFrame) <= 72, "call records must remain compact
 #define HHY_FRAME_POOL_MAX_BYTES (64u * 1024u)
 
 struct Runtime {
+    HhyTypedProfile typed;
     HhyLookupProfile *lookup;
     const HhySource *source;
     HhyExecutionEngine engine;
@@ -4902,6 +4903,50 @@ static Value datetime_parse(Runtime *rt, const HhyNode *site, size_t argc, Value
     return result;
 }
 
+/* Numeric registers never contain GC references. Reservations retain the original
+ * aggregate allocation/quota operation, while scalar registers replace its values. */
+typedef struct {
+    Runtime *rt;
+    HhyTypedSite *site;
+    void *volatile roots[HHY_TYPED_OPS];
+    size_t count;
+} TypedReservation;
+static void typed_reserve(void *context, size_t elements) {
+    TypedReservation *r = context;
+    r->roots[r->count++] = rt_alloc(r->rt, elements * sizeof(Value));
+    r->site->scalar_reservations++;
+}
+static bool typed_call(Runtime *rt, const BytecodeFunctionTarget *target,
+                       size_t argc, Value *argv, Value *out) {
+    if (!rt->typed.enabled || rt->failed) return false;
+    unsigned kinds[HHY_TYPED_ARGS];
+    for (size_t i = 0; i < argc && i < HHY_TYPED_ARGS; i++) kinds[i] = argv[i].kind;
+    HhyTypedSite *site = hhy_typed_observe(&rt->typed, (uintptr_t)target->chunk,
+                                         target->instruction, argc, kinds);
+    if (!site) return false;
+    const HhyTypedPlan *plan = hhy_typed_find(target->chunk, target->instruction);
+    if (!plan || argc != plan->parameters) { rt->typed.unsupported++; return false; }
+    if (!rt->typed.scalar_enabled)
+        for (uint32_t i = 0; i < plan->count; i++) if (plan->code[i].op == HT_RESERVE) return false;
+    int64_t args[HHY_TYPED_ARGS];
+    for (size_t i = 0; i < argc; i++) args[i] = argv[i].as.integer;
+    TypedReservation reservation = {.rt = rt, .site = site};
+    HhyTypedResult result = hhy_typed_execute(plan, args, typed_reserve, &reservation);
+    site->hits++;
+    if (result.ok) *out = plan->boolean_result ? bool_value(result.value != 0) : int_value(result.value);
+    else {
+        site->arithmetic_deopts++;
+        HhyTypedInstruction op = plan->code[result.failure];
+        HhyNode source = bytecode_site((BytecodeCursor){target->chunk, op.source});
+        if (op.op == HT_NEG) {
+            runtime_error_kind(rt, &source, "ValueError", "HHY_INT_OVERFLOW", "Int negation overflow");
+            *out = null_value();
+        } else *out = binary_value(rt, &source, int_value(result.left), int_value(result.right));
+    }
+    for (size_t i = 0; i < reservation.count; i++) GC_reachable_here(reservation.roots[i]);
+    return true;
+}
+
 static Value call_function(Runtime *rt, const HhyNode *site, Value callee,
                            size_t argc, Value *argv) {
     if (callee.as.function.is_bytecode) {
@@ -4925,9 +4970,10 @@ static Value call_function(Runtime *rt, const HhyNode *site, Value callee,
         }
         BytecodeCursor body = plan ? (BytecodeCursor){target->chunk, plan->first_body}
             : bytecode_child_cursor(function, function_site.child_count - 1);
-        Value result = body.chunk->code[body.instruction].opcode == HHY_OP_BLOCK
-            ? bytecode_exec_contents(rt, call_env, body)
-            : bytecode_exec(rt, call_env, body);
+        Value result;
+        if (!typed_call(rt, target, argc, argv, &result))
+            result = body.chunk->code[body.instruction].opcode == HHY_OP_BLOCK
+                ? bytecode_exec_contents(rt, call_env, body) : bytecode_exec(rt, call_env, body);
         if (rt->signal == SIGNAL_RETURN) { result = rt->signal_value; rt->signal = SIGNAL_NONE; }
         call_frame_release(rt, call_env);
         return result;
@@ -4958,6 +5004,11 @@ static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
         if (target->has_fast_argument_expression) {
             if (argc != 1) { runtime_type_error(rt, site, "closure requires one argument"); return null_value(); }
             Value result;
+            const HhyTypedPlan *typed = rt->typed.enabled
+                ? hhy_typed_find(target->chunk, target->instruction) : NULL;
+            bool scalar = false;
+            if (typed) for (uint32_t i = 0; i < typed->count; i++) scalar |= typed->code[i].op == HT_RESERVE;
+            if (typed && !scalar && typed_call(rt, target, argc, argv, &result)) return result;
             bool evaluated = bytecode_eval_argument_expression(
                 rt, (BytecodeCursor){.chunk = target->chunk, .instruction = target->fast_expression},
                 target->parameter_constant, argv[0], &result);
@@ -4993,7 +5044,9 @@ static Value call_closure(Runtime *rt, const HhyNode *site, Value callee,
             body_start = 1;
         } else env_define(rt, call_env, site, "it", argv[0], false);
         Value result = null_value();
-        if (plan != NULL) {
+        if (typed_call(rt, target, argc, argv, &result)) {
+            /* Same parameter frame and return/unwind path as generic execution. */
+        } else if (plan != NULL) {
             BytecodeCursor body = {target->chunk, plan->first_body};
             for (uint32_t i = 0; i < plan->body_count && !rt->failed && rt->signal == SIGNAL_NONE; i++) {
                 result = bytecode_exec(rt, call_env, body);
@@ -8387,6 +8440,11 @@ static Value import_module(Runtime *rt, Env *target, const HhyNode *node) {
 }
 
 static Env *runtime_core_environment(Runtime *rt, const HhyNode *site, int argc, char **argv) {
+    const char *typed = getenv("HHY_FEEDBACK_SPECIALIZATION");
+    const char *scalar = getenv("HHY_SCALAR_REPLACEMENT");
+    rt->typed.enabled = typed && strcmp(typed, "1") == 0;
+    rt->typed.scalar_enabled = scalar && strcmp(scalar, "1") == 0;
+    hhy_profiler_typed_report(rt->profiler, &rt->typed);
     const char *cache = getenv("HHY_MAP_INLINE_CACHE");
     const char *feedback = getenv("HHY_PROFILE_LOOKUPS");
     bool cache_on = cache && strcmp(cache, "1") == 0;

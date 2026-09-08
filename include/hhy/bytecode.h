@@ -2,6 +2,7 @@
 #define HHY_BYTECODE_H
 
 #include "hhy/ast.h"
+#include "hhy/typed_plan.h"
 
 #include <stdio.h>
 
@@ -119,7 +120,9 @@ typedef struct {
     uint32_t handler_end;
 } HhyBytecodeExceptionRegion;
 
-typedef struct {
+typedef struct HhyBytecodeChunk {
+    HhyTypedPlan *typed_plans;
+    size_t typed_plan_count;
     HhyBytecodeExceptionRegion *exception_regions;
     size_t exception_region_count;
     HhyBytecodeCallPlan *call_plans;

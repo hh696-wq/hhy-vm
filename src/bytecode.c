@@ -29,6 +29,7 @@ void hhy_bytecode_chunk_free(HhyBytecodeChunk *chunk) {
     for (size_t i = 0; i < chunk->constant_count; i++) free(chunk->constants[i]);
     free(chunk->constants);
     free(chunk->code);
+    free(chunk->typed_plans);
     free(chunk->stream_kernels);
     free(chunk->call_plans);
     free(chunk->exception_regions);
@@ -454,6 +455,19 @@ HhyBytecodeResult hhy_bytecode_compile_direct(const HhyNode *program, HhyBytecod
     compile_call_plans(chunk);
     HhyBytecodeResult exceptions = compile_exception_regions(chunk);
     if (!exceptions.ok) return exceptions;
+    HhyBytecodeResult checked = hhy_bytecode_verify(chunk);
+    if (!checked.ok) return checked;
+    const char *typed = getenv("HHY_FEEDBACK_SPECIALIZATION");
+    if (!typed || strcmp(typed, "1") != 0) return checked;
+    {
+        for (uint32_t i = 0; i < chunk->count && chunk->typed_plan_count < HHY_TYPED_SITES; i++) {
+            HhyTypedPlan plan;
+            if (!hhy_typed_build(chunk, i, &plan)) continue;
+            chunk->typed_plans = hhy_realloc(chunk->typed_plans,
+                (chunk->typed_plan_count + 1) * sizeof(plan));
+            chunk->typed_plans[chunk->typed_plan_count++] = plan;
+        }
+    }
     return hhy_bytecode_verify(chunk);
 }
 
@@ -627,6 +641,14 @@ HhyBytecodeResult hhy_bytecode_verify(const HhyBytecodeChunk *chunk) {
     for (size_t i = 0; i < chunk->stream_kernel_count; i++) {
         HhyBytecodeResult kernel = verify_stream_kernel(chunk, i);
         if (!kernel.ok) return kernel;
+    }
+    if (chunk->typed_plan_count > HHY_TYPED_SITES ||
+        (chunk->typed_plan_count && !chunk->typed_plans))
+        return result(false, 0, "invalid typed plan storage");
+    for (size_t i = 0; i < chunk->typed_plan_count; i++) {
+        if ((i && chunk->typed_plans[i-1].owner >= chunk->typed_plans[i].owner) ||
+            !hhy_typed_verify(chunk, &chunk->typed_plans[i]))
+            return result(false, 0, "invalid typed plan");
     }
     return result(true, cursor, NULL);
 }

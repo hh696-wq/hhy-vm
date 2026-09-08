@@ -1,12 +1,14 @@
 #ifndef HHY_PROFILER_H
 #define HHY_PROFILER_H
 
+#include "hhy/typed_plan.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
 
 typedef struct HhyProfiler HhyProfiler;
+void hhy_profiler_typed_report(HhyProfiler *, const HhyTypedProfile *);
 
 #define HHY_PROFILE_MAX_OPTIMIZATION_STAGES 16u
 #define HHY_PROFILE_MAX_KERNEL_OPCODES 8u

@@ -82,6 +82,7 @@ jobs:
           update: true
           install: >-
             base-devel
+            python
             gcc
             libcurl-devel
             libgc-devel
@@ -106,6 +107,20 @@ jobs:
           ./build/hhy run --engine bytecode tests/valid/regex.hhy
           ./build/hhy run tests/valid/json-flow.hhy
           ./build/hhy run --engine bytecode tests/valid/json-flow.hhy
+
+      - name: Windows typed MIR validation and budgets
+        run: |
+          make build/hhy-typed-test
+          ./build/hhy-typed-test
+          python3 tests/check-typed-specialization.py build/hhy
+          python3 scripts/evaluate-typed-specialization.py
+
+      - name: Upload Windows compiler evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-compiler-windows-x86_64-${{ github.sha }}
+          path: build/benchmarks/typed-specialization.json
+          if-no-files-found: error
 
       - name: Build Windows official extension targets
         run: |
@@ -211,10 +226,25 @@ jobs:
           sudo ldconfig
 
       - name: Debug sanitizer suite
-        run: make test-debug SANITIZERS=${{ matrix.sanitizers }}
+        run: HHY_COMPILER=ir HHY_FEEDBACK_SPECIALIZATION=1 HHY_SCALAR_REPLACEMENT=1 make test-debug SANITIZERS=${{ matrix.sanitizers }}
 
       - name: Release suite
         run: make clean && make test && make test-bytecode && make workload-test
+
+      - name: Compiler and typed MIR budgets
+        run: |
+          python3 scripts/evaluate-typed-specialization.py
+          make build/hhy-resource-probe build/hhy-compiler-probe
+          python3 scripts/evaluate-compiler-program.py
+
+      - name: Upload compiler evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-compiler-linux-${{ matrix.package_arch }}-${{ github.sha }}
+          path: |
+            build/benchmarks/typed-specialization.json
+            build/benchmarks/compiler-program.json
+          if-no-files-found: error
 
       - name: Coverage-guided fuzzing
         run: make fuzz-ci FUZZ_CC=clang
@@ -264,10 +294,25 @@ jobs:
         run: brew install pcre2 bdw-gc jansson openssl@3 zlib libpq mysql lexbor
 
       - name: Debug ASan and UBSan suite
-        run: make test-debug
+        run: HHY_COMPILER=ir HHY_FEEDBACK_SPECIALIZATION=1 HHY_SCALAR_REPLACEMENT=1 make test-debug
 
       - name: Release suite
         run: make clean && make test && make test-bytecode && make workload-test
+
+      - name: Compiler and typed MIR budgets
+        run: |
+          python3 scripts/evaluate-typed-specialization.py
+          make build/hhy-resource-probe build/hhy-compiler-probe
+          python3 scripts/evaluate-compiler-program.py
+
+      - name: Upload compiler evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: hhy-compiler-macos-arm64-${{ github.sha }}
+          path: |
+            build/benchmarks/typed-specialization.json
+            build/benchmarks/compiler-program.json
+          if-no-files-found: error
 
       - name: Deterministic fuzz smoke
         run: make fuzz-smoke

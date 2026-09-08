@@ -710,7 +710,8 @@ HhyBytecodeResult hhy_compiler_emit(const HhyCompilerIR *ir, HhyBytecodeChunk *c
     backend_free(program); return result;
 }
 static size_t bytecode_bytes(const HhyBytecodeChunk *chunk) {
-    size_t bytes = chunk->count * sizeof(*chunk->code) +
+    size_t bytes = chunk->typed_plan_count * sizeof(*chunk->typed_plans) +
+        chunk->count * sizeof(*chunk->code) +
         chunk->constant_count * sizeof(*chunk->constants) +
         chunk->stream_kernel_count * sizeof(*chunk->stream_kernels) +
         chunk->call_plan_count * sizeof(*chunk->call_plans) +

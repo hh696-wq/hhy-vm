@@ -1,13 +1,13 @@
 {
   "schema_version": 2,
   "stage": "v1.7.0-v1.7.3",
-  "status": "local_implementation_and_validation_complete_default_not_admitted",
+  "status": "implementation_and_local_validation_complete_cross_platform_actions_pending",
   "local_implementation_complete": true,
   "local_validation_complete": true,
   "default_admitted": false,
   "cross_platform_admitted": false,
   "ir": {
-    "layers": 1,
+    "layers": 2,
     "representation": "structured_memory_form",
     "version": 1,
     "whole_program": true,
@@ -21,15 +21,19 @@
       "cfg_and_exception_edges",
       "dominating_immutable_copy_origins",
       "independently_reresolved_direct_slot_uses",
-      "bytecode_and_kernel_verifier"
-    ]
+      "bytecode_and_kernel_verifier",
+      "typed_mir_reconstruction_and_operand_source_validation"
+    ],
+    "typed_mir": "bounded_straight_line_int64_registers"
   },
   "selection": {
     "enable": "HHY_COMPILER=ir",
     "disable_all": "HHY_COMPILER_DISABLE=all",
     "disable_individual": "HHY_COMPILER_DISABLE=comma,separated,pass,names",
     "report": "HHY_COMPILER_REPORT=1",
-    "default": "direct_bytecode"
+    "default": "direct_bytecode",
+    "typed_mir": "HHY_FEEDBACK_SPECIALIZATION=1",
+    "scalar_replacement": "HHY_SCALAR_REPLACEMENT=1"
   },
   "passes": {
     "fold": {
@@ -74,14 +78,15 @@
   ],
   "advanced": {
     "call_target_feedback": "measured_stable_and_changing_sites",
-    "argument_type_feedback_available": false,
-    "new_speculative_specialization": false,
-    "specialization_decision": "retain_generic_pending_type_guard_lifetime_and_cross_platform_evidence",
+    "argument_type_feedback_available": true,
+    "new_speculative_specialization": true,
+    "specialization_decision": "guard_every_entry_deopt_at_original_operation_default_off",
     "escape_analysis": "conservative_immediate_aggregate_use_and_capture_classification",
     "allocation_elision": false,
-    "unboxing": false,
-    "escape_decision": "local_candidates_still_have_observable_allocation_quota_and_error_behavior",
-    "claims_no_benefit": false
+    "unboxing": true,
+    "escape_decision": "single_immediate_int_list_index_scalarized_with_original_gc_quota_reservation",
+    "claims_no_benefit": false,
+    "scalar_replacement": true
   },
   "budgets": {
     "hard_instruction_growth_ratio": 1.0,
@@ -90,7 +95,9 @@
     "measured_compile_ns_max": "2 * direct + 500000",
     "runtime_ratio_max": 0.95,
     "managed_allocation_ratio_max": 1.01,
-    "apply_independently_per_platform_and_workload": true
+    "apply_independently_per_platform_and_workload": true,
+    "typed_plan_cap_per_chunk": 64,
+    "typed_register_cap_per_plan": 64
   },
   "platform_evidence": {
     "macos_arm64": "release_debug_asan_ubsan_fuzz_six_projects_and_paired_budgets_passed_with_runtime_admission_rejections",
@@ -99,8 +106,8 @@
     "windows": "not_run"
   },
   "release": {
-    "version_changed": false,
-    "actions_requested": false,
+    "version_changed": true,
+    "actions_requested": true,
     "tag_created": false,
     "release_created": false
   },
@@ -117,12 +124,14 @@
       "ir_bytecode"
     ],
     "paired_samples_per_mode": 15,
-    "warmups_per_mode": 2
+    "warmups_per_mode": 2,
+    "typed_specialization_execution_paths": 285,
+    "typed_mir_field_mutations": true
   },
   "local_budget_decisions": [
     {
       "workload": "constant-loop.hhy",
-      "runtime_ratio": 0.7422844042090412,
+      "runtime_ratio": 0.7491456274670835,
       "gates": {
         "compile": true,
         "instructions": true,
@@ -132,7 +141,7 @@
     },
     {
       "workload": "propagation.hhy",
-      "runtime_ratio": 0.8686602555658016,
+      "runtime_ratio": 0.9144895015226799,
       "gates": {
         "compile": true,
         "instructions": true,
@@ -142,7 +151,7 @@
     },
     {
       "workload": "core-flow.hhy",
-      "runtime_ratio": 1.0167664670658683,
+      "runtime_ratio": 1.0043272370999348,
       "gates": {
         "compile": true,
         "instructions": true,
@@ -152,7 +161,7 @@
     },
     {
       "workload": "json-flow.hhy",
-      "runtime_ratio": 0.9846990757586784,
+      "runtime_ratio": 1.042928354358425,
       "gates": {
         "compile": true,
         "instructions": true,
@@ -162,12 +171,70 @@
     },
     {
       "workload": "call-closure.hhy",
-      "runtime_ratio": 1.0040991512345678,
+      "runtime_ratio": 0.9928932945218053,
       "gates": {
         "compile": true,
         "instructions": true,
         "runtime_benefit": false,
         "allocation": true
+      }
+    }
+  ],
+  "historical_budget_baseline_commit": "197534ac7f045d4392071640f5003055659812c2",
+  "typed_budget_decisions": [
+    {
+      "workload": "typed-arithmetic.hhy",
+      "runtime_ratio": 0.8616235501966024,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime": true,
+        "managed_allocation": true,
+        "typed_storage_cap": true
+      }
+    },
+    {
+      "workload": "typed-scalar.hhy",
+      "runtime_ratio": 0.8004118510269468,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime": true,
+        "managed_allocation": true,
+        "typed_storage_cap": true
+      }
+    },
+    {
+      "workload": "core-flow.hhy",
+      "runtime_ratio": 0.9991016399002688,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime": false,
+        "managed_allocation": true,
+        "typed_storage_cap": true
+      }
+    },
+    {
+      "workload": "json-flow.hhy",
+      "runtime_ratio": 1.026024957618654,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime": false,
+        "managed_allocation": true,
+        "typed_storage_cap": true
+      }
+    },
+    {
+      "workload": "call-closure.hhy",
+      "runtime_ratio": 1.0350054152571626,
+      "gates": {
+        "compile": true,
+        "instructions": true,
+        "runtime": false,
+        "managed_allocation": true,
+        "typed_storage_cap": true
       }
     }
   ]

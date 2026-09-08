@@ -49,6 +49,7 @@ typedef struct {
 } DispatchProfile;
 
 struct HhyProfiler {
+    const HhyTypedProfile *typed;
     const HhyLookupProfile *lookup; /* Borrowed until stop, before Runtime teardown. */
     bool call_unwind_enabled;
     uint64_t unwind_pushed, unwind_returned, unwind_errors, unwind_cancelled, unwind_resources;
@@ -202,6 +203,10 @@ HhyProfiler *hhy_profiler_start(const HhyProfileOptions *options,
 #endif
     }
     return profiler;
+}
+
+void hhy_profiler_typed_report(HhyProfiler *p, const HhyTypedProfile *typed) {
+    if (p) p->typed = typed;
 }
 
 void hhy_profiler_lookup_report(HhyProfiler *p, const HhyLookupProfile *lookup) {
@@ -513,6 +518,8 @@ static void print_json(HhyProfiler *p, FILE *out) {
             p->call_unwind_enabled ? "true" : "false", p->unwind_pushed, p->unwind_returned,
             p->unwind_errors, p->unwind_cancelled, p->unwind_resources,
             p->unwind_active, p->unwind_peak, p->unwind_reserved);
+    fputs(",\n  \"typed_specialization\": ", out);
+    hhy_typed_json(p->typed, out);
     hhy_lookup_json(p->lookup, out);
     print_dispatch_json(p, out);
     fputs("\n}\n", out);

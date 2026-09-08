@@ -1,10 +1,10 @@
-# v1.7 Optimizing Compiler：整程序本地实施
+# v1.7 Optimizing Compiler
 
 本阶段接通 `Source → AST → Structured IR → verified passes → Bytecode → VM`。
-实现采用一个版本化、非 SSA 的结构化 IR，不额外制造 HIR/MIR 两套中间表示。
+高层使用版本化、非 SSA 的结构化 HIR；符合条件的函数进一步产生整数寄存器 MIR（`HhyTypedPlan`）。MIR 当前覆盖有界直线表达式，其余语法由结构化 Bytecode 执行。
 `HHY_COMPILER=ir` 启用整程序编译链；原 AST 引擎与直接 Bytecode 编译器保留为独立对照。
 默认仍使用直接 Bytecode 编译器。默认准入需要各平台自己的编译成本、代码尺寸、真实运行和资源证据。
-这里的 v1.7 是实施阶段编号，`VERSION` 保持 1.5.0，不创建 tag、Actions 或 release。
+`VERSION` 为 1.7.0。发布前必须完成本地测试和 GitHub Actions 跨平台验收。
 
 ## 四个子阶段的交付边界
 
@@ -12,10 +12,10 @@
 | --- | --- | --- |
 | v1.7.0 | 整程序 IR、区域/CFG、独立 verifier、文本及 JSON dump、IR→Bytecode 后端 | 所有已有语法保留；动态操作保留 Runtime 检查；不引入 SSA/phi 或 JIT |
 | v1.7.1 | 六个独立 pass：fold、constant-propagation、copy-propagation、peephole、unreachable、dce | 仅证明安全的规则变换；代码尺寸增长时整个候选回退 |
-| v1.7.2 | 调用目标反馈评估、保守聚合值逃逸分类、特化/去装箱准入决策 | 尚缺参数类型反馈、guard 生命周期证明及跨平台收益，保留通用调用与托管分配 |
-| v1.7.3 | pass timing、IR/Bytecode 大小、开关/原因报告、差分/变形/变异/fuzz、预算脚本与本地记录 | 跨平台默认准入与发布没有执行，不把单机或合成样例收益外推 |
+| v1.7.2 | 参数类型反馈、整数寄存器 MIR、guard 与 deopt、直接局部 List 标量替换 | 仅对受支持的表达式特化；捕获、动态调用及可能逃逸的聚合值走通用路径 |
+| v1.7.3 | pass timing、IR/Bytecode/MIR 大小、开关与 profiler、差分/变形/变异/fuzz、各平台预算原始样本 | 每个平台独立判定收益；未达预算保持默认关闭 |
 
-高级优化的交付是有证据的条件决策，不是宣称已实现 speculative specialization、deopt、标量替换或“缓存/逃逸无收益”。
+高级优化以实际 MIR 和 Runtime 执行路径交付。支持范围、独立开关和回退原因如下；不把未支持的类型或逃逸形态描述成已优化。
 源码入口是 `include/hhy/compiler.h`、`src/compiler.c`；原 `compiler/ir.c` 是保留用于回归的闭合 I64 研究原型，不承担整程序执行。
 
 ## IR 表示与 verifier
@@ -85,15 +85,32 @@ build/hhy-compiler-probe --metrics program.hhy
 `changed` 对 fold/传播/peephole 是变换数，对 unreachable/DCE 是删除节点数。`ir_bytes` 是 arena/边/token 的保留字节，不是进程峰值，也不会因逻辑删除自动降低。
 `emit_verify_ns` 包含后端发射、验证及直接 Bytecode 尺寸参照的编译；pass timing 包含对应 verifier，时钟量化可能出现零。
 
-## 条件反馈与逃逸决策
+## 参数反馈、整数 MIR 与逃逸边界
 
-`scripts/evaluate-compiler-feedback.py` 采集稳定/变化调用目标和真实聚合值用法。
-现有反馈只观察目标身份/转换，不能证明参数类型稳定；即使一个 site 在本次运行单态，也不能忽略后续重绑定、模块/闭包生命周期和 guard fallback。
-因此本次不生成新的推测执行代码，关闭编译优化即回到通用 Runtime；没有虚构 deopt 已实现。
+`HHY_FEEDBACK_SPECIALIZATION=1` 在编译边界构造 MIR，在 Runtime 观察实际函数目标的参数类型。
+最多保留 64 个目标反馈槽、每目标 8 个参数与 64 条寄存器指令；冲突回退通用执行。
+同一目标连续 8 次 Int 调用后启用；每次进入仍检查所有参数类型。类型变化立即走通用路径，累计 8 次类型不匹配后该槽停用。
+目标由当前 chunk 和函数 owner 决定，重绑定不复用旧函数的执行计划；反馈不保存参数或闭包对象引用。
 
-逃逸分析只把直接作为 index 接收者的 List/Map 标为局部候选，其余赋值、返回、调用传递和未知用法保守视为可能逃逸，闭包全部保留捕获关系。
-即使局部候选也有可观察的 allocation quota/错误行为，不能直接删除托管分配。没有更换 Value 表示、GC root、write barrier 或生命周期策略。
-这些限制是机器可读拒绝原因，不是“没有性能收益”的结论。
+支持参数、短十进制整数、检查溢出的加减乘、取模、取负及整数关系比较。
+表达式中间值使用 C 栈上的 int64 寄存器，入口去装箱，出口按 Int/Bool 装箱。
+代码在编译阶段产生，Runtime 只执行已验证计划。Verifier 重建合法计划并检查操作数、源码、参数、结果类型与每条指令。
+算术失败保存失败指令和操作数，在原源码位置恢复通用错误操作；不会重新执行前面已完成的分配。
+函数参数帧、调用栈、返回、异常清理和循环取消点保持原有路径。
+
+`HHY_SCALAR_REPLACEMENT=1` 另外允许直接索引的单个局部 List：索引是已知有效常量，所有元素均可下沉为 Int MIR，且列表没有其他使用者。
+元素按原顺序全部求值（包括未选中的元素）。消除 List 元素的 Value 写入/读取，以寄存器直接返回所选值。
+为保留 GC 和 max_memory 行为，在原分配顺序保留相同尺寸、相同扫描类型的托管存储预约，并保持其存活到表达式结束。
+因此实现了标量替换，但**不宣称物理堆分配消除或内存节省**。多 List、嵌套聚合、Map、捕获、返回聚合、别名和调用传递保守回退。
+
+两个开关默认关闭，值为 `0` 可独立关闭。`profile --heap --format json` 的 `typed_specialization` 报告类型掩码、命中、guard/deopt、停用、冲突和标量预约数；ValueKind 中 Int=2、Float=3，掩码按 kind 位编号。
+`bytecode --metrics` 额外报告 MIR 版本、计划数与字节数。反馈表固定内存另报 `reserved_bytes`；MIR 每 chunk 最多 64 个固定容量计划。
+
+```sh
+HHY_COMPILER=ir HHY_FEEDBACK_SPECIALIZATION=1 HHY_SCALAR_REPLACEMENT=1 build/hhy run program.hhy
+python3 tests/check-typed-specialization.py build/hhy
+python3 scripts/evaluate-typed-specialization.py
+```
 
 ## 本地验收与跨平台预算
 
@@ -111,7 +128,7 @@ python3 scripts/evaluate-compiler-feedback.py --output build/compiler-feedback.j
 新增验收进入 `make test` / `make test-debug`；语法 fuzz 同时覆盖真实 IR 链路。
 测试包含固定种子表达式、64 个开关组合、整程序三类编译路径、源码错误/stack、额度边界、非法 CFG/effect/类型/直接槽位/传播来源、10,000 次有合法 C 存储的字段变异。
 
-候选 Bytecode 的 instruction 数和逻辑存储字节（包含常量、Kernel、调用/异常表）不得超过直接 Bytecode，超出就整体回退并报告 `size_fallback`。
+候选 Bytecode 的 instruction 数和逻辑存储字节（包含常量、Kernel、调用/异常表、MIR）不得超过直接 Bytecode，超出就整体回退并报告 `size_fallback`。
 测量预算采用 compile ≤ 2×直接编译 + 500μs、Runtime ≤ 95%、分配 ≤ 101%；保留原始样本和机器信息。Runtime 测量包含 prepare，而不是只计预编译后的热循环。
 不能用 synthetic 算术循环收益抵消真实负载回归；macOS arm64 单机数据不代表 Linux/Windows 或任一其他平台通过。
 版本化策略见 `benchmarks/vm-compiler-ir-policy.json`。详细结果见本地 `performance-analysis/2026-09-08-v1.7-complete-local/DEVELOPMENT.md`。
