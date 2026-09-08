@@ -1,8 +1,8 @@
 # HHY Language v1.0 Unified Specification
 
-<!-- source-sha256: 0c7609c5d31e3375af677c648201d84354fff7d1be453a776a121f7142401b0e -->
+<!-- source-sha256: 49de99925b3e335207841aa445648f682d9536ea7d105bb7e6203e3c36d5b807 -->
 
-> Current language specification: `1.0.0` (frozen); current compatible implementation: `1.5.0`
+> Current language specification: `1.0.0` (frozen); current compatible implementation: `1.7.0`
 > Specification status: v1.0 frozen
 > Website: [hhylang.dev](https://hhylang.dev)
 > Positioning: Flow-first system scripting language
@@ -10,12 +10,12 @@
 
 This is the English translation of the HHY v1.0 specification. The [Chinese original](HHY_V1.md) is the authoritative source for syntax, runtime, standard library, CLI, and tests. If an experimental implementation conflicts with the specification, update the specification and record the decision before changing code.
 
-## Current Compatible Implementation Addendum · v1.5.0
+## Current Compatible Implementation Addendum · v1.7.0
 
 This section records compatible additions after the v1.0 freeze; it does not change the v1.0 core semantics below.
 v1.4.0–v1.4.2 are Web Runtime capability milestones, released together through v1.4.3.
 
-| Area | v1.5.0 status |
+| Area | v1.7.0 status |
 |---|---|
 | Execution engine | Bytecode by default; AST permanently retained as the semantic oracle and fallback through `--engine ast` / `HHY_ENGINE=ast` |
 | C Embedding | Opaque `HhyApplication` / `HhyContext` handles, JSON ABI, one-time application loading and repeatable `hhy_call`; Runtime internals are not exposed |
@@ -28,6 +28,12 @@ v1.4.0–v1.4.2 are Web Runtime capability milestones, released together through
 | DB host integration | Duration-to-millisecond conversion, BytesBuffer round trips, request-end cleanup, cancellation propagation, extension crash recovery, and Worker isolation after fork |
 | v1.5.0 release validation | Local/CI tests with both databases and AST/Bytecode, positive and negative TLS cases, sanitizers, CMS installation database fixtures, and cross-platform release checks passed |
 | Validation boundaries | DB releases support macOS arm64 and Linux arm64/x86_64; Windows Runtime packages exclude DB; no claim is made that real RDS testing or a 24-hour soak passed |
+
+### v1.7.0 Optimizing Compiler
+
+Structured HIR, independent CFG/verifier, six switchable passes, integer register MIR, parameter feedback guards/deoptimization and local List scalar replacement are implemented. Enable them explicitly with `HHY_COMPILER=ir`, `HHY_FEEDBACK_SPECIALIZATION=1` and `HHY_SCALAR_REPLACEMENT=1`; direct Bytecode remains the default. Scalar replacement preserves original GC/quota allocation reservations and does not claim physical heap allocation elimination. Four-platform CI and release validation pass; real workloads have not met the default-enablement benefit gate. Language semantics, Process Extension Protocol 1 and independently versioned extensions remain compatible.
+
+See [Compiler IR](https://github.com/hh696-wq/hhy-vm/blob/main/COMPILER_IR.md) for implementation limits and [v1.7.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0) for the release.
 
 ### Database 1.0.0 Compatibility Contract
 
@@ -1382,7 +1388,7 @@ Unavailable system fields return null rather than fabricated values; standard li
 
 ## 34. Explicit v1.0 Non-Goals
 
-This list records the scope of the initial v1.0 release only, not missing features in the current v1.5.0 implementation.
+This list records the scope of the initial v1.0 release only, not missing features in the current v1.7.0 implementation.
 Later compatible releases added process extensions, a signed Registry, a Bytecode VM, Windows MSYS2
 releases, and Web Runtime. See the compatible implementation addendum at the beginning for current Web capabilities and boundaries.
 

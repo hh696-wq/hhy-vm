@@ -1,6 +1,6 @@
 # HHY Language v1.0 统一规范
 
-> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.5.0`
+> 当前语言规范：`1.0.0`（冻结）；当前兼容实现：`1.7.0`
 > 规范状态：v1.0 已冻结
 > 官网：[hhylang.dev](https://hhylang.dev)
 > 定位：Flow-first system scripting language
@@ -8,12 +8,12 @@
 
 本文档是 HHY v1.0 唯一规范来源。语法、运行时、标准库、CLI 和测试必须以本文档为准；实验实现与本文冲突时，应先修改规范并记录决策，再修改代码。
 
-## 当前兼容实现补充 · v1.5.0
+## 当前兼容实现补充 · v1.7.0
 
 本节记录 v1.0 冻结后的兼容能力增量，不改变下文的 v1.0 核心语义。
 v1.4.0–v1.4.2 是 Web Runtime 的能力里程碑，统一通过 v1.4.3 正式发行。
 
-| 范围 | v1.5.0 状态 |
+| 范围 | v1.7.0 状态 |
 |---|---|
 | 执行引擎 | Bytecode 默认；AST 永久保留为语义 oracle 与 `--engine ast` / `HHY_ENGINE=ast` 回退 |
 | C Embedding | Opaque `HhyApplication` / `HhyContext` 句柄、JSON ABI、应用一次加载与可重复 `hhy_call`；不公开 Runtime 内部结构 |
@@ -27,6 +27,12 @@ v1.4.0–v1.4.2 是 Web Runtime 的能力里程碑，统一通过 v1.4.3 正式�
 | DB 宿主集成 | Duration 转毫秒、BytesBuffer 往返、请求结束清理、取消传播、扩展崩溃恢复和 fork 后 Worker 隔离 |
 | v1.5.0 发布验证 | 本地/CI 双数据库与 AST/Bytecode、TLS 正反例、sanitizer、CMS 安装数据库夹具以及跨平台发行检查通过 |
 | 验证边界 | DB 发行支持 macOS arm64 与 Linux arm64/x86_64；Windows Runtime 包不含 DB；RDS 实机和 24 小时长稳未宣称通过 |
+
+### v1.7.0 优化编译器
+
+结构化 HIR、独立 CFG/verifier、六个可关闭优化 pass、整数寄存器 MIR、参数反馈 guard/deopt 与局部 List 标量替换已交付。通过 `HHY_COMPILER=ir`、`HHY_FEEDBACK_SPECIALIZATION=1`、`HHY_SCALAR_REPLACEMENT=1` 显式启用；默认直接 Bytecode 路径不变。标量替换保留原始 GC/配额分配预约，不宣称消除物理堆分配。四平台 CI 与发行验收通过，真实负载尚未满足默认启用收益门槛。语言语义、Process Extension Protocol 1 和扩展独立版本保持兼容。
+
+实现与限制见 [Compiler IR](https://github.com/hh696-wq/hhy-vm/blob/main/COMPILER_IR.md)，发行记录见 [v1.7.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0)。
 
 ### Database 1.0.0 兼容契约
 
@@ -1381,7 +1387,7 @@ platform 层统一：
 
 ## 34. v1.0 明确不做
 
-以下列表仅记录 v1.0 初始发行的范围，不代表当前 v1.5.0 的功能缺口。
+以下列表仅记录 v1.0 初始发行的范围，不代表当前 v1.7.0 的功能缺口。
 后续兼容版本已加入进程扩展、签名 Registry、Bytecode VM、Windows MSYS2
 发行与 Web Runtime；当前 Web 能力和边界见本文开头的兼容实现补充。
 
