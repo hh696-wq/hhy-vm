@@ -36,4 +36,4 @@ v2.0 的 Native ABI/FFI 决策至少需要两个真实集成证明进程协议�
 
 公开源码保存基准程序、预算策略、测试和审阅结论；原始报告由 CI artifacts 或独立归档管理。
 性能记录注明版本/commit、平台、输入、样本和限制；历史数据不自动视为当前版本结果。
-参见[Compiler IR](../COMPILER_IR.md)、[已知限制](KNOWN_LIMITATIONS.md)和[贡献流程](../CONTRIBUTING.md)。
+参见[Compiler IR](architecture/COMPILER_IR.md)、[已知限制](KNOWN_LIMITATIONS.md)和[贡献流程](../CONTRIBUTING.md)。

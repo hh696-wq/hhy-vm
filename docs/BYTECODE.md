@@ -43,8 +43,8 @@ elision. There is no SSA/phi, JIT, or machine-code backend.
 The v1.6 call-layout, exception-table, frame-pool, call-unwind, and Map-cache
 experiments were delivered with 1.7.0; they remain independently opt-in.
 Correctness fixes to host boundaries and file cleanup are always active.
-See [usage and rollback](CURRENT_VERSION.md), [Compiler IR](../COMPILER_IR.md),
-and [Runtime call rules](../VM_CALL_RUNTIME.md).
+See [usage and rollback](CURRENT_VERSION.md), [Compiler IR](architecture/COMPILER_IR.md),
+and [Runtime call rules](architecture/VM_CALL_RUNTIME.md).
 
 ## Stream specialization hardening
 

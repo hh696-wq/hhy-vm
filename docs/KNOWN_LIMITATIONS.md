@@ -30,7 +30,7 @@
 - MIR 只覆盖受支持的有界直线整数表达式；未提供通用 SSA/phi、循环展开、循环不变量外提、JIT 或机器码后端。
 - List 标量替换保留原始托管存储预约、扫描类型及存活期，不代表物理堆分配消除或内存节省。
 - 调用布局、异常表、帧池、调用展开与 Map inline cache 实验独立开关且默认关闭。尚未准入 superinstruction、持久名字/builtin 缓存、PIC/hidden shape、新 GC 或 async scheduler。
-- 优化开关、回退方法和观测入口见 [1.7.0 使用指南](CURRENT_VERSION.md)；算法与预算见 [Compiler IR](../COMPILER_IR.md)。
+- 优化开关、回退方法和观测入口见 [1.7.0 使用指南](CURRENT_VERSION.md)；算法与预算见 [Compiler IR](architecture/COMPILER_IR.md)。
 
 ## I/O、网络与数据
 

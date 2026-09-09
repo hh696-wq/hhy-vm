@@ -49,12 +49,12 @@ changes update evidence, not the budget.
 The default direct Bytecode compiler and AST oracle remain available. Compiler
 passes run before execution and never bypass verification; Runtime executes
 verified plans. The research prototype in `compiler/ir.c` does not implement the
-production whole-program compiler. See [Compiler IR](../COMPILER_IR.md).
+production whole-program compiler. See [Compiler IR](architecture/COMPILER_IR.md).
 
 Experimental call layouts, exception tables, frame pooling, call unwind, and Map
 slot caches are opt-in. Host argument conversion and native-file cleanup fixes
-remain unconditional. See [call ownership and unwind](../VM_CALL_RUNTIME.md),
-[cache lifetime rules](../VM_INLINE_CACHE.md), and [GC diagnostics](../VM_GC_SCHEDULER.md).
+remain unconditional. See [call ownership and unwind](architecture/VM_CALL_RUNTIME.md),
+[cache lifetime rules](architecture/VM_INLINE_CACHE.md), and [GC diagnostics](architecture/VM_GC_SCHEDULER.md).
 
 An optimization must retain Error source/order, effect counts, cancellation,
 managed quotas, and GC roots. List scalar replacement retains allocation

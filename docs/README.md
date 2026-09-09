@@ -10,21 +10,21 @@
 | 了解当前版本、开关与回退 | [1.7.0 使用指南](CURRENT_VERSION.md) → [已知限制](KNOWN_LIMITATIONS.md) |
 | 学习语言和标准库 | [中文规范](HHY_V1.md) / [English specification](HHY_V1.en.md) |
 | 查语法和兼容语义 | [中文规范](HHY_V1.md) / [English specification](HHY_V1.en.md) |
-| 开发 Web 或数据库应用 | [Web Runtime](../WEB_RUNTIME.md) → [Database API](../extensions/database/README.md) → [数据库验收](../extensions/database/ACCEPTANCE.md) |
+| 开发 Web 或数据库应用 | [Web Runtime](WEB_RUNTIME.md) → [Database API](../extensions/database/README.md) → [数据库验收](../extensions/database/ACCEPTANCE.md) |
 | 开发、安装和分发扩展 | [扩展入口](../extensions/README.md) → [进程协议](EXTENSION_PROTOCOL_V1.md) → [签名 Registry](EXTENSION_REGISTRY_V1.md) |
-| 修改 VM 或 Compiler | [Bytecode](BYTECODE.md) → [Runtime 治理](RUNTIME_GOVERNANCE.md) → [Compiler IR](../COMPILER_IR.md) |
+| 修改 VM 或 Compiler | [Bytecode](BYTECODE.md) → [Runtime 治理](RUNTIME_GOVERNANCE.md) → [Compiler IR](architecture/COMPILER_IR.md) |
 | 评估项目现状与后续工作 | [健康报告](LANGUAGE_HEALTH_REPORT.md) → [主迭代路线图](ROADMAP.md) |
 
 ## 架构、依赖与工具
 
-- VM 专项：[调用与展开](../VM_CALL_RUNTIME.md)、[Inline Cache](../VM_INLINE_CACHE.md)、[GC 与调度](../VM_GC_SCHEDULER.md)。这些文档中的 v1.6.x 是工程阶段编号，相关实现随产品 1.7.0 交付，并不表示存在独立的 v1.6.x 发行版。
+- VM 专项：[调用与展开](architecture/VM_CALL_RUNTIME.md)、[Inline Cache](architecture/VM_INLINE_CACHE.md)、[GC 与调度](architecture/VM_GC_SCHEDULER.md)。这些文档中的 v1.6.x 是工程阶段编号，相关实现随产品 1.7.0 交付，并不表示存在独立的 v1.6.x 发行版。
 - 依赖：[构建依赖](DEPENDENCIES.md)、[第三方 Notices](THIRD_PARTY_NOTICES.md)。发行包的实际依赖版本以包内 `BUILD_INFO.txt` 为准。
 - 工具：[CLI 与执行指南](CURRENT_VERSION.md)、[语言 CLI 规范](HHY_V1.md#27-cli)、[真实工作负载回归](../tests/workloads/README.md)。编辑器插件与完整案例不随 Core 源码分发。
 - 演示：[终端演示](TERMINAL_DEMO.md)。推广草稿、设计素材和视频留在主仓之外。
 
 ## 版本记录与规划
 
-当前发行说明见 [1.7.0](../RELEASE_NOTES_1.7.0.md)，前序关键版本见 [1.5.0](../RELEASE_NOTES_1.5.0.md) 和 [1.4.3](../RELEASE_NOTES_1.4.3.md)。[历史发行索引](releases/README.md) 汇总旧版本，保留原始日期、结论及证据。
+当前发行说明见 [1.7.0](releases/v1.7.0.md)，前序关键版本见 [1.5.0](releases/v1.5.0.md) 和 [1.4.3](releases/v1.4.3.md)。[历史发行索引](releases/README.md) 汇总旧版本，保留原始日期、结论及证据。
 
 [扩展路线图](EXTENSION_ROADMAP.md) 顶部是当前状态，后面的 Office 排期等属于早期设计归档；当前迭代顺序和完成标准统一维护在[主路线图](ROADMAP.md)。当前下一重点是 v1.8 外部采用与旗舰场景，优化默认准入继续单独按数据评估。
 

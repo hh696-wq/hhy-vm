@@ -31,7 +31,7 @@ v1.4.0–v1.4.2 是 Web Runtime 的能力里程碑，统一通过 v1.4.3 正式�
 
 结构化 HIR、独立 CFG/verifier、六个可关闭优化 pass、整数寄存器 MIR、参数反馈 guard/deopt 与局部 List 标量替换已交付。通过 `HHY_COMPILER=ir`、`HHY_FEEDBACK_SPECIALIZATION=1`、`HHY_SCALAR_REPLACEMENT=1` 显式启用；默认直接 Bytecode 路径不变。标量替换保留原始 GC/配额分配预约，不宣称消除物理堆分配。四平台 CI 与发行验收通过，真实负载尚未满足默认启用收益门槛。语言语义、Process Extension Protocol 1 和扩展独立版本保持兼容。
 
-实现与限制见 [Compiler IR](https://github.com/hh696-wq/hhy-vm/blob/main/COMPILER_IR.md)，发行记录见 [v1.7.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0)。
+实现与限制见 [Compiler IR](https://github.com/hh696-wq/hhy-vm/blob/main/docs/architecture/COMPILER_IR.md)，发行记录见 [v1.7.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0)。
 
 ### Database 1.0.0 兼容契约
 
@@ -47,8 +47,8 @@ v1.4.0–v1.4.2 是 Web Runtime 的能力里程碑，统一通过 v1.4.3 正式�
 发行记录见 [HHY 1.5.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.5.0)。
 
 Web Runtime 的 API、使用方法与部署边界见
-[Web Runtime](../WEB_RUNTIME.md)，测量条件与发行记录见
-[v1.4.3 发行说明](../RELEASE_NOTES_1.4.3.md)。这些记录不把单机吞吐视为通用性能承诺。
+[Web Runtime](WEB_RUNTIME.md)，测量条件与发行记录见
+[v1.4.3 发行说明](releases/v1.4.3.md)。这些记录不把单机吞吐视为通用性能承诺。
 
 ## 1. 产品定义
 

@@ -11,9 +11,9 @@ HHY Runtime 私有的 C Value 内存布局。
 
 | 目录 | 命名空间 | 用途 | 状态 |
 | --- | --- | --- | --- |
-| [`database`](database/) | `database.*` | DB 1.0.0：MySQL/PostgreSQL 池、远程 TLS、事务、游标与精确类型 | 最低 HHY 1.5.0，已验证兼容 1.7.0；macOS/Linux |
-| [`html`](html/) | `html.*` | HTML5 容错解析、CSS Selector 与结构化字段抽取 | 可安装使用 |
-| [`sample`](sample/) | `sample.*` | Protocol v1 握手、注册、调用和错误传播测试 | 参考扩展 |
+| [`database`](database) | `database.*` | DB 1.0.0：MySQL/PostgreSQL 池、远程 TLS、事务、游标与精确类型 | 最低 HHY 1.5.0，已验证兼容 1.7.0；macOS/Linux |
+| [`html`](html) | `html.*` | HTML5 容错解析、CSS Selector 与结构化字段抽取 | 可安装使用 |
+| [`sample`](sample) | `sample.*` | Protocol v1 握手、注册、调用和错误传播测试 | 参考扩展 |
 
 ## 本地安装
 

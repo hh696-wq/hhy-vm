@@ -21,12 +21,14 @@
 !/install.sh
 !/CONTRIBUTING.md
 !/SECURITY.md
-!/COMPILER_IR.md
-!/VM_CALL_RUNTIME.md
-!/VM_GC_SCHEDULER.md
-!/VM_INLINE_CACHE.md
-!/WEB_RUNTIME.md
-!/RELEASE_NOTES_*.md
+
+# Retired root-level documentation; maintained under docs/ instead.
+/COMPILER_IR.md
+/VM_CALL_RUNTIME.md
+/VM_GC_SCHEDULER.md
+/VM_INLINE_CACHE.md
+/WEB_RUNTIME.md
+/RELEASE_NOTES_*.md
 
 # Local-only documentation and promotion drafts.
 /docs/promotion/

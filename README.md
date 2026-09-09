@@ -75,7 +75,7 @@ Prometheus 指标均由 Runtime 提供。
 ./build/hhy serve --dev examples/10-web-api.hhy -- 8080
 ```
 
-完整 API、反向代理部署边界和 C 嵌入示例见 [Web Runtime 文档](WEB_RUNTIME.md)。
+完整 API、反向代理部署边界和 C 嵌入示例见 [Web Runtime 文档](docs/WEB_RUNTIME.md)。
 
 ## Database 1.0
 
@@ -325,23 +325,23 @@ Profiler `frame_pool` 展示 allocated/reused/cached/escaped/discarded、查找 
 
 v1.7 整程序 Compiler 已接通 AST → Structured IR → Bytecode；使用
 `HHY_COMPILER=ir` 启用，`HHY_COMPILER_DISABLE=all` 关闭全部优化。
-六个 pass、独立 verifier、CFG/source dump、差分与预算验证见 [COMPILER_IR.md](COMPILER_IR.md)。
+六个 pass、独立 verifier、CFG/source dump、差分与预算验证见 [COMPILER_IR.md](docs/architecture/COMPILER_IR.md)。
 `make test-compiler` 可单独验收；默认编译器仍由跨平台收益门槛控制。
 原闭合 I64 研究原型保留在 `compiler/ir.c`，不承担整程序执行。
 
 GC 与调度专项使用独立 `build/hhy-resource-probe` 采集分配、暂停和保留量，
 不向默认 Runtime 安装 collector hook。测量命令、覆盖范围与条件决策见
-[VM_GC_SCHEDULER.md](VM_GC_SCHEDULER.md)。
+[VM_GC_SCHEDULER.md](docs/architecture/VM_GC_SCHEDULER.md)。
 
 Inline cache 本地评估工具使用 `HHY_PROFILE_LOOKUPS=1` 输出有界访问反馈；
 `HHY_MAP_INLINE_CACHE=1` 开启逐次校验当前键的 Map slot 实验，两者默认关闭。
-画像、失配回退、准入边界和复现命令见 [VM_INLINE_CACHE.md](VM_INLINE_CACHE.md)。
+画像、失配回退、准入边界和复现命令见 [VM_INLINE_CACHE.md](docs/architecture/VM_INLINE_CACHE.md)。
 
 调用记录展开实验用 `HHY_CALL_FRAME_UNWIND=1` 开启，默认关闭。正常返回、Error、取消与
 宿主配额跳转后，版本化动作表恢复 Env、contract/effect、depth/trace 与 profiler，并清零退出帧的 roots。
 Profiler `call_unwind` 展示退出分类、活动数与登记数组字节；机器执行仍使用 C 调用/返回及已有 longjmp。
 完整的调用布局、Closure/upvalue 复核、尾调用策略和本地验收说明见
-[VM Call Runtime v1.6.1](VM_CALL_RUNTIME.md)。
+[VM Call Runtime v1.6.1](docs/architecture/VM_CALL_RUNTIME.md)。
 
 ## 进程扩展与签名 Registry
 

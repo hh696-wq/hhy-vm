@@ -42,7 +42,7 @@ values |> map { value -> value * 2 } |> collect |> print
 | --- | --- | --- |
 | `HHY_COMPILER=ir` | 直接 Bytecode | 选择整程序 HIR → pass → Bytecode 编译链 |
 | `HHY_COMPILER_DISABLE=all` | 不禁用 pass | 在 IR 模式关闭全部静态 pass；不关闭 IR/verifier 或独立的 MIR 特化 |
-| `HHY_COMPILER_DISABLE=fold,dce` | 不禁用 pass | 关闭指定 pass；完整六项名称见 [Compiler IR](../COMPILER_IR.md) |
+| `HHY_COMPILER_DISABLE=fold,dce` | 不禁用 pass | 关闭指定 pass；完整六项名称见 [Compiler IR](architecture/COMPILER_IR.md) |
 | `HHY_COMPILER_REPORT=1` | 关闭 | IR 编译报告写到 stderr，包含 pass 与回退信息 |
 | `HHY_FEEDBACK_SPECIALIZATION=1` | 关闭 | 在 Bytecode 编译边界生成整数 MIR，Runtime 依据实际参数反馈与 guard 选择执行；直接编译器也可使用 |
 | `HHY_SCALAR_REPLACEMENT=1` | 关闭 | 配合 MIR 特化处理符合条件的直接索引局部 Int List |
@@ -100,6 +100,6 @@ make test-runtime-resources
 
 以上为维护时的验证入口，本次文档整理不代表重新执行了这些完整门禁。发布前仍需跨平台 CI、发行包和扩展验收；本地通过不能替代它们。
 
-当前发布依据：[1.7.0 发行说明](../RELEASE_NOTES_1.7.0.md)、[本地最终发布归档](https://github.com/hh696-wq/hhy-vm/actions/runs/34199886300)、[Compiler 版本化策略](../benchmarks/vm-compiler-ir-policy.json)。真实负载未达到默认启用收益门槛；RDS 实机和 24 小时长稳仍待验证。完整边界见[已知限制](KNOWN_LIMITATIONS.md)。
+当前发布依据：[1.7.0 发行说明](releases/v1.7.0.md)、[本地最终发布归档](https://github.com/hh696-wq/hhy-vm/actions/runs/34199886300)、[Compiler 版本化策略](../benchmarks/vm-compiler-ir-policy.json)。真实负载未达到默认启用收益门槛；RDS 实机和 24 小时长稳仍待验证。完整边界见[已知限制](KNOWN_LIMITATIONS.md)。
 
 返回[文档中心](README.md)。

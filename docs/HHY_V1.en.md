@@ -33,7 +33,7 @@ v1.4.0–v1.4.2 are Web Runtime capability milestones, released together through
 
 Structured HIR, independent CFG/verifier, six switchable passes, integer register MIR, parameter feedback guards/deoptimization and local List scalar replacement are implemented. Enable them explicitly with `HHY_COMPILER=ir`, `HHY_FEEDBACK_SPECIALIZATION=1` and `HHY_SCALAR_REPLACEMENT=1`; direct Bytecode remains the default. Scalar replacement preserves original GC/quota allocation reservations and does not claim physical heap allocation elimination. Four-platform CI and release validation pass; real workloads have not met the default-enablement benefit gate. Language semantics, Process Extension Protocol 1 and independently versioned extensions remain compatible.
 
-See [Compiler IR](https://github.com/hh696-wq/hhy-vm/blob/main/COMPILER_IR.md) for implementation limits and [v1.7.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0) for the release.
+See [Compiler IR](https://github.com/hh696-wq/hhy-vm/blob/main/docs/architecture/COMPILER_IR.md) for implementation limits and [v1.7.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0) for the release.
 
 ### Database 1.0.0 Compatibility Contract
 
@@ -49,8 +49,8 @@ the [DB acceptance record](https://github.com/hh696-wq/hhy-vm/blob/v1.5.0/extens
 and [HHY 1.5.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.5.0) for the release record.
 
 For Web Runtime APIs, usage, and deployment boundaries, see
-[Web Runtime](../WEB_RUNTIME.md); for measurement conditions and the release record, see
-the [v1.4.3 release notes](../RELEASE_NOTES_1.4.3.md). These records do not present single-machine throughput as a general performance guarantee.
+[Web Runtime](WEB_RUNTIME.md); for measurement conditions and the release record, see
+the [v1.4.3 release notes](releases/v1.4.3.md). These records do not present single-machine throughput as a general performance guarantee.
 
 ## 1. Product Definition
 
