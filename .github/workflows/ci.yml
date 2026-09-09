@@ -23,18 +23,10 @@ jobs:
           sudo apt-get install --yes libcurl4-openssl-dev libpcre2-dev libgc-dev \
             libjansson-dev libssl-dev zlib1g-dev
 
-      - name: Install editor packaging dependencies
-        run: npm ci --prefix editors/vscode
-
       - name: Run quality gates and benchmark
         run: |
           make quality
           make benchmark-bytecode
-
-      - name: Build VS Code extension
-        run: |
-          npm run prepare:dist --prefix editors
-          npm run package:vscode --prefix editors
 
       - name: Upload performance baseline
         if: ${{ always() && hashFiles('build/benchmarks/baseline.json') != '' }}
@@ -55,14 +47,6 @@ jobs:
             build/benchmarks/bytecode-rc-decision.json
             build/benchmarks/profiler-overhead.json
             build/benchmarks/bytecode-cache-decision.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload VS Code extension
-        uses: actions/upload-artifact@v7
-        with:
-          name: hhy-vscode-extension-${{ github.sha }}
-          path: editors/dist/hhy-language-support-0.2.0.vsix
           if-no-files-found: error
           retention-days: 30
 
@@ -348,8 +332,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  practical-projects:
-    name: Practical projects acceptance
+  workload-regressions:
+    name: Runtime workload regressions
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -381,8 +365,8 @@ jobs:
 
       - name: Install browser fixture runtime
         run: |
-          npm ci --prefix practical-projects/my-crawler/renderer
-          npm exec --prefix practical-projects/my-crawler/renderer -- playwright install --with-deps chromium
+          npm ci --prefix tests/workloads/my-crawler/renderer
+          npm exec --prefix tests/workloads/my-crawler/renderer -- playwright install --with-deps chromium
 
-      - name: Run project acceptance
+      - name: Run workload regressions
         run: HHY_WORKLOAD_BROWSER=1 make workload-test

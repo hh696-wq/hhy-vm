@@ -18,7 +18,7 @@ run "$HHY_BIN" run --dry-run "$ROOT/examples/06-backup-large-files.hhy" /tmp /tm
 
 printf '\n\033[1;32mNow the real challenge: a bounded, recursive site graph audit.\033[0m\n'
 pause
-run env HHY_BIN="$HHY_BIN" sh "$ROOT/practical-projects/sitegraph-auditor/self-test.sh"
+run env HHY_BIN="$HHY_BIN" sh "$ROOT/tests/workloads/sitegraph-auditor/self-test.sh"
 
 printf '\n\033[1;32mOne language: check, plan, run, and safely crawl.\033[0m\n'
 printf 'Next: https://hhylang.dev/zh/learn/quick-start\n'

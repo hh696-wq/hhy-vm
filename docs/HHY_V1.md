@@ -21,7 +21,6 @@ v1.4.0–v1.4.2 是 Web Runtime 的能力里程碑，统一通过 v1.4.3 正式�
 | 流式与运维 | Stream、SSE、Range、多 Worker、健康检查、结构化日志与 Prometheus 指标 |
 | 服务边界 | TLS 与 HTTP/2 交给反向代理或负载均衡器；WebSocket 不在 v1.4 能力范围内 |
 | v1.4.3 历史 Web 验证 | 一个已加载 Context 的 100,000 次重复调用与双引擎输出对照；16 并发 loopback HTTP 的 1,000,000 次请求、0 失败 |
-
 | Database 1.0.0 | MySQL/PostgreSQL 有界连接池、配置 Map、显式远程端点授权与 TLS 身份校验 |
 | DB 事务与结果 | 读写事务、事务闭包、保存点、预处理复用、原子批量、增量游标、HHY Stream、列元数据与精确类型 |
 | DB 宿主集成 | Duration 转毫秒、BytesBuffer 往返、请求结束清理、取消传播、扩展崩溃恢复和 fork 后 Worker 隔离 |
@@ -48,8 +47,8 @@ v1.4.0–v1.4.2 是 Web Runtime 的能力里程碑，统一通过 v1.4.3 正式�
 发行记录见 [HHY 1.5.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.5.0)。
 
 Web Runtime 的 API、使用方法与部署边界见
-[Web Runtime](WEB_RUNTIME.md)，测量条件与发行记录见
-[v1.4.3 发行说明](RELEASE_NOTES_1.4.3.md)。这些记录不把单机吞吐视为通用性能承诺。
+[Web Runtime](../WEB_RUNTIME.md)，测量条件与发行记录见
+[v1.4.3 发行说明](../RELEASE_NOTES_1.4.3.md)。这些记录不把单机吞吐视为通用性能承诺。
 
 ## 1. 产品定义
 
@@ -1220,7 +1219,7 @@ v1.0 不实现完整 capability 沙箱，但 API 设计不得绕开未来的权�
 
 ## 29. C Runtime 与内存所有权
 
-### 28.1 HhyValue
+### 29.1 HhyValue
 
 HhyValue 使用 tagged union 表示标量；String、List、Map、Function、Error 和系统对象指向受 GC 管理的对象。
 
@@ -1229,7 +1228,7 @@ scalar: Null Bool Int Float Bytes Duration Percent
 heap:   String Regex List Map Function Error Result Stream system objects
 ```
 
-### 28.2 所有权规则
+### 29.2 所有权规则
 
 - v1.0 内部语言堆使用 Boehm–Demers–Weiser conservative GC；公开 Native ABI 尚未冻结。
 - Runtime C API 仍明确区分 managed value、borrowed view 与显式系统资源，不能把三者混用。
@@ -1240,14 +1239,14 @@ heap:   String Regex List Map Function Error Result Stream system objects
 - 闭包捕获不可变值；可变 Cell 不允许进入跨线程 worker。
 - 文件描述符、进程、HTTP handle、watcher 和 worker 不依赖 GC finalizer，统一通过 execution unwind 和 operator close 显式释放。
 
-### 28.3 Parallel 隔离
+### 29.3 Parallel 隔离
 
 - 可冻结的不可变值通过版本化二进制快照传给隔离 worker，不共享 GC heap 指针。
 - 可变 Cell、Stream 和打开的资源句柄不可发送。
 - worker 返回值在进入主执行流前转换为可共享不可变值。
 - v1.0 worker 使用隔离进程；主 Runtime 与 worker 各自拥有 GC heap，结果反序列化后进入主 heap。
 
-### 28.4 运行时架构
+### 29.4 运行时架构
 
 ```text
 Source
@@ -1526,7 +1525,7 @@ source |> transform |> filter |> action
 
 ## 37. v1.0 实现符合性台账
 
-本表保留 v1.0 冻结时的实现验证证据，表中的版本、平台与数量属于历史记录，不代表 v1.5.0 的全部能力。它不改变前述规范，也不能用单个平台通过代替跨平台发布条件。
+本表保留 v1.0 冻结时的实现验证证据，表中的版本、平台与数量属于历史记录，不代表当前兼容实现的全部能力。它不改变前述规范，也不能用单个平台通过代替跨平台发布条件。
 
 | 发布门槛 | 当前证据 | 状态 |
 |---|---|---|

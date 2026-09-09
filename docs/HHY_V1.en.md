@@ -49,8 +49,8 @@ the [DB acceptance record](https://github.com/hh696-wq/hhy-vm/blob/v1.5.0/extens
 and [HHY 1.5.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.5.0) for the release record.
 
 For Web Runtime APIs, usage, and deployment boundaries, see
-[Web Runtime](WEB_RUNTIME.md); for measurement conditions and the release record, see
-the [v1.4.3 release notes](RELEASE_NOTES_1.4.3.md). These records do not present single-machine throughput as a general performance guarantee.
+[Web Runtime](../WEB_RUNTIME.md); for measurement conditions and the release record, see
+the [v1.4.3 release notes](../RELEASE_NOTES_1.4.3.md). These records do not present single-machine throughput as a general performance guarantee.
 
 ## 1. Product Definition
 
@@ -1221,7 +1221,7 @@ v1.0 does not implement a full capability sandbox, but API design must not bypas
 
 ## 29. C Runtime and Memory Ownership
 
-### 28.1 HhyValue
+### 29.1 HhyValue
 
 HhyValue uses a tagged union for scalars; String, List, Map, Function, Error, and system objects point to GC-managed objects.
 
@@ -1230,7 +1230,7 @@ scalar: Null Bool Int Float Bytes Duration Percent
 heap:   String Regex List Map Function Error Result Stream system objects
 ```
 
-### 28.2 Ownership Rules
+### 29.2 Ownership Rules
 
 - The v1.0 internal language heap uses Boehm–Demers–Weiser conservative GC; the public Native ABI is not frozen.
 - The Runtime C API still distinguishes managed values, borrowed views, and explicit system resources; these must not be mixed.
@@ -1241,14 +1241,14 @@ heap:   String Regex List Map Function Error Result Stream system objects
 - Closures capture immutable values; mutable Cells cannot enter workers across threads.
 - File descriptors, processes, HTTP handles, watchers, and workers do not depend on GC finalizers. They are released explicitly through execution unwind and operator close.
 
-### 28.3 Parallel Isolation
+### 29.3 Parallel Isolation
 
 - Freezable immutable values cross into isolated workers through versioned binary snapshots; GC heap pointers are not shared.
 - Mutable Cells, Streams, and open resource handles are unsendable.
 - Worker results are converted into shareable immutable values before entering the main execution flow.
 - v1.0 workers use isolated processes. The main Runtime and each worker have their own GC heap; results enter the main heap after deserialization.
 
-### 28.4 Runtime Architecture
+### 29.4 Runtime Architecture
 
 ```text
 Source
@@ -1527,7 +1527,7 @@ source |> transform |> filter |> action
 
 ## 37. v1.0 Implementation Conformance Ledger
 
-This table preserves implementation evidence from the v1.0 freeze. Its versions, platforms, and counts are historical records, not a complete description of v1.5.0. It does not change the specification above; passing on one platform cannot replace cross-platform release conditions.
+This table preserves implementation evidence from the v1.0 freeze. Its versions, platforms, and counts are historical records, not a complete description of the current compatible implementation. It does not change the specification above; passing on one platform cannot replace cross-platform release conditions.
 
 | Release gate | Recorded evidence | Status |
 |---|---|---|

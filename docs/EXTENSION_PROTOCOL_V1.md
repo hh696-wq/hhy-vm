@@ -1,0 +1,97 @@
+# HHY Process Extension Protocol v1
+
+> Runtime implementation: `1.7.0`; scoped database resources introduced in `1.5.0`
+> Protocol version: `1.0`
+
+Process extensions communicate over UTF-8 JSON Lines. Runtime writes requests to
+the child's stdin, reads responses from stdout, and leaves stderr for diagnostics.
+Each line is limited to 1 MiB and duplicate JSON object keys are rejected.
+
+Every message contains:
+
+```json
+{
+  "type": "call",
+  "request_id": "1",
+  "extension_id": "database",
+  "protocol_version": "1.0"
+}
+```
+
+`request_id` is stable for a request/response pair. `extension_id` must equal the
+manifest package name. An incompatible identity, response type or protocol version
+terminates loading or fails the call.
+
+## Lifecycle
+
+1. Runtime validates the installed manifest and both recorded SHA-256 hashes.
+2. Runtime starts `extension.command --protocol 1` with stdin/stdout pipes and a
+   minimal environment containing only `PATH`.
+3. Runtime sends `handshake`; the extension returns `handshake_result`.
+4. Extension sends exactly one initial `register` message.
+5. Runtime validates and copies callable contracts into its existing registry.
+6. Runtime exchanges `call` and `call_result` or `error` messages.
+7. Runtime sends `shutdown`, closes pipes and reaps the child process.
+
+## Registration
+
+```json
+{
+  "type": "register",
+  "request_id": "register",
+  "extension_id": "sample",
+  "protocol_version": "1.0",
+  "callables": [{
+    "name": "sample.echo",
+    "minimum_arity": 1,
+    "maximum_arity": 1,
+    "input": "Value",
+    "output": "Value",
+    "effect": "none",
+    "lazy": false,
+    "cancel": false,
+    "sendable": true,
+    "action": false,
+    "threading": "isolated_process"
+  }]
+}
+```
+
+Names must stay under the package namespace. `hhy.*`, `std.*`, core callables and
+duplicates are rejected. Process extensions must declare `isolated_process`.
+
+## Calls and values
+
+```json
+{"type":"call","request_id":"7","extension_id":"sample","protocol_version":"1.0","callable":"sample.echo","arguments":[42]}
+{"type":"call_result","request_id":"7","extension_id":"sample","protocol_version":"1.0","value":42}
+```
+
+The initial implementation accepts Null, Bool, Int, Float, String, List and Map.
+System values, functions and streams cannot cross as ordinary JSON values.
+
+Errors require `kind`, `code` and `message`. Protocol 1 also accepts optional
+`operation`, `stage` and `cause` strings; Runtime preserves them as HHY Error
+`context`, `stage` and `cause`. Older extensions remain compatible and receive
+deterministic defaults. Database diagnostics, SQL parameters, credentials and
+unbounded third-party messages must not be included in protocol errors.
+
+## HHY 1.5.0 scoped database resources
+
+A database extension advertises `scoped_resources: true` in its handshake result.
+Runtime attaches a `scope` to calls and sends `scope_end` after a Web response or
+embedded call completes. The extension releases resources, rolls back abandoned
+transactions and acknowledges `scope_ended`. Handles are random JSON string tokens
+bound to that extension process and scope; they cannot cross requests or workers.
+
+During a checked call, Runtime can send `cancel` with a `target` request ID.
+Database workers cancel active/queued operations or discard unusable connections.
+Calls remain synchronous at the host API. The database host converts Duration to
+milliseconds and BytesBuffer to/from tagged binary envelopes. Transaction callbacks
+and lazy database Streams stay in the host; Streams pull bounded cursor batches.
+These rules do not turn functions or Streams into ordinary transferable JSON values.
+
+The general `stream_open/item/credit/close` family and generic `handle_release`
+remain deferred. Database cancellation does not imply replay safety: an unknown
+write/commit outcome must be reconciled by the application. See the
+[DB contract](../extensions/database/README.md) for limits and backend differences.

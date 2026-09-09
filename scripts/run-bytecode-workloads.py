@@ -50,7 +50,7 @@ def main() -> int:
     for engine in ("ast", "bytecode"):
         engine_results: dict[str, object] = {}
         for case in cases:
-            command = ["sh", f"practical-projects/{case}/self-test.sh"]
+            command = ["sh", f"tests/workloads/{case}/self-test.sh"]
             environment = os.environ.copy()
             environment.update({"HHY_BIN": binary, "HHY_ENGINE": engine})
             started = time.perf_counter()

@@ -27,18 +27,18 @@ def main():
                 'off': str(Path(args.binary).resolve()), 'on': str(Path(args.binary).resolve())}
     sources = ['benchmarks/call-arguments.hhy', 'benchmarks/call-closure.hhy',
                'benchmarks/json-flow.hhy', 'benchmarks/core-flow.hhy', 'benchmarks/map-inline-cache.hhy',
-               'practical-projects/asset-governance/audit.hhy']
+               'tests/workloads/asset-governance/audit.hhy']
     results = []
     with tempfile.TemporaryDirectory(prefix='hhy-inline-cache-bench-') as temp:
         profile_file = Path(temp) / 'profile.json'
         workspace = Path(temp)/'project'
-        shutil.copytree('practical-projects/asset-governance/fixtures/project', workspace)
+        shutil.copytree('tests/workloads/asset-governance/fixtures/project', workspace)
         (workspace/'build').mkdir(exist_ok=True)
         (workspace/'build/stale.bundle.js').write_text('fixture bundle\n')
         os.utime(workspace/'tmp/old.tmp', (1577836800,1577836800))
         for source in sources:
             artifact = Path(temp)/'audit-report.json'
-            source_args = [source] if '/asset-governance/' not in source else [source, str(workspace), 'practical-projects/asset-governance/config/test.json', str(artifact)]
+            source_args = [source] if '/asset-governance/' not in source else [source, str(workspace), 'tests/workloads/asset-governance/config/test.json', str(artifact)]
             samples = {mode: [] for mode in binaries}
             compile_samples = {mode: [] for mode in ('baseline', 'off')}
             prepare_samples = {mode: [] for mode in ('baseline', 'off')}

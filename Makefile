@@ -192,7 +192,7 @@ quality: $(TARGET)
 	python3 tests/check-bytecode-cache-governance.py $(TARGET)
 	sh tests/check-promotion-assets.sh
 	sh tests/check-docs.sh $(TARGET) README.md
-	npm run check --prefix editors
+	python3 scripts/check-repository.py
 	$(MAKE) benchmark
 
 fuzz:

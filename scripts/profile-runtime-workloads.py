@@ -37,7 +37,7 @@ os.execv(probe,[probe,str(output/(str(os.getpid())+'.gc.json')),engine,*rest])
             for case in cases:
                 directory=output/(engine+'-'+case);directory.mkdir(exist_ok=True)
                 if any(directory.glob('*.meta.json')):raise RuntimeError('choose a fresh output directory to avoid mixing runs')
-                run=subprocess.run(['sh',f'practical-projects/{case}/self-test.sh'],env={**os.environ,'HHY_BIN':str(wrapper),'HHY_ENGINE':engine,'HHY_RESOURCE_REPORT_DIRECTORY':str(directory),'HHY_PROBE_LIVE_CONTEXT':'0','HHY_GC_STRESS':'0'},capture_output=True,text=True,timeout=180)
+                run=subprocess.run(['sh',f'tests/workloads/{case}/self-test.sh'],env={**os.environ,'HHY_BIN':str(wrapper),'HHY_ENGINE':engine,'HHY_RESOURCE_REPORT_DIRECTORY':str(directory),'HHY_PROBE_LIVE_CONTEXT':'0','HHY_GC_STRESS':'0'},capture_output=True,text=True,timeout=180)
                 (directory/'stdout.log').write_text(run.stdout);(directory/'stderr.log').write_text(run.stderr)
                 measurements=[]
                 for meta in sorted(directory.glob('*.meta.json')):

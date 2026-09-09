@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/brand/hhy-logo-option-3.png" width="260" alt="HHY Language logo">
+  <img src="docs/assets/hhy-logo.png" width="260" alt="HHY Language logo">
 
   # HHY Language
 
@@ -18,6 +18,8 @@ HHY 是一门用 C 从零实现的系统脚本语言。它用同一种 `source |
 action` 模型连接文件、进程、网络与结构化数据，并提供有界并发、资源限制、
 脱敏 dry-run 和扩展权限清单。它不是自然语言或 AI 包装层，脚本具有确定的
 grammar、类型规则、执行语义和退出码。
+
+![HHY 生态图谱 / HHY Ecosystem Map：v1.5.0 Runtime + Database → v1.6.0 VM Optimization → v1.7.0 Optimizing Compiler](docs/assets/hhy-ecosystem.png)
 
 ## 30 秒开始
 
@@ -189,16 +191,14 @@ http.get("https://example.com/users")
 更多可执行场景见 [examples](examples/README.md)。README 与规范中的完整
 HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语言实现脱节。
 
-## 实战项目
+## 源码仓库
 
-完整、经过端到端自测的 HHY 应用统一收录在
-[practical-projects](practical-projects/README.md)：
+主仓保留语言实现、SDK、官方扩展、测试、基准、示例与公开文档。
+完整案例、编辑器插件、官网、原始性能报告和构建产物单独维护。
+现有真实工作负载的回归程序保留在 [tests/workloads](tests/workloads/README.md)，
+通过 `make workload-test` 持续执行 AST/Bytecode 对照。
 
-- [FlowGuard](practical-projects/flowguard/README.zh-CN.md)：面向 CI/CD 的项目质量门禁；
-- [DataFlow ETL](practical-projects/dataflow-etl/README.zh-CN.md)：CSV/JSON 数据补全与报表管道；
-- [Asset Governance](practical-projects/asset-governance/README.zh-CN.md)：安全的资产审计与整改工作流。
-- [香港电影公司](practical-projects/hong-kong-film-companies/README.zh-CN.md)：并发抓取维基百科并汇总为 CSV。
-- [多 API 数据采集器](practical-projects/multi-api-data-collector/README.zh-CN.md)：并发采集 OpenAlex、Crossref 与 GitHub，统一并增量汇总为 CSV。
+文档入口见 [docs](docs/README.md)，贡献与验证流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 下载并运行
 
