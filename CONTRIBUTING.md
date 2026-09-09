@@ -33,3 +33,11 @@ Use focused commits describing behavior and validation. Check `git diff --check`
 and `python3 scripts/check-repository.py` before submission. Update public docs
 alongside API changes. Release versions and digests require the existing release
 workflow; repository housekeeping does not require a new language version.
+
+## Release notes
+
+New Core releases use GitHub-generated release notes (`gh release create
+--generate-notes`), so the workflow does not require local historical Markdown
+archives. Existing draft bodies are retained, and already-published releases and
+assets follow the existing retry protections. Curated additions can be maintained
+in the GitHub Release body. Local `docs/releases/` records are not tracked.

@@ -48,7 +48,7 @@ v1.4.0–v1.4.2 是 Web Runtime 的能力里程碑，统一通过 v1.4.3 正式�
 
 Web Runtime 的 API、使用方法与部署边界见
 [Web Runtime](WEB_RUNTIME.md)，测量条件与发行记录见
-[v1.4.3 发行说明](releases/v1.4.3.md)。这些记录不把单机吞吐视为通用性能承诺。
+[v1.4.3 发行说明](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.4.3)。这些记录不把单机吞吐视为通用性能承诺。
 
 ## 1. 产品定义
 
@@ -1125,7 +1125,7 @@ v1.2  official HTML extension as protocol validation
 later public Native ABI after Runtime stabilization
 ```
 
-详细里程碑、兼容承诺与验收条件见 [`EXTENSION_ROADMAP.md`](EXTENSION_ROADMAP.md)。本文档继续负责语言语义和核心 contract；路线图不重复定义语义。
+详细里程碑、兼容承诺与验收条件见 [ROADMAP.md](ROADMAP.md)。本文档继续负责语言语义和核心 contract；路线图不重复定义语义。
 
 ## 27. CLI
 

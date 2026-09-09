@@ -100,6 +100,6 @@ make test-runtime-resources
 
 以上为维护时的验证入口，本次文档整理不代表重新执行了这些完整门禁。发布前仍需跨平台 CI、发行包和扩展验收；本地通过不能替代它们。
 
-当前发布依据：[1.7.0 发行说明](releases/v1.7.0.md)、[本地最终发布归档](https://github.com/hh696-wq/hhy-vm/actions/runs/34199886300)、[Compiler 版本化策略](../benchmarks/vm-compiler-ir-policy.json)。真实负载未达到默认启用收益门槛；RDS 实机和 24 小时长稳仍待验证。完整边界见[已知限制](KNOWN_LIMITATIONS.md)。
+当前发布依据：[1.7.0 发行说明](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.7.0)、[本地最终发布归档](https://github.com/hh696-wq/hhy-vm/actions/runs/34199886300)、[Compiler 版本化策略](../benchmarks/vm-compiler-ir-policy.json)。真实负载未达到默认启用收益门槛；RDS 实机和 24 小时长稳仍待验证。完整边界见[已知限制](KNOWN_LIMITATIONS.md)。
 
 返回[文档中心](README.md)。

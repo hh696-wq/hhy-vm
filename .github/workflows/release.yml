@@ -294,7 +294,7 @@ jobs:
               $prerelease_option \
               --draft \
               --title "HHY Language $version" \
-              --notes-file "docs/releases/v$version.md"
+              --generate-notes
           fi
           if [ -n "$prerelease_option" ]; then
             gh release edit "$RELEASE_TAG" --draft=false --prerelease

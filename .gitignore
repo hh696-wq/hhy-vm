@@ -33,6 +33,10 @@
 # Local-only documentation and promotion drafts.
 /docs/promotion/
 /docs/SHOW_HN_LAUNCH.md
+/docs/releases/
+/docs/EXTENSION_ROADMAP.md
+/docs/LANGUAGE_HEALTH_REPORT.md
+/docs/TERMINAL_DEMO.md
 
 # Generated output, caches, dependencies and editor state.
 .DS_Store

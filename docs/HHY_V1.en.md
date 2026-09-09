@@ -50,7 +50,7 @@ and [HHY 1.5.0](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.5.0) for the 
 
 For Web Runtime APIs, usage, and deployment boundaries, see
 [Web Runtime](WEB_RUNTIME.md); for measurement conditions and the release record, see
-the [v1.4.3 release notes](releases/v1.4.3.md). These records do not present single-machine throughput as a general performance guarantee.
+the [v1.4.3 release notes](https://github.com/hh696-wq/hhy-vm/releases/tag/v1.4.3). These records do not present single-machine throughput as a general performance guarantee.
 
 ## 1. Product Definition
 
@@ -1127,7 +1127,7 @@ v1.2  official HTML extension as protocol validation
 later public Native ABI after Runtime stabilization
 ```
 
-See [`EXTENSION_ROADMAP.md`](EXTENSION_ROADMAP.md) for detailed milestones, compatibility commitments, and acceptance conditions. This document remains responsible for language semantics and core contracts; the roadmap does not redefine semantics.
+See [ROADMAP.md](ROADMAP.md) for detailed milestones, compatibility commitments, and acceptance conditions. This document remains responsible for language semantics and core contracts; the roadmap does not redefine semantics.
 
 ## 27. CLI
 
