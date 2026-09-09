@@ -192,6 +192,7 @@ quality: $(TARGET)
 	python3 tests/check-bytecode-cache-governance.py $(TARGET)
 	sh tests/check-promotion-assets.sh
 	sh tests/check-docs.sh $(TARGET) README.md
+	sh tests/check-docs.sh $(TARGET) README.zh-CN.md
 	python3 scripts/check-repository.py
 	$(MAKE) benchmark
 
@@ -230,7 +231,7 @@ dist:
 	cp $(TARGET) build/$(PACKAGE)/bin/hhy
 	cp $(STATIC_LIBRARY) build/$(PACKAGE)/sdk/lib/libhhy.a
 	cp include/hhy/*.h build/$(PACKAGE)/sdk/include/hhy/
-	cp README.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
+	cp README.md README.zh-CN.md INSTALL.md LICENSE NOTICE build/$(PACKAGE)/
 	CC="$(CC)" sh scripts/build-info.sh $(TARGET) > build/$(PACKAGE)/BUILD_INFO.txt
 	cp examples/*.hhy examples/README.md build/$(PACKAGE)/examples/
 	cp extensions/README.md build/$(PACKAGE)/extensions/
