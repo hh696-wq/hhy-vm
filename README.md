@@ -1,29 +1,42 @@
-<div align="center">
-  <img src="docs/assets/hhy-logo.png" width="260" alt="HHY Language logo">
+<p align="center">
+  <img src="docs/assets/hhy-logo.png" width="200" alt="HHY Language logo">
+</p>
 
-  # HHY Language
+<h1 align="center">HHY Language</h1>
+<p align="center"><strong>Pipe Everything.</strong></p>
+<p align="center">用同一种数据流模型，连接文件、进程、网络与结构化数据。</p>
 
-  **Pipe Everything.**
+<p align="center">
+  <a href="https://hhylang.dev">官网</a> ·
+  <a href="https://hhylang.dev/zh/learn">语言手册</a> ·
+  <a href="docs/README.md">文档中心</a> ·
+  <a href="https://github.com/hh696-wq/hhy-vm/releases/latest">下载</a> ·
+  <a href="docs/HHY_V1.en.md">English specification</a>
+</p>
 
-  A small, deterministic, flow-first language for files, processes, HTTP, data pipelines, and safe static crawling.
+<p align="center">
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-1.7.0-0969da" alt="Version 1.7.0"></a>
+  <a href="https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml"><img src="https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0b7285" alt="Apache License 2.0"></a>
+</p>
 
-  [5-minute Quick Start](https://hhylang.dev/zh/learn/quick-start) · [终端演示脚本](scripts/terminal-demo.sh) · [Website](https://hhylang.dev) · [Specification (English)](docs/HHY_V1.en.md) · [中文规范](docs/HHY_V1.md)
+HHY 是一门用 C 实现的系统脚本语言，围绕 `source |> transform |> action` 组织程序，适合文件处理、数据采集、自动化与 Web 服务。语言具有明确的语法、类型规则、执行语义和退出码。
 
-  [![Version](https://img.shields.io/badge/version-1.7.0-0969da)](VERSION)
-  [![CI](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml/badge.svg)](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
-  [![License](https://img.shields.io/badge/license-Apache--2.0-0b7285)](LICENSE)
-</div>
+| 特性 | 作用 |
+| --- | --- |
+| Flow-first | 用 `\|>` 组合数据源、转换、过滤与最终操作 |
+| 系统能力 | 直接操作文件、进程、HTTP、JSON、CSV 和文件监听 |
+| 完整脚本语义 | 变量、函数、闭包、分支、循环、模块与结构化错误 |
+| 原生单位 | 使用 `10mib`、`500ms`、`2h`、`80%` 表达容量、时间与比例 |
+| 有界执行 | 惰性 Stream、有界并发、取消、资源限制和脱敏 dry-run |
 
-HHY 是一门用 C 从零实现的系统脚本语言。它用同一种 `source |> transform |>
-action` 模型连接文件、进程、网络与结构化数据，并提供有界并发、资源限制、
-脱敏 dry-run 和扩展权限清单。它不是自然语言或 AI 包装层，脚本具有确定的
-grammar、类型规则、执行语义和退出码。
+[快速开始](#快速开始) · [语言一览](#语言一览) · [Web 与扩展](#web-与扩展) · [命令行工具](#命令行工具) · [当前版本](#当前版本) · [开发与文档](#开发与文档)
 
-![HHY 生态图谱 / HHY Ecosystem Map：v1.5.0 Runtime + Database → v1.6.0 VM Optimization → v1.7.0 Optimizing Compiler](docs/assets/hhy-ecosystem.png)
+## 快速开始
 
-## 30 秒开始
+### 1. 安装
 
-macOS arm64、Linux x86_64 / arm64：
+macOS arm64、Linux arm64 / x86_64：
 
 ```sh
 curl -fsSL https://hhylang.dev/install.sh | sh
@@ -31,103 +44,39 @@ export PATH="$HOME/.local/bin:$PATH"
 hhy --version
 ```
 
-macOS arm64 也可以使用仓库内维护的 Homebrew Tap：
+安装器自动选择平台包并校验 SHA-256。[查看安装脚本](install.sh) · [完整安装说明](INSTALL.md)
+
+<details>
+<summary>其他安装方式：Homebrew、手动下载、源码构建</summary>
+
+**Homebrew（macOS arm64）**
 
 ```sh
 brew tap hh696-wq/hhy https://github.com/hh696-wq/hhy-vm.git
 brew install hhy
 ```
 
-安装器会选择平台包、下载同名 `.sha256`、强制校验后安装到
-`~/.local/share/hhy/<version>`，并在 `~/.local/bin` 创建入口。可审计源码见
-[install.sh](install.sh)，手动下载见 [Releases](https://github.com/hh696-wq/hhy-vm/releases/latest)。
+**手动下载**
 
-```hhy
-processes
-    |> where { process -> process.memory > 1gb }
-    |> sort_by({ order: "desc" }) { process -> process.memory }
-    |> take(10)
-    |> print
-```
+从 [GitHub Releases](https://github.com/hh696-wq/hhy-vm/releases/latest) 下载对应平台归档，按 `.sha256` 或 `SHA256SUMS` 校验。解压后保留 `bin/` 与 `lib/` 的相对位置，通过 `./bin/hhy` 运行。
 
-它的核心表达始终是：
+Windows x86_64 使用 MSYS2 发行包，包内不含 Database 扩展。
 
-```text
-source |> transform |> filter |> action
-```
-
-## 为什么是 HHY
-
-- **Flow-first**：`|>` 不是附加语法，而是标准库和运行时共同遵循的执行模型。
-- **系统能力是一等公民**：直接处理文件、目录、文本、JSON、CSV、进程、HTTP 和文件监听。
-- **面向真实脚本**：具有变量、集合、函数、闭包、分支、循环、模块和结构化错误处理。
-- **原生单位**：直接书写 `10mib`、`500ms`、`2h` 和 `80%`，避免隐含换算。
-- **可预测执行**：惰性 Stream、有界并发、背压、取消、资源限制和稳定退出码。
-
-## Web Runtime（v1.4）
-
-HHY 可作为常驻 Web Runtime 使用：应用每个 Worker 只加载一次，Router、JSON API、
-Middleware、静态文件、上传、CORS、gzip、SSE、流式响应、Range、多 Worker、健康检查与
-Prometheus 指标均由 Runtime 提供。
-
-```sh
-./build/hhy serve examples/10-web-api.hhy -- 8080
-./build/hhy serve --dev examples/10-web-api.hhy -- 8080
-```
-
-完整 API、反向代理部署边界和 C 嵌入示例见 [Web Runtime 文档](docs/WEB_RUNTIME.md)。
-
-## Database 1.0
-
-Database 扩展提供显式授权的远程 MySQL/PostgreSQL、TLS、有界连接池、读写事务、
-保存点、可复用预处理语句、游标、类型化结果和 HHY Stream。v1.5.0 同步补齐
-请求资源清理、取消和 fork 后的扩展隔离。API、发行状态和已验证边界见
-[Database 扩展文档](extensions/database/README.md)。
-
-## 快速开始
-
-当前版本是 **V1.7.0**（`1.7.0`），正式支持 macOS arm64、Linux arm64 和
-Linux x86_64；Windows x86_64 通过 MSYS2 执行构建与核心 Runtime 验证。
-
-### 一键安装（推荐）
-
-```sh
-curl -fsSL https://hhylang.dev/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-hhy --version
-```
-
-完整的 5 分钟路径、手动校验和卸载说明见
-[Quick Start](https://hhylang.dev/zh/learn/quick-start)。
-
-### 从源码构建
-
-需要 C11 编译器、`make`、libcurl、PCRE2、BDWGC、Jansson 和 OpenSSL。macOS 可以先安装依赖：
+**从源码构建（macOS 示例）**
 
 ```sh
 brew install curl pcre2 bdw-gc jansson openssl@3 zlib
-```
-
-然后构建并验证：
-
-```sh
 git clone https://github.com/hh696-wq/hhy-vm.git
 cd hhy-vm
 make
 ./build/hhy --version
-make test
 ```
 
-### 安装
+Linux 依赖、安装路径及官方扩展的额外构建依赖见 [INSTALL.md](INSTALL.md) 和[依赖说明](docs/DEPENDENCIES.md)。
 
-```sh
-make install PREFIX="$(brew --prefix)"
-hhy --version
-```
+</details>
 
-其他安装位置和 Linux 说明见 [INSTALL.md](INSTALL.md)。
-
-### 运行第一个脚本
+### 2. 编写脚本
 
 创建 `hello.hhy`：
 
@@ -139,21 +88,20 @@ let language = "HHY"
     |> print
 ```
 
-运行：
+### 3. 检查并运行
 
 ```sh
+hhy check hello.hhy
 hhy run hello.hhy
 ```
 
-也可以直接执行仓库中的示例：
-
-```sh
-hhy run examples/07-language-basics.hhy
-```
+下载或克隆仓库后，也可以运行 `hhy run examples/07-language-basics.hhy`。更多入门内容见[在线快速开始](https://hhylang.dev/zh/learn/quick-start)。
 
 ## 语言一览
 
 ### 文件与文本
+
+读取日志，筛选包含 `ERROR` 的前 20 行。运行前需准备 `./logs` 目录及日志文件。
 
 ```hhy
 path("./logs")
@@ -165,6 +113,8 @@ path("./logs")
 ```
 
 ### HTTP 与 JSON
+
+为请求设置超时与重试，再解析响应。`https://example.com/users` 是占位地址，运行时替换为返回 JSON 的接口。
 
 ```hhy
 http.get("https://example.com/users")
@@ -178,290 +128,142 @@ http.get("https://example.com/users")
 
 ### 有界并发
 
+并发处理两个请求，并保持输入顺序输出结果。
+
 ```hhy
 ["https://example.com", "https://example.org"]
     |> parallel(2) { url ->
-    http.get(url)
-        |> timeout(5s)
-        |> send
-}
+        http.get(url)
+            |> timeout(5s)
+            |> send
+    }
     |> print
 ```
 
-更多可执行场景见 [examples](examples/README.md)。README 与规范中的完整
-HHY 代码块都会由 CI 送入 Parser 和 Checker，避免文档示例与语言实现脱节。
+### 进程查询
 
-## 源码仓库
+查找内存占用超过 1 GB 的进程，按占用量降序取前 10 项。需要宿主允许读取进程信息。
 
-主仓保留语言实现、SDK、官方扩展、测试、基准、示例与公开文档。
-完整案例、编辑器插件、官网、原始性能报告和构建产物单独维护。
-现有真实工作负载的回归程序保留在 [tests/workloads](tests/workloads/README.md)，
-通过 `make workload-test` 持续执行 AST/Bytecode 对照。
-
-文档入口见 [docs](docs/README.md)，贡献与验证流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## 下载并运行
-
-从 [GitHub Releases](https://github.com/hh696-wq/hhy-vm/releases/latest)
-下载与你的系统和 CPU 架构匹配的压缩包。发行包包含所需的非系统运行库，解压后
-保持 `bin/` 与 `lib/` 的相对位置不变即可直接运行：
-
-```sh
-tar -xzf hhy-1.7.0-PLATFORM-ARCH.tar.gz
-cd hhy-1.7.0-PLATFORM-ARCH
-./bin/hhy --version
-./bin/hhy run examples/07-language-basics.hhy
+```hhy
+processes
+    |> where { process -> process.memory > 1gb }
+    |> sort_by({ order: "desc" }) { process -> process.memory }
+    |> take(10)
+    |> print
 ```
 
-发布页同时提供逐文件 `.sha256` 和汇总 `SHA256SUMS`，运行前应先校验下载内容。
-从源码构建和系统级安装方式见 [INSTALL.md](INSTALL.md)。
+更多场景见 [examples](examples/README.md)。README 中的完整 HHY 代码块由 CI 使用 Parser 和 Checker 检查；网络和文件示例运行时还需要相应输入与宿主能力。
+
+## Web 与扩展
+
+| 能力 | 当前支持 | 详细说明 |
+| --- | --- | --- |
+| Web Runtime | 常驻应用、Router、Middleware、静态文件、上传、SSE、Range、多 Worker 和指标 | [Web API 与部署](docs/WEB_RUNTIME.md) |
+| Database 1.0.0 | MySQL/PostgreSQL、TLS、有界连接池、事务/保存点、预处理、游标与 HHY Stream | [Database API](extensions/database/README.md) |
+| HTML | HTML5 容错解析、CSS Selector 与结构化抽取 | [HTML 扩展](extensions/html/README.md) |
+| 扩展工具链 | 进程隔离、权限声明、签名 Registry、锁定、离线安装与回滚 | [扩展入口](extensions/README.md) · [Registry 协议](docs/EXTENSION_REGISTRY_V1.md) |
+
+运行仓库中的 Web 示例：
+
+```sh
+hhy serve examples/10-web-api.hhy -- 8080
+hhy serve --dev examples/10-web-api.hhy -- 8080
+```
+
+Web 的 TLS 和 HTTP/2 由反向代理承担。Database 远程连接需要显式配置和端点授权；RDS 实机及 24 小时长稳尚未宣称验证通过。完整边界见[已知限制](docs/KNOWN_LIMITATIONS.md)。
 
 ## 命令行工具
 
-| 命令 | 用途 |
-|---|---|
-| `hhy run <script.hhy> [args...]` | 运行脚本并传递参数 |
-| `hhy profile <script.hhy> [args...]` | 分析脚本 CPU 热点、调用次数和托管 Heap 分配 |
-| `hhy repl` | 启动交互式环境 |
+| 常用命令 | 用途 |
+| --- | --- |
+| `hhy run <script.hhy> [args...]` | 运行脚本 |
 | `hhy check <file.hhy>...` | 检查语法和核心语义 |
-| `hhy check --format json <file.hhy>...` | 输出版本化、机器可读的结构化诊断 |
-| `hhy contracts --format json` | 输出工具可消费的 Callable Contract Registry |
 | `hhy fmt <file.hhy>...` | 格式化源码 |
-| `hhy ast <file.hhy>` | 输出抽象语法树 |
-| `hhy bytecode <file.hhy>` | 编译、验证并反汇编实验性 Bytecode IR；不执行 Bytecode |
-| `hhy bytecode --metrics <file.hhy>` | 输出 compile/verify/prepare 的机器可读缓存准入测量 |
-| `hhy tokens <file.hhy>` | 输出词法 Token |
-| `hhy run --dry-run <file.hhy>` | 生成脱敏执行计划，不执行外部副作用 |
-| `hhy install <local-path>` | 在 staging 校验权限与 SHA-256 后原子安装本地进程扩展 |
-| `hhy install --registry DIR --trust-root FILE <namespace/name>` | 验签、解析依赖并事务式安装官方扩展 |
-| `hhy lock --registry DIR --trust-root FILE <namespace/name>` | 写入精确签名索引快照与宿主 target 的 `hhy.lock` |
-| `hhy fetch --locked ...` | 把锁定图写入内容寻址离线缓存并逐文件复核 SHA-256 |
-| `hhy install --locked --offline ... <namespace/name>` | 只从锁定缓存验签并重建相同依赖图 |
-| `hhy install --upgrade ...` / `hhy rollback <package>` | 原子升级并恢复上一已验证版本 |
-| `hhy doctor extensions` | 检查 active installation；可同时核对 lock 与 cache |
-| `hhy list` | 列出已安装扩展 |
-| `hhy remove <package>` | 移除扩展包 |
+| `hhy repl` | 启动交互式环境 |
+| `hhy run --dry-run <file.hhy>` | 生成脱敏执行计划 |
+| `hhy profile <script.hhy>` | 分析 CPU、调用次数和托管 Heap |
+| `hhy serve <app.hhy> [args...]` | 启动常驻 Web 应用 |
+| `hhy --help` | 查看完整参数与资源限制选项 |
 
-运行 `hhy --help` 查看完整参数和资源限制选项。
+<details>
+<summary>扩展管理、机器可读诊断与编译器调试</summary>
 
-VS Code 0.2.0 通过内置 HHY Language Server 提供实时诊断、标准格式化、
-本地定义跳转、Contract-aware Hover 与补全。若 `hhy` 不在 `PATH`，可设置
-`hhy.executablePath`。语言服务器直接消费上述 JSON CLI contract，避免复制
-Parser、Checker 或 Callable Registry 语义。
+| 命令 | 用途 |
+| --- | --- |
+| `hhy install <local-path>` | 校验并安装本地进程扩展 |
+| `hhy install --registry DIR --trust-root FILE <namespace/name>` | 验签、解析依赖并安装扩展 |
+| `hhy lock --registry DIR --trust-root FILE <namespace/name>` | 写入锁定图 |
+| `hhy fetch --locked ...` | 缓存锁定的依赖 |
+| `hhy install --locked --offline ... <namespace/name>` | 离线重建依赖 |
+| `hhy install --upgrade ...` / `hhy rollback <package>` | 升级或回滚 |
+| `hhy doctor extensions` | 检查安装状态、lock 与 cache |
+| `hhy list` / `hhy remove <package>` | 列出或移除扩展 |
+| `hhy check --format json <file.hhy>...` | 输出结构化诊断 |
+| `hhy contracts --format json` | 输出 Callable Contract Registry |
+| `hhy bytecode <file.hhy>` | 编译、验证并反汇编，不执行程序 |
+| `hhy bytecode --metrics <file.hhy>` | 输出编译、验证和准备阶段指标 |
+| `hhy ast <file.hhy>` / `hhy tokens <file.hhy>` | 查看 AST 或 Token |
 
-性能分析默认把报告写入 stderr，保持脚本 stdout 不变：
+这些 JSON 接口可供编辑器和自动化工具消费。编辑器插件源码与完整应用案例不随 Core 主仓分发。
+
+</details>
+
+性能报告默认写入 stderr，保留脚本 stdout。也可以保存为 JSON：
 
 ```sh
-hhy profile script.hhy -- input
-hhy profile --cpu script.hhy
 hhy profile --heap --format json --output profile.json script.hhy
 ```
 
-CPU 数据以 1ms 进程 CPU 时间采样，阻塞等待不会被算作 CPU 热点；很短的脚本可能
-没有足够样本。Heap 数据统计 HHY 托管内存的累计申请、观察峰值和 GC 后占用，
-不包含扩展进程以及 libcurl 等原生库自行管理的内存。
+短任务的 CPU 样本可能不足；Heap 指标仅反映 HHY 托管内存，不包含扩展进程或原生库自行分配的内存。[性能分析与优化开关](docs/CURRENT_VERSION.md)
 
-本地开发版提供可选 VM 转移画像：
+## 当前版本
 
-```sh
-HHY_PROFILE_DISPATCH=1 ./build/hhy profile --cpu --format json --output dispatch.json benchmarks/opcode-loop.hhy
-python3 scripts/evaluate-vm-dispatch.py --iterations 9
-```
+当前 Core 为 **1.7.0**，语言规范保持 **1.0.0** 冻结，Database 扩展独立版本为 **1.0.0**。
 
-默认关闭；仅 `HHY_PROFILE_DISPATCH=1` 且使用 Bytecode profiler 时启用。
-JSON 的 `dispatch_profile`（独立 schema 1）记录 opcode 单项、pair/triple 次数及原生统计表字节数。
-这些是递归 switch 入口序列，包含快速参数求值尝试，排除 Stream kernel 与 builtin 内部指令；
-不同执行路径之间重置转移历史。它们不是可直接融合的相邻指令，也不能证明纯 dispatch 耗时。
-评估工具保存原始配对样本和候选频率排序，当前不准入 superinstruction。
+| 范围 | 状态 |
+| --- | --- |
+| 默认执行 | 经 Compiler/Verifier 验证的 Bytecode；永久保留 `--engine ast` 回退 |
+| 可选优化 | 结构化 HIR、六个静态 pass、整数 MIR、参数反馈 guard/deopt 与局部 List 标量替换 |
+| 启用方式 | `HHY_COMPILER=ir`、`HHY_FEEDBACK_SPECIALIZATION=1`、`HHY_SCALAR_REPLACEMENT=1` 显式启用，具体依赖见使用指南 |
+| 性能边界 | 新优化默认关闭；正确性和发行验收通过，不等于真实负载普遍提速 |
+| 资源边界 | List 标量替换保留 GC/配额分配预约，不代表物理堆分配消除 |
+| Bytecode 缓存 | 尚未准入；不提供持久 `.hhyc`、外部预编译 Bytecode 加载器或公开 Bytecode ABI |
 
-调用布局实验路径同样默认关闭：
+### 主要里程碑
 
-```sh
-HHY_BYTECODE_CALL_PLANS=1 ./build/hhy run benchmarks/call-arguments.hhy
-HHY_BYTECODE_CALL_PLANS=1 ./build/hhy profile --heap --format json --output calls.json tests/valid/call-layout.hhy
-```
+| 版本阶段 | 交付内容 |
+| --- | --- |
+| v1.1–v1.2 | 诊断工具、进程扩展、可信分发、lock/离线/回滚与 HTML 验证 |
+| v1.3 | Bytecode VM；1.3.5 起默认执行，后续完善 Stream Kernel、Profiler 与缓存治理 |
+| v1.4 | Web Runtime，统一通过 1.4.3 交付 |
+| v1.5 | Database 1.0.0 与 Runtime 集成 |
+| v1.6–v1.7 | Runtime 画像/实验和优化编译器，统一通过 1.7.0 交付 |
 
-Compiler 生成版本化 `call_plan`，Verifier 校验参数、函数体和 frame capacity 后，
-Runtime 才能直接定位调用布局；设置 `HHY_BYTECODE_CALL_PLANS=0` 可回到原路径。
-`hhy bytecode` 展示计划，`hhy bytecode --metrics` 记录计划数量及原生字节数；
-Profiler 的 `call_layout` 记录 Bytecode 新旧路径调用次数（不含 builtin 和直接执行的 Stream kernel）。
-此实验保留捕获、GC roots、递归上限与 stack trace；不消除尾调用、不改变 unwind 机制。
-默认启用仍需真实负载和跨平台收益证据。
+v1.6.x 和部分 v1.7.x 编号表示工程子阶段，不是独立可安装版本。详细变更见 [GitHub Releases](https://github.com/hh696-wq/hhy-vm/releases)，下一阶段安排见[公共路线图](docs/ROADMAP.md)。
 
-异常区域表实验同样默认关闭：
+<details>
+<summary>查看 HHY 生态图谱</summary>
 
-```sh
-HHY_BYTECODE_EXCEPTION_TABLES=1 ./build/hhy run tests/valid/exception-regions.hhy
-HHY_BYTECODE_EXCEPTION_TABLES=1 ./build/hhy profile --format json --output exceptions.json tests/valid/exception-regions.hhy
-```
+![HHY 生态图谱：Runtime、VM 与 Compiler 的能力演进](docs/assets/hhy-ecosystem.png)
 
-Compiler 为 `try/catch` 和 `attempt` 生成 exception region v1，记录所属函数/闭包、
-保护区间、catch 绑定和处理器。Verifier 从指令树检查完整性、范围与嵌套归属；
-闭包不继承定义处的处理器，catch 内重新抛出由外层保护区处理。
-开关在 Runtime/Context 初始化时读取。Runtime 实验路径直接使用验证后的入口位置，设置 `HHY_BYTECODE_EXCEPTION_TABLES=0` 回退原路径。
-反汇编及 `bytecode --metrics` 展示区域数量/字节数，Profiler `exception_layout` 记录新旧路径次数。
-表不改变错误传播、GC roots、stack trace 或宿主内存配额跳转，不实现原生调用栈替换；
-默认启用仍需真实性能及跨平台证据。
+图中版本表示能力演进阶段，具体发行与默认启用状态以上表和发行说明为准。
 
-调用环境帧池可用 `HHY_CALL_FRAME_POOL=bounded` 启用有界分桶实验，默认使用原有链表：
+</details>
 
-```sh
-HHY_CALL_FRAME_POOL=bounded ./build/hhy profile --heap --format json --output frames.json tests/valid/frame-pool.hhy
-```
+## 开发与文档
 
-开关在 Runtime/Context 初始化读取；设为 `legacy` 回到原路径。分桶按现有容量分类，
-不向上取整分配；空闲缓存最多保留 64 个帧、64 KiB GC 分配容量，超预算帧解除缓存引用后交给 GC。
-已逃逸的闭包环境不进入缓存；保留捕获、异常、递归上限和 stack trace 语义。
-Profiler `frame_pool` 展示 allocated/reused/cached/escaped/discarded、查找 probes、
-当前及峰值 retained/retained_gc_bytes。字节数包含帧的 GC 分配和独立扩容数组，
-不包含活动帧/逃逸环境，不等于总 Heap 或 RSS 上限。
-`scripts/evaluate-frame-pool.py --baseline-binary <基线hhy路径>` 输出时间与保留容量对照。
-此实验不替换原生调用栈展开，默认启用仍需真实负载及跨平台证据。
+主仓包含语言实现、SDK、官方扩展、测试、基准与公开文档。完整案例、编辑器、官网和原始性能报告独立维护；必要的工作负载回归程序保留在 `tests/workloads/`。
 
-原子输出在写入、flush 或 fsync 失败后仍会关闭文件；临时文件在 `fdopen` 前登记原生描述符和路径，
-即使构造资源错误时耗尽 managed memory，也会由边界清理关闭并删除。
-此清理用于原子写入/复制、Stream 保存、HTTP 下载和上传临时文件；失败时原目标保持不变。
-`tests/check-file-unwind.py` 使用 OS 文件大小限制及内存/文件配额组合验证恢复。
-
-v1.7 整程序 Compiler 已接通 AST → Structured IR → Bytecode；使用
-`HHY_COMPILER=ir` 启用，`HHY_COMPILER_DISABLE=all` 关闭全部优化。
-六个 pass、独立 verifier、CFG/source dump、差分与预算验证见 [COMPILER_IR.md](docs/architecture/COMPILER_IR.md)。
-`make test-compiler` 可单独验收；默认编译器仍由跨平台收益门槛控制。
-原闭合 I64 研究原型保留在 `compiler/ir.c`，不承担整程序执行。
-
-GC 与调度专项使用独立 `build/hhy-resource-probe` 采集分配、暂停和保留量，
-不向默认 Runtime 安装 collector hook。测量命令、覆盖范围与条件决策见
-[VM_GC_SCHEDULER.md](docs/architecture/VM_GC_SCHEDULER.md)。
-
-Inline cache 本地评估工具使用 `HHY_PROFILE_LOOKUPS=1` 输出有界访问反馈；
-`HHY_MAP_INLINE_CACHE=1` 开启逐次校验当前键的 Map slot 实验，两者默认关闭。
-画像、失配回退、准入边界和复现命令见 [VM_INLINE_CACHE.md](docs/architecture/VM_INLINE_CACHE.md)。
-
-调用记录展开实验用 `HHY_CALL_FRAME_UNWIND=1` 开启，默认关闭。正常返回、Error、取消与
-宿主配额跳转后，版本化动作表恢复 Env、contract/effect、depth/trace 与 profiler，并清零退出帧的 roots。
-Profiler `call_unwind` 展示退出分类、活动数与登记数组字节；机器执行仍使用 C 调用/返回及已有 longjmp。
-完整的调用布局、Closure/upvalue 复核、尾调用策略和本地验收说明见
-[VM Call Runtime v1.6.1](docs/architecture/VM_CALL_RUNTIME.md)。
-
-## 进程扩展与签名 Registry
-
-本地开发安装仍会展示 capability，安装后和每次加载前都会
-校验 manifest 与可执行文件的 SHA-256：
-
-```sh
-make -C extensions/database
-./build/hhy install ./extensions/database
-./build/hhy list
-```
-
-`install` 与 `list` 会展示作者、协议和完整 capability，方便安装前确认来源与
-最小权限。官方包使用 `author = "HHY Official"`；本地 manifest 的作者字段是
-署名信息，不能替代 Registry 的发布者签名。
-
-V1.2.1 在 V1.2.0 静态签名 Registry 上增加 lockfile、内容寻址离线缓存、可复现安装、
-原子升级历史和显式回滚。客户端在任何写入之前验证 Ed25519
-索引签名、包描述签名、完整文件 SHA-256 清单和传递依赖图；`--dry-run` 只输出确定性
-计划。协议与安全边界见 [`docs/EXTENSION_REGISTRY_V1.md`](docs/EXTENSION_REGISTRY_V1.md)。
-线上域名不是本地实现和 CI 验收的前置条件。
-
-数据库连接信息由脚本显式读取并只作为该次调用参数传给隔离扩展进程：
-
-```hhy-snippet
-import database
-
-let url = require_env("DATABASE_URL")
-database.query(url, "SELECT id, name FROM users WHERE active = $1", [true], 100)
-    |> get("rows")
-    |> print
-
-database.transaction(url, [
-    { sql: "INSERT INTO audit_log (id, message) VALUES ($1, $2)", params: [1, "created"] },
-    { sql: "UPDATE audit_log SET message = $1 WHERE id = $2", params: ["committed", 1] }
-])
-```
-
-PostgreSQL 使用 `$1` 参数，MySQL 使用 `?`。事务第一版在同一连接上原子执行
-1–100 条 `INSERT`、`UPDATE` 或 `DELETE`，任一失败会整体回滚。完整示例和构建依赖见
-[`extensions/database`](extensions/database/README.md)。
-
-HTML 扩展使用 Lexbor 对不可信 HTML 进行 HTML5 容错解析和 CSS Selector 查询，
-自身不访问网络；抓取仍由 Runtime 的 HTTP、timeout、retry、TLS 与 dry-run 负责：
-
-```sh
-make -C extensions/html
-./build/hhy install ./extensions/html
-```
-
-```hhy-snippet
-import html
-
-html.extract_report(body, "article.product", {
-    title: { selector: "h2", value: "text" },
-    url: { selector: "a", value: "attr", name: "href" }
-})
-```
-
-API、结果上限和构建依赖见 [`extensions/html`](extensions/html/README.md)。
-
-## V1.3.10 Bytecode 状态
-
-V1.0 语言 contract 保持兼容；V1.3.0 正式提供 `hhy run --engine bytecode`，V1.3.1
-增加官方真实负载的双引擎兼容矩阵，V1.3.5 默认启用 Compiler/Verifier 验证的 Bytecode 路径，并固化 Runtime 内部边界、
-版本化治理检查和机器可读工作负载证据。V1.3.7 将 Stream Int fast path 的 magic kind
-替换为具名操作和集中 metadata，提供稳定 fallback reason、JSON 选择证据、内部关闭开关。
-V1.3.8 将表达式特化识别从 Runtime 前移到 Compiler，生成版本化 Stream Kernel IR；
-独立 Verifier 检查 opcode、类型流、stack shape、常量与 RETURN，反汇编展示 kernel 计划，
-Runtime 只执行已验证 kernel，未知或动态 closure 无损回退通用 Bytecode，并以三路径差分、
-变形、损坏计划和 fuzz 持续验证。V1.3.9 让普通执行与 Profiler 共用同一优化选择，
-Profile JSON v2 记录选择原因、版本化 kernel 与 opcode，CPU/Heap 热点归因融合执行，
-并以取消一致性和机器可读开销门禁持续验证。V1.3.10 对五个固定真实负载执行配对冷进程
-测量；compile+verify 中位数仅占冷运行墙钟的极小部分，未达到 `1 ms` 且 `20%` 的缓存
-准入双门槛。因此本版本不引入进程内或磁盘 Bytecode 缓存，也不接受外部预编译 Bytecode；
-机器可读决策门禁固化未来缓存必须绑定源码与递归依赖摘要、语言/Bytecode/Kernel 版本、
-编译 feature、target 与安全策略，并在 checksum、有界解析、完整 Verifier 和执行计划验证后
-才能执行，任何陈旧、损坏或未知数据都必须安全重编译；
-有界 instruction/frame/operand 执行计划、Profiler engine/source 标记、HHY Stack trace、
-故障注入以及完整 AST/Bytecode 双引擎测试。共享 Runtime 继续唯一负责 closure、异常、
-GC、取消、Stream、effect 和资源限制。默认执行引擎为 Bytecode，并永久保留 `--engine ast` 回退；
-Bytecode 不提供持久磁盘格式或公开 ABI。V1.2.2 使用官方 HTML 0.2.0 扩展验证真实网页批量抽取、
-可观察截断、结构化扩展错误以及三平台依赖发行，现有 Protocol 1 同步批量路径足以满足
-当前有界负载，因此不提前加入 Stream credit 或 Opaque Handle。V1.2.1 完成官方扩展签名 Registry、确定性依赖解析、
-事务式安装、锁定、离线重建与安全回滚闭环。V1.1.8 增加的首个 Runtime
-模块边界、内部所有权 API、静态治理检查和阻断式性能回归门禁，公开行为与默认资源限制不变。
-V1.1.7 提供版本化 JSON diagnostics、Contract Registry JSON 和最小 LSP/VS Code
-编辑闭环。V1.1.6 已补齐测试能力探测、
-分层 CI、机器可读性能基线与发布一致性门禁。V1.1.5 已完成持久 Frontier、
-批次 checkpoint 与断点恢复、原子流式 HTTP 落盘和独立 Playwright JavaScript 渲染器，
-并增加 Windows x86_64 MSYS2 构建验证。V1.1.3 完成 GC 引用缓冲、Stream 去重状态、Map/JSON
-哈希索引、进程快照诊断和 Profiler 数据质量标记的技术评审修复，并继续包含 V1.1.2
-的官方 HTML 扩展与静态文档采集框架。
-内建 `hhy profile` 提供 CPU 与托管 Heap 分析；内存、递归、集合及运行时上限通过
-压力测试确保越界返回稳定错误而不是使 Runtime 崩溃。每次主分支提交都会在 macOS arm64、
-Linux arm64、Linux x86_64 和 Windows x86_64 MSYS2 上执行相应的严格编译与验证；
-三个正式发行平台继续执行 sanitizer、完整测试、fuzz、
-文档验证、发行包内容检查和 SHA-256 校验。
-
-- 当前版本来源：[VERSION](VERSION)
-- 语言手册与标准库：[hhylang.dev/zh/learn](https://hhylang.dev/zh/learn)
-- Bytecode 与 CLI：[CLI Reference](https://hhylang.dev/zh/learn/cli-reference)
-- 当前健康状态：[Language Health Report](https://hhylang.dev/zh/learn/language-health-report)
-- 四平台持续验证：[GitHub Actions](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml)
-
-## 文档
-
-- [HHY 在线语言手册](https://hhylang.dev/zh/learn)
-- [安装说明](INSTALL.md)
-- [典型脚本](examples/README.md)
-- [扩展系统](https://hhylang.dev/zh/learn/extensions)
+| 目的 | 入口 |
+| --- | --- |
+| 安装、学习和查语法 | [安装说明](INSTALL.md) · [文档中心](docs/README.md) · [中文规范](docs/HHY_V1.md) · [English specification](docs/HHY_V1.en.md) |
+| 理解 VM 与编译器 | [Bytecode](docs/BYTECODE.md) · [Compiler IR](docs/architecture/COMPILER_IR.md) |
+| 理解 Runtime 实验 | [调用与展开](docs/architecture/VM_CALL_RUNTIME.md) · [Inline Cache](docs/architecture/VM_INLINE_CACHE.md) · [GC 与调度](docs/architecture/VM_GC_SCHEDULER.md) |
+| 修改代码与验证 | [贡献指南](CONTRIBUTING.md) · [Runtime 治理](docs/RUNTIME_GOVERNANCE.md) · [工作负载回归](tests/workloads/README.md) |
+| 查看验证与边界 | [GitHub Actions](https://github.com/hh696-wq/hhy-vm/actions/workflows/ci.yml) · [已知限制](docs/KNOWN_LIMITATIONS.md) · [安全报告](SECURITY.md) |
 
 ## 许可证
 
-HHY Language 使用 [Apache License 2.0](LICENSE)。允许使用、修改、分发、
-商用和二次开发；重新分发时必须遵守许可证中的署名、变更说明和 `NOTICE`
-保留要求。第三方依赖继续适用各自的许可证。
+HHY Language 使用 [Apache License 2.0](LICENSE)。分发时请遵守许可证与 [NOTICE](NOTICE) 的要求；第三方依赖适用各自的许可证，详见[第三方声明](docs/THIRD_PARTY_NOTICES.md)。
 
----
-
-<div align="center">
-  <strong>Built solo. Designed to flow.</strong>
-</div>
+<p align="center"><strong>Built solo. Designed to flow.</strong></p>
